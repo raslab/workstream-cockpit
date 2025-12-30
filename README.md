@@ -68,33 +68,50 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed development guide.
 
 ## Quick Start
 
-**⚡ Fast Setup**: See [QUICKSTART.md](QUICKSTART.md) for a 5-minute local development setup.
+### Prerequisites
 
-**📖 Detailed Guide**: See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for comprehensive development guide.
+- Docker Desktop or Docker Engine
+- Node.js 20+
+- Google OAuth credentials (for authentication features)
 
-### Quick Setup (3 steps)
+### Setup & Run
 
-1. **Start database**
+1. **Clone and configure**
    ```bash
-   docker-compose -f docker-compose.dev.yml up -d
+   git clone <repository-url>
+   cd workstream-cockpit
+   cp .env.example .env
+   # Edit .env with your Google OAuth credentials
    ```
 
-2. **Install & setup**
+2. **Start with Docker Compose**
    ```bash
-   npm install
-   cd backend
-   npm run prisma:generate
-   npm run migrate
+   docker-compose up -d
    ```
 
-3. **Start servers**
-   ```bash
-   # Terminal 1
-   cd backend && npm run dev
-   
-   # Terminal 2
-   cd frontend && npm run dev
-   ```
+That's it! The application will be available at:
+- **Frontend**: http://localhost:3002
+- **Backend API**: http://localhost:3001
+- **Health Check**: http://localhost:3001/health
+- **Database**: localhost:5433
+
+### Development Mode (Local)
+
+For faster development with hot-reload:
+
+```bash
+# Start database only
+docker-compose up -d postgres
+
+# Install dependencies
+npm install
+
+# Terminal 1: Backend (with auto-reload)
+cd backend && npm run dev
+
+# Terminal 2: Frontend (with hot-reload)
+cd frontend && npm run dev
+```
 
 Access:
 - Frontend: http://localhost:3002
@@ -112,19 +129,28 @@ npm run test:backend
 
 # Frontend tests only
 npm run test:frontend
+
+# With coverage
+npm run test:coverage
 ```
 
-### Building for Production
+### Docker Commands
 
 ```bash
-# Build all
-npm run build
+# Start all services
+docker-compose up -d
 
-# Build backend only
-npm run build:backend
+# View logs
+docker-compose logs -f
 
-# Build frontend only
-npm run build:frontend
+# Stop all services
+docker-compose down
+
+# Rebuild and restart
+docker-compose up -d --build
+
+# View service status
+docker-compose ps
 ```
 
 ## Development Workflow
@@ -155,9 +181,27 @@ This project follows Test-Driven Development (TDD):
 - `/api/status-updates` - Status update operations
 - `/api/timeline` - Cross-workstream reporting
 
-## Deployment
+## Ports
 
-See [docs/deployment.md](docs/deployment.md) for production deployment instructions.
+- **3002**: Frontend (React app via nginx)
+- **3001**: Backend API (Express.js)
+- **5433**: PostgreSQL database
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and configure:
+
+```bash
+# Backend
+DATABASE_URL="postgresql://postgres:postgres@localhost:5433/workstream_cockpit"
+SESSION_SECRET="your-secret-key"
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+GOOGLE_CALLBACK_URL="http://localhost:3001/auth/google/callback"
+
+# Frontend
+VITE_API_URL="http://localhost:3001"
+```
 
 ## Contributing
 
