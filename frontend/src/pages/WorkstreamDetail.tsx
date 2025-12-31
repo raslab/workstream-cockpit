@@ -6,6 +6,7 @@ import { Workstream, StatusUpdate } from '../types/workstream';
 import { useStatusHistory } from '../hooks/useStatusHistory';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { StatusUpdateDialog } from '../components/StatusUpdate/StatusUpdateDialog';
+import { WorkstreamEditDialog } from '../components/Workstream/WorkstreamEditDialog';
 
 interface StatusEditDialogProps {
   statusUpdate: StatusUpdate;
@@ -115,6 +116,7 @@ export default function WorkstreamDetail() {
   const navigate = useNavigate();
   const [showNewStatusDialog, setShowNewStatusDialog] = useState(false);
   const [editingStatus, setEditingStatus] = useState<StatusUpdate | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const { data: workstream, isLoading: workstreamLoading } = useQuery<Workstream>({
     queryKey: ['workstream', id],
@@ -185,12 +187,20 @@ export default function WorkstreamDetail() {
               )}
             </div>
 
-            <button
-              onClick={() => setShowNewStatusDialog(true)}
-              className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-            >
-              Add Update
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowEditDialog(true)}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => setShowNewStatusDialog(true)}
+                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+              >
+                Add Update
+              </button>
+            </div>
           </div>
         </div>
 
@@ -252,6 +262,14 @@ export default function WorkstreamDetail() {
           workstreamId={workstream.id}
           isOpen={!!editingStatus}
           onClose={() => setEditingStatus(null)}
+        />
+      )}
+
+      {workstream && (
+        <WorkstreamEditDialog
+          workstream={workstream}
+          isOpen={showEditDialog}
+          onClose={() => setShowEditDialog(false)}
         />
       )}
     </>
