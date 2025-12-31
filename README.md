@@ -54,8 +54,10 @@ git clone https://github.com/raslab/workstream-cockpit.git
 cd workstream-cockpit
 
 # 2. Set up Google OAuth (see below for 2-minute setup)
+cp .env.example .env
 cp backend/.env.example backend/.env
-# Edit backend/.env with your Google credentials
+cp frontend/.env.example frontend/.env
+# Edit .env and `backend/.env` and `frontend/.env` with your Google credentials and correct URLs
 
 # 3. Launch with Docker
 docker compose up -d

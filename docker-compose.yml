@@ -54,7 +54,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=http://localhost:3001
+        - VITE_API_URL=/
     container_name: workstream-cockpit-frontend
     restart: unless-stopped
     ports:
