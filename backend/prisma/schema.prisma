@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Person {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  projects Project[]
+
+  @@map("persons")
+}
+
+model Project {
+  id        String   @id @default(uuid())
+  personId  String   @map("person_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  person      Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  tags        Tag[]
+  workstreams Workstream[]
+
+  @@index([personId])
+  @@map("projects")
+}
+
+model Tag {
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  name      String
+  color     String
+  emoji     String?
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workstreams Workstream[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@map("tags")
+}
+
+model Workstream {
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  tagId     String?  @map("tag_id")
+  name      String
+  context   String?  @db.Text
+  state     String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at")
+  closedAt  DateTime? @map("closed_at")
+
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tag           Tag?           @relation(fields: [tagId], references: [id], onDelete: SetNull)
+  statusUpdates StatusUpdate[]
+
+  @@index([projectId])
+  @@index([projectId, state])
+  @@index([tagId])
+  @@map("workstreams")
+}
+
+model StatusUpdate {
+  id           String   @id @default(uuid())
+  workstreamId String   @map("workstream_id")
+  status       String
+  note         String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  workstream Workstream @relation(fields: [workstreamId], references: [id], onDelete: Cascade)
+
+  @@index([workstreamId])
+  @@index([createdAt])
+  @@map("status_updates")
+}

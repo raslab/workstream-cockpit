@@ -50,7 +50,7 @@ A personal productivity tool for tracking active workstreams with status history
 |-------|------|-------------|
 | id | UUID | Primary key |
 | project_id | UUID | FK to Project |
-| name | String | Tag name |
+| name | String | Tag name (max 100 chars) |
 | color | String | Hex color code for UI |
 | sort_order | Integer | Display order |
 | created_at | Timestamp | |
@@ -63,8 +63,8 @@ A personal productivity tool for tracking active workstreams with status history
 | id | UUID | Primary key |
 | project_id | UUID | FK to Project |
 | tag_id | UUID | FK to Tag, nullable |
-| name | String | Workstream name |
-| context | Text | Notes, links, longer form info |
+| name | String | Workstream name (max 200 chars) |
+| context | Text | Notes, links, longer form info (max 2000 chars) |
 | state | Enum | active, closed |
 | created_at | Timestamp | |
 | closed_at | Timestamp | Nullable, set when state → closed |
@@ -74,8 +74,8 @@ A personal productivity tool for tracking active workstreams with status history
 |-------|------|-------------|
 | id | UUID | Primary key |
 | workstream_id | UUID | FK to Workstream |
-| status | String | Status text (~100-200 chars) |
-| note | Text | Optional context for this update |
+| status | String | Status text (max 500 chars, recommended ~100-200) |
+| note | Text | Optional context for this update (max 2000 chars) |
 | created_at | Timestamp | |
 | updated_at | Timestamp | For edit tracking |
 
@@ -101,6 +101,7 @@ Workstream (1) ←→ (n) StatusUpdate
 | AUTH-2 | Auto-create Person record on first login | Must |
 | AUTH-3 | Auto-create default Project on first login | Must |
 | AUTH-4 | All data scoped to authenticated user | Must |
+| AUTH-5 | Session duration: 30 days with automatic refresh on activity | Must |
 
 ### Project Management
 
@@ -122,6 +123,7 @@ Workstream (1) ←→ (n) StatusUpdate
 | TAG-4 | Delete tag (unsets tag on workstreams, no cascade delete) | Should |
 | TAG-5 | Reorder tags | Should |
 | TAG-6 | Default tags created with new project | Must |
+| TAG-7 | Enforce max 100 chars for tag names | Must |
 
 ### Workstream Management
 
@@ -138,6 +140,8 @@ Workstream (1) ←→ (n) StatusUpdate
 | WS-9 | Group workstreams by tag in list view | Should |
 | WS-10 | Display current status inline in workstream list | Must |
 | WS-11 | Color-code workstreams by tag | Must |
+| WS-12 | Enforce max 200 chars for workstream names | Must |
+| WS-13 | Enforce max 2000 chars for workstream context | Must |
 
 ### Status Updates
 
@@ -150,6 +154,8 @@ Workstream (1) ←→ (n) StatusUpdate
 | ST-5 | Add optional note with status update | Should |
 | ST-6 | Show timestamp on each status update | Must |
 | ST-7 | Show "updated" indicator if status was edited | Should |
+| ST-8 | Enforce max 500 chars for status text | Must |
+| ST-9 | Enforce max 2000 chars for status note | Must |
 
 ### Timeline / Reporting View
 
@@ -173,6 +179,25 @@ Workstream (1) ←→ (n) StatusUpdate
 | CD-3 | Data persists in cloud, syncs across devices | Must |
 | CD-4 | Always-online architecture (no offline support required) | Must |
 
+### Error Handling & Reliability
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| ERR-1 | Use optimistic UI updates for save operations | Must |
+| ERR-2 | Automatically retry failed network requests 2-3 times with exponential backoff | Must |
+| ERR-3 | Display clear error message if all retry attempts fail | Must |
+| ERR-4 | Allow manual retry after error | Must |
+| ERR-5 | Use last-write-wins for concurrent edits (no conflict detection) | Must |
+
+### Loading States & User Feedback
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| UI-1 | Display skeleton screens while loading cockpit view | Must |
+| UI-2 | Display skeleton screens while loading timeline view | Must |
+| UI-3 | Display inline spinners during save/create actions | Must |
+| UI-4 | Visual distinction between loading states and actual content | Must |
+
 ---
 
 ## Non-Functional Requirements
@@ -185,6 +210,8 @@ Workstream (1) ←→ (n) StatusUpdate
 ### UX Principles
 - Minimal friction for frequent operations (status update, create workstream)
 - One-click to reach status update dialog from cockpit
+- Optimistic UI with automatic retry for save operations
+- Skeleton screens for page loads, inline spinners for actions
 - Keyboard shortcuts for power users (optional, nice-to-have)
 - Clean, readable UI — no fancy styling, focus on clarity
 - High information density on cockpit view
@@ -193,6 +220,8 @@ Workstream (1) ←→ (n) StatusUpdate
 - All API endpoints require authentication
 - Users can only access their own data
 - HTTPS required
+- Session duration: 30 days with automatic refresh on activity
+- Last-write-wins for concurrent edits (no conflict locking)
 
 ---
 
@@ -398,7 +427,7 @@ workstream-cockpit/
 
 ## Open Questions
 
-1. **Status length limit?** — Suggest soft limit ~200 chars with visual indicator, no hard limit
+1. **Status length limit?** — ✅ RESOLVED: 500 chars max for status text, 2000 chars for notes
 
 2. **Default sort for cockpit?** — By last updated? By tag then name? User preference?
 
