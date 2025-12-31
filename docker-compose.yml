@@ -70,6 +70,7 @@ services:
 volumes:
   postgres-data:
     driver: local
+    name: workstream-cockpit-postgres-data
 
 networks:
   default:

@@ -10,6 +10,7 @@ import {
   reopenWorkstream,
   deleteWorkstream,
 } from '../services/workstreamService';
+import { getStatusUpdatesByWorkstream } from '../services/statusUpdateService';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -284,6 +285,40 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
     }
     logger.error('Error deleting workstream:', error);
     res.status(500).json({ error: 'Failed to delete workstream' });
+  }
+});
+
+/**
+ * GET /api/workstreams/:id/status-updates
+ * Get all status updates for a workstream
+ */
+router.get('/:id/status-updates', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const personId = req.userContext!.personId;
+    const workstreamId = req.params.id;
+
+    // Get user's projects
+    const projects = await getProjectsByPersonId(personId);
+    
+    if (projects.length === 0) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+
+    const projectId = projects[0].id;
+
+    // Verify workstream belongs to user's project
+    const workstream = await getWorkstreamById(workstreamId, projectId);
+    if (!workstream) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+
+    const statusUpdates = await getStatusUpdatesByWorkstream(workstreamId);
+    res.json(statusUpdates);
+  } catch (error) {
+    logger.error('Error fetching status updates:', error);
+    res.status(500).json({ error: 'Failed to fetch status updates' });
   }
 });
 

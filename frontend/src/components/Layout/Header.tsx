@@ -9,6 +9,7 @@ export default function Header() {
     { path: '/', label: 'Cockpit' },
     { path: '/timeline', label: 'Timeline' },
     { path: '/archive', label: 'Archive' },
+    { path: '/tags', label: 'Tags' },
   ];
 
   return (

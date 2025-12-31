@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Workstream } from '../../types/workstream';
 import { formatDistanceToNow } from 'date-fns';
@@ -30,7 +31,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
     <>
       <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
         <div className="flex items-start justify-between">
-          <div className="flex-1">
+          <Link to={`/workstreams/${workstream.id}`} className="flex-1">
             <div className="flex items-center gap-2">
               {tag && (
                 <div
@@ -39,7 +40,9 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
                   title={tag.name}
                 />
               )}
-              <h3 className="text-lg font-semibold text-gray-900">{name}</h3>
+              <h3 className="text-lg font-semibold text-gray-900 hover:text-primary-600">
+                {name}
+              </h3>
             </div>
             
             {latestStatus && (
@@ -54,7 +57,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
             {!latestStatus && (
               <p className="mt-2 text-sm text-gray-500">No status updates yet</p>
             )}
-          </div>
+          </Link>
           
           <div className="ml-4 flex gap-2">
             <button
