@@ -19,6 +19,7 @@
     "test:frontend": "npm run test --workspace=frontend",
     "lint": "npm run lint --workspaces",
     "format": "npm run format --workspaces",
+    "docker": "docker compose up --build -d",
     "docker:up": "docker-compose up",
     "docker:down": "docker-compose down",
     "docker:build": "docker-compose build"

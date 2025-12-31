@@ -9,6 +9,9 @@ import { attachUserContext } from './middleware/userContext';
 import healthRoutes from './routes/health';
 import authRoutes from './routes/auth';
 import workstreamsRoutes from './routes/workstreams';
+import statusUpdatesRoutes from './routes/statusUpdates';
+import tagsRoutes from './routes/tags';
+import timelineRoutes from './routes/timeline';
 import { errorHandler } from './middleware/errorHandler';
 import { logger } from './utils/logger';
 
@@ -50,6 +53,9 @@ app.use(morgan('combined', { stream: { write: (message) => logger.info(message.t
 app.use('/health', healthRoutes);
 app.use('/auth', authRoutes);
 app.use('/api/workstreams', workstreamsRoutes);
+app.use('/api/status-updates', statusUpdatesRoutes);
+app.use('/api/tags', tagsRoutes);
+app.use('/api/timeline', timelineRoutes);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

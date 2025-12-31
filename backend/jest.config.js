@@ -5,10 +5,15 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   transform: {
-    '^.+\\.ts$': ['ts-jest', {
+    '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: {
+        target: 'ES2022',
+        module: 'commonjs',
         esModuleInterop: true,
         allowSyntheticDefaultImports: true,
+        resolveJsonModule: true,
+        moduleResolution: 'node',
+        types: ['node', 'jest'],
       },
     }],
   },
@@ -32,9 +37,6 @@ module.exports = {
   coverageDirectory: 'coverage',
   verbose: false,
   testTimeout: 10000,
-  transformIgnorePatterns: [
-    'node_modules/(?!(supertest)/)',
-  ],
   // Run tests serially to avoid database deadlocks
   maxWorkers: 1,
 };
