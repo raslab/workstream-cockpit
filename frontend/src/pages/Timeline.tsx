@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useTimeline } from '../hooks/useTimeline';
+import { useTimeline, TimelineEntry } from '../hooks/useTimeline';
 import {
   FilterBar,
   FilterPreset,
   getDateRangeFromPreset,
 } from '../components/Timeline/FilterBar';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
+import { Link } from 'react-router-dom';
 
 export default function Timeline() {
   const [selectedPreset, setSelectedPreset] = useState<FilterPreset>('last7');
@@ -25,7 +26,7 @@ export default function Timeline() {
     }
     groups[date].push(entry);
     return groups;
-  }, {} as Record<string, typeof timeline>);
+  }, {} as Record<string, TimelineEntry[]>);
 
   const formatDateHeader = (dateStr: string) => {
     const date = parseISO(dateStr);
@@ -34,12 +35,45 @@ export default function Timeline() {
     return format(date, 'EEEE, MMMM d, yyyy');
   };
 
+  const renderEventContent = (entry: TimelineEntry) => {
+    switch (entry.eventType) {
+      case 'workstream_created':
+        return (
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+              Created
+            </span>
+            <span className="text-sm text-gray-700">Workstream created</span>
+          </div>
+        );
+      case 'workstream_closed':
+        return (
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
+              Closed
+            </span>
+            <span className="text-sm text-gray-700">Workstream closed</span>
+          </div>
+        );
+      case 'status_update':
+      default:
+        return (
+          <>
+            <p className="text-sm text-gray-700">{entry.status}</p>
+            {entry.note && (
+              <p className="mt-2 text-sm text-gray-600 italic">{entry.note}</p>
+            )}
+          </>
+        );
+    }
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Status Updates</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Timeline</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Review recent updates across all workstreams
+          Review recent activity across all workstreams
         </p>
       </div>
 
@@ -72,7 +106,7 @@ export default function Timeline() {
       {!isLoading && timeline && timeline.length === 0 && (
         <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
           <p className="text-sm text-gray-500">
-            No status updates found for the selected filters.
+            No activity found for the selected filters.
           </p>
         </div>
       )}
@@ -100,17 +134,19 @@ export default function Timeline() {
                       )}
                       <div className="flex-1">
                         <div className="flex items-baseline justify-between gap-2">
-                          <h4 className="font-medium text-gray-900">
+                          <Link
+                            to={`/workstreams/${entry.workstreamId}`}
+                            className="font-medium text-gray-900 hover:text-primary-600"
+                          >
                             {entry.workstreamName}
-                          </h4>
+                          </Link>
                           <time className="text-xs text-gray-500">
                             {format(parseISO(entry.createdAt), 'h:mm a')}
                           </time>
                         </div>
-                        <p className="mt-1 text-sm text-gray-700">{entry.status}</p>
-                        {entry.note && (
-                          <p className="mt-2 text-sm text-gray-600">{entry.note}</p>
-                        )}
+                        <div className="mt-1">
+                          {renderEventContent(entry)}
+                        </div>
                       </div>
                     </div>
                   </div>

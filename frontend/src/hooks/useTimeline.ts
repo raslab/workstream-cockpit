@@ -1,14 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 
+export type TimelineEventType = 'status_update' | 'workstream_created' | 'workstream_closed';
+
 export interface TimelineEntry {
   id: string;
+  eventType: TimelineEventType;
   workstreamId: string;
   workstreamName: string;
-  status: string;
-  note: string | null;
+  status?: string;
+  note?: string | null;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
   tag?: {
     id: string;
     name: string;
