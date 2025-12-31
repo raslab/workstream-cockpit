@@ -40,6 +40,7 @@ model Tag {
   projectId String   @map("project_id")
   name      String
   color     String
+  emoji     String?
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")
 

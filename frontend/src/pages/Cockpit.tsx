@@ -36,7 +36,7 @@ export default function Cockpit() {
   // Group workstreams by tag
   const groupedWorkstreams = useMemo(() => {
     if (groupBy === 'none') {
-      return [{ key: 'all', name: null, color: null, workstreams: sortedWorkstreams }];
+      return [{ key: 'all', name: null, color: null, emoji: null, workstreams: sortedWorkstreams }];
     }
 
     const groups = new Map<string, Workstream[]>();
@@ -54,6 +54,7 @@ export default function Cockpit() {
       key,
       name: key === 'untagged' ? null : wsList[0].tag?.name || null,
       color: key === 'untagged' ? null : wsList[0].tag?.color || null,
+      emoji: key === 'untagged' ? null : wsList[0].tag?.emoji || null,
       workstreams: wsList,
     }));
 
@@ -141,9 +142,11 @@ export default function Cockpit() {
                   <div className="mb-3 flex items-center gap-2">
                     {group.color && (
                       <div
-                        className="h-4 w-4 rounded-full"
+                        className="flex h-6 w-6 items-center justify-center rounded-md text-sm"
                         style={{ backgroundColor: group.color }}
-                      />
+                      >
+                        {group.emoji}
+                      </div>
                     )}
                     <h3 className="text-lg font-semibold text-gray-900">
                       {group.name || 'Untagged'}

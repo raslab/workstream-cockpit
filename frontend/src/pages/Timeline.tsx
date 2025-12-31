@@ -127,10 +127,12 @@ export default function Timeline() {
                     <div className="flex items-start gap-3">
                       {entry.tag && (
                         <div
-                          className="mt-1 h-3 w-3 flex-shrink-0 rounded-full"
+                          className="mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-xs"
                           style={{ backgroundColor: entry.tag.color }}
                           title={entry.tag.name}
-                        />
+                        >
+                          {entry.tag.emoji}
+                        </div>
                       )}
                       <div className="flex-1">
                         <div className="flex items-baseline justify-between gap-2">

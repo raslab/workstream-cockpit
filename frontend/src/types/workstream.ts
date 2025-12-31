@@ -2,6 +2,7 @@ export interface Tag {
   id: string;
   name: string;
   color: string;
+  emoji?: string | null;
 }
 
 export interface StatusUpdate {

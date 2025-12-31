@@ -16,6 +16,7 @@ export interface TimelineEntry {
     id: string;
     name: string;
     color: string;
+    emoji?: string | null;
   } | null;
 }
 

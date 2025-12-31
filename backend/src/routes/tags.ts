@@ -48,7 +48,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
-    const { name, color } = req.body;
+    const { name, color, emoji } = req.body;
 
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -72,6 +72,19 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Validate emoji (optional, single emoji character)
+    if (emoji !== undefined && emoji !== null) {
+      if (typeof emoji !== 'string') {
+        res.status(400).json({ error: 'Emoji must be a string' });
+        return;
+      }
+      // Basic emoji validation - just check length for now
+      if (emoji.length > 10) {
+        res.status(400).json({ error: 'Emoji must be a single emoji character' });
+        return;
+      }
+    }
+
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
     
@@ -85,6 +98,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       projectId,
       name: name.trim(),
       color: color.toUpperCase(),
+      emoji: emoji?.trim() || null,
     });
 
     res.status(201).json(tag);
@@ -106,7 +120,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
     const tagId = req.params.id;
-    const { name, color } = req.body;
+    const { name, color, emoji } = req.body;
 
     // Validation
     if (name !== undefined) {
@@ -133,6 +147,17 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
       }
     }
 
+    if (emoji !== undefined && emoji !== null) {
+      if (typeof emoji !== 'string') {
+        res.status(400).json({ error: 'Emoji must be a string' });
+        return;
+      }
+      if (emoji.length > 10) {
+        res.status(400).json({ error: 'Emoji must be a single emoji character' });
+        return;
+      }
+    }
+
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
     
@@ -146,6 +171,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
     
     if (name !== undefined) updates.name = name.trim();
     if (color !== undefined) updates.color = color.toUpperCase();
+    if (emoji !== undefined) updates.emoji = emoji?.trim() || null;
 
     const tag = await updateTag(tagId, projectId, updates);
     res.json(tag);

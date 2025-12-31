@@ -62,10 +62,12 @@ export default function Archive() {
                   <div className="flex items-center gap-2">
                     {workstream.tag && (
                       <div
-                        className="h-3 w-3 rounded-full"
+                        className="flex h-6 w-6 items-center justify-center rounded-md text-sm"
                         style={{ backgroundColor: workstream.tag.color }}
                         title={workstream.tag.name}
-                      />
+                      >
+                        {workstream.tag.emoji}
+                      </div>
                     )}
                     <h3 className="text-lg font-semibold text-gray-900">
                       {workstream.name}

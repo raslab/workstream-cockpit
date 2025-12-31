@@ -7,6 +7,7 @@ export interface CreateTagInput {
   projectId: string;
   name: string;
   color: string;
+  emoji?: string | null;
   sortOrder?: number;
 }
 
@@ -30,6 +31,7 @@ export async function createTag(input: CreateTagInput): Promise<Tag> {
         projectId: input.projectId,
         name: input.name,
         color: input.color,
+        emoji: input.emoji ?? null,
         sortOrder: input.sortOrder ?? 0,
       },
     });

@@ -24,6 +24,7 @@ export interface WorkstreamWithLatestStatus extends Workstream {
     id: string;
     name: string;
     color: string;
+    emoji?: string | null;
   } | null;
 }
 
@@ -48,6 +49,7 @@ export async function getWorkstreams(
             id: true,
             name: true,
             color: true,
+            emoji: true,
           },
         },
         statusUpdates: {
@@ -91,6 +93,7 @@ export async function getWorkstreamById(
             id: true,
             name: true,
             color: true,
+            emoji: true,
           },
         },
         statusUpdates: {

@@ -35,10 +35,12 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
             <div className="flex items-center gap-2">
               {tag && (
                 <div
-                  className="h-3 w-3 rounded-full"
+                  className="flex h-6 w-6 items-center justify-center rounded-md text-sm"
                   style={{ backgroundColor: tag.color }}
                   title={tag.name}
-                />
+                >
+                  {tag.emoji}
+                </div>
               )}
               <h3 className="text-lg font-semibold text-gray-900 hover:text-primary-600">
                 {name}

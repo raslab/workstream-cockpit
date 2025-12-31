@@ -175,10 +175,12 @@ export default function WorkstreamDetail() {
               <div className="flex items-center gap-2">
                 {workstream.tag && (
                   <div
-                    className="h-4 w-4 rounded-full"
+                    className="flex h-8 w-8 items-center justify-center rounded-md text-lg"
                     style={{ backgroundColor: workstream.tag.color }}
                     title={workstream.tag.name}
-                  />
+                  >
+                    {workstream.tag.emoji}
+                  </div>
                 )}
                 <h1 className="text-3xl font-bold text-gray-900">{workstream.name}</h1>
               </div>
