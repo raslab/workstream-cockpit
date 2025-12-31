@@ -39,7 +39,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = () => {
     // Redirect to Google OAuth
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/auth/google`;
+    // Use absolute path - nginx will proxy /auth/google to backend
+    window.location.href = '/auth/google';
   };
 
   const logout = async () => {
