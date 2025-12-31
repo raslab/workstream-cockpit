@@ -14,11 +14,8 @@ export default defineConfig({
     port: 3002,
     host: true,
     proxy: {
+      // Only proxy /api calls - /auth routes are handled by React Router or direct backend redirects
       '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-      },
-      '/auth': {
         target: 'http://localhost:3001',
         changeOrigin: true,
       },

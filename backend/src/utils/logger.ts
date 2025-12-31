@@ -34,8 +34,16 @@ class Logger {
     this.log('warn', message);
   }
 
-  error(message: string): void {
-    this.log('error', message);
+  error(message: string, error?: unknown): void {
+    let fullMessage = message;
+    if (error) {
+      if (error instanceof Error) {
+        fullMessage += ` ${error.message}\n${error.stack}`;
+      } else {
+        fullMessage += ` ${JSON.stringify(error)}`;
+      }
+    }
+    this.log('error', fullMessage);
   }
 
   debug(message: string): void {

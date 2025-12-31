@@ -1,4 +1,18 @@
+import { useAuth } from '@/contexts/AuthContext';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+
 export default function Login() {
+  const { user, login } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // If already logged in, redirect to cockpit
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100">
       <div className="w-full max-w-md space-y-8 rounded-lg bg-white p-8 shadow-lg">
@@ -13,9 +27,7 @@ export default function Login() {
         
         <div className="mt-8">
           <button
-            onClick={() => {
-              window.location.href = '/auth/google';
-            }}
+            onClick={login}
             className="flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
           >
             <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">

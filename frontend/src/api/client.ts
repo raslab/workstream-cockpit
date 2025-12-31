@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -15,8 +15,11 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Redirect to login on unauthorized
-      window.location.href = '/login';
+      // Don't redirect to login if we're already on login or callback pages
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/auth/callback') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   },

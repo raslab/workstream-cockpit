@@ -4,6 +4,17 @@ module.exports = {
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  transform: {
+    '^.+\\.ts$': ['ts-jest', {
+      tsconfig: {
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
+      },
+    }],
+  },
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+  },
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
@@ -19,5 +30,11 @@ module.exports = {
     },
   },
   coverageDirectory: 'coverage',
-  verbose: true,
+  verbose: false,
+  testTimeout: 10000,
+  transformIgnorePatterns: [
+    'node_modules/(?!(supertest)/)',
+  ],
+  // Run tests serially to avoid database deadlocks
+  maxWorkers: 1,
 };
