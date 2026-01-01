@@ -63,8 +63,6 @@ The Prisma schema defines the following models:
    ```bash
    # Copy environment templates
    cp .env.example .env
-   cp backend/.env.example backend/.env
-   cp frontend/.env.example frontend/.env
    
    # Edit .env files with your Google OAuth credentials
    ```
@@ -261,7 +259,7 @@ npm run prisma:generate
 
 **Database Connection Failed**
 - Ensure PostgreSQL is running (Docker or local)
-- Check `DATABASE_URL` in `backend/.env`
+- Check `DATABASE_URL` in `.env`
 - Verify port 5433 is not in use
 
 **TypeScript Errors**

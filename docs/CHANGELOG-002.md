@@ -31,7 +31,7 @@ This update implements six major enhancements to the Workstream Cockpit applicat
 **Modified Files:**
 - `backend/src/server.ts` - Added cron scheduler for daily backups at 2 AM UTC
 - `backend/package.json` - Added backup:manual script, new dependencies
-- `backend/.env.example` - Added GCP configuration variables
+- `.env.example` - Added GCP configuration variables
 
 **Dependencies Added:**
 ```json
@@ -281,7 +281,7 @@ Updated Features table to include:
 1. **Environment Setup:**
    - Create GCP project and Cloud Storage bucket
    - Generate service account key JSON
-   - Add GCP environment variables to backend/.env
+   - Add GCP environment variables to .env
    - Mount service account key at /app/config/
 
 2. **Database Migration:**

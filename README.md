@@ -69,13 +69,13 @@ Workstream Cockpit includes automated database backups to Google Cloud Platform 
    ```
 
 3. **Configure Backend Environment:**
-   Add to `backend/.env`:
+   Add to `.env`:
    ```bash
    # Backup Configuration
    BACKUP_ENABLED=true
    GCP_PROJECT_ID=your-project-id
    GCP_BUCKET_NAME=workstream-cockpit-backups
-   GCP_SERVICE_ACCOUNT_KEY_PATH=/app/config/gcp-service-account.json
+   GCP_SERVICE_ACCOUNT_KEY_PATH=/app/config/gcp-service-account.json # Path inside container
    BACKUP_SCHEDULE="0 2 * * *"  # 2 AM UTC daily
    BACKUP_RETENTION_DAYS=30
    ```
@@ -86,7 +86,7 @@ Workstream Cockpit includes automated database backups to Google Cloud Platform 
 
 5. **Restart Backend:**
    ```bash
-   docker compose restart backend
+   docker compose up -d --build backend
    ```
 
 ### Manual Backup
@@ -104,17 +104,17 @@ cd backend && npm run backup:manual
 
 1. **Download backup from GCP:**
    ```bash
-   gsutil cp gs://workstream-cockpit-backups/workstream-cockpit-2025-01-15-020000.sql.gz .
+   gsutil cp gs://workstream-cockpit-backups/2026/01/workstream-cockpit-2026-01-01-184200.sql.gz .
    ```
 
 2. **Decompress:**
    ```bash
-   gunzip workstream-cockpit-2025-01-15-020000.sql.gz
+   gunzip workstream-cockpit-2026-01-01-184200.sql.gz
    ```
 
 3. **Restore to database:**
    ```bash
-   docker compose exec -T db psql -U postgres -d workstream_cockpit < workstream-cockpit-2025-01-15-020000.sql
+   docker compose exec -T db psql -U postgres -d workstream_cockpit < workstream-cockpit-2026-01-01-184200.sql
    ```
 
 ### Monitoring
@@ -137,9 +137,7 @@ cd workstream-cockpit
 
 # 2. Set up Google OAuth (see below for 2-minute setup)
 cp .env.example .env
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-# Edit .env and `backend/.env` and `frontend/.env` with your Google credentials and correct URLs
+# Edit .env with your Google credentials and correct URLs
 
 # 3. Launch with Docker
 docker compose up -d
@@ -156,12 +154,12 @@ open http://localhost:3000
 2. Create project → Enable "Google+ API" 
 3. Create OAuth credentials (Web application)
 4. Add redirect: `http://localhost:3001/api/auth/google/callback`
-5. Copy Client ID & Secret to `backend/.env`
+5. Copy Client ID & Secret to `.env`
 
 <details>
 <summary>📋 Full environment setup</summary>
 
-**Backend** (`backend/.env`):
+**Backend** (`.env`):
 ```bash
 DATABASE_URL="postgresql://postgres:postgres@db:5432/workstream_cockpit"
 SESSION_SECRET="your-secure-random-secret"

@@ -200,7 +200,8 @@ export function createBackupService(): BackupService | null {
   const enabled = process.env.BACKUP_ENABLED === 'true';
   
   if (!enabled) {
-    logger.info('Backup system is disabled');
+    logger.info('Backup system is disabled (BACKUP_ENABLED is not "true")');
+    logger.info(`Current value: BACKUP_ENABLED="${process.env.BACKUP_ENABLED}"`);
     return null;
   }
   
@@ -208,9 +209,9 @@ export function createBackupService(): BackupService | null {
     gcpProjectId: process.env.GCP_PROJECT_ID || '',
     gcpBucketName: process.env.GCP_BUCKET_NAME || '',
     gcpKeyFilePath: process.env.GCP_SERVICE_ACCOUNT_KEY_PATH || '',
-    dbHost: process.env.POSTGRES_HOST || 'localhost',
-    dbPort: process.env.POSTGRES_PORT || '5432',
-    dbUser: process.env.POSTGRES_USER || 'postgres',
+    dbHost: process.env.POSTGRES_HOST || '',
+    dbPort: process.env.POSTGRES_PORT || '',
+    dbUser: process.env.POSTGRES_USER || '',
     dbPassword: process.env.POSTGRES_PASSWORD || '',
     dbName: process.env.POSTGRES_DB || 'workstream_cockpit',
     retentionDays: parseInt(process.env.BACKUP_RETENTION_DAYS || '30', 10),
@@ -219,8 +220,16 @@ export function createBackupService(): BackupService | null {
   // Validate required config
   if (!config.gcpProjectId || !config.gcpBucketName || !config.gcpKeyFilePath) {
     logger.warn('Backup system disabled: Missing GCP configuration');
+    logger.warn(`  GCP_PROJECT_ID: ${config.gcpProjectId ? '✓' : '✗ missing'}`);
+    logger.warn(`  GCP_BUCKET_NAME: ${config.gcpBucketName ? '✓' : '✗ missing'}`);
+    logger.warn(`  GCP_SERVICE_ACCOUNT_KEY_PATH: ${config.gcpKeyFilePath ? '✓' : '✗ missing'}`);
     return null;
   }
+  
+  logger.info('Backup service initialized successfully');
+  logger.info(`  Project: ${config.gcpProjectId}`);
+  logger.info(`  Bucket: ${config.gcpBucketName}`);
+  logger.info(`  Retention: ${config.retentionDays} days`);
   
   return new BackupService(config);
 }
