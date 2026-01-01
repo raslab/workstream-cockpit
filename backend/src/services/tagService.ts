@@ -156,6 +156,9 @@ export async function reorderTags(
   tagIds: string[]
 ): Promise<Tag[]> {
   try {
+    logger.info(`Attempting to reorder ${tagIds.length} tags for project ${projectId}`);
+    logger.info(`Tag IDs: ${tagIds.join(', ')}`);
+    
     // Verify all tags belong to the project
     const tags = await prisma.tag.findMany({
       where: {
@@ -164,7 +167,13 @@ export async function reorderTags(
       },
     });
 
+    logger.info(`Found ${tags.length} tags in database`);
+    
     if (tags.length !== tagIds.length) {
+      logger.error(`Tag count mismatch: requested ${tagIds.length}, found ${tags.length}`);
+      const foundIds = tags.map((t: any) => t.id);
+      const missingIds = tagIds.filter((id) => !foundIds.includes(id));
+      logger.error(`Missing tag IDs: ${missingIds.join(', ')}`);
       throw new Error('One or more tags not found or access denied');
     }
 

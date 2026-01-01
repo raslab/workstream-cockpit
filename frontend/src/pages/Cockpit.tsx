@@ -6,26 +6,51 @@ import { WorkstreamCreateDialog } from '../components/Workstream/WorkstreamCreat
 import { Workstream } from '../types/workstream';
 
 type SortOption = 'name' | 'createdAt' | 'updatedAt';
+type SortDirection = 'asc' | 'desc';
 type GroupOption = 'none' | 'tag';
 
 export default function Cockpit() {
   const { data: workstreams, isLoading, error } = useWorkstreams({ state: 'active' });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('updatedAt');
-  const [groupBy, setGroupBy] = useState<GroupOption>('none');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [groupBy, setGroupBy] = useState<GroupOption>('tag'); // Default to 'tag' grouping
+
+  const toggleSort = (option: SortOption) => {
+    if (sortBy === option) {
+      // Toggle direction
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Switch to new sort option with default direction
+      setSortBy(option);
+      setSortDirection(option === 'name' ? 'asc' : 'desc');
+    }
+  };
 
   // Helper function to get sort comparator
   const getSortComparator = (sortBy: SortOption) => {
     return (a: Workstream, b: Workstream) => {
+      let comparison = 0;
       switch (sortBy) {
         case 'name':
-          return a.name.localeCompare(b.name);
+          comparison = a.name.localeCompare(b.name);
+          break;
         case 'createdAt':
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
         case 'updatedAt':
         default:
-          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+          // Sort by latest status update time, fallback to createdAt if no status
+          const aTime = a.latestStatus 
+            ? new Date(a.latestStatus.updatedAt).getTime()
+            : new Date(a.createdAt).getTime();
+          const bTime = b.latestStatus
+            ? new Date(b.latestStatus.updatedAt).getTime()
+            : new Date(b.createdAt).getTime();
+          comparison = aTime - bTime;
+          break;
       }
+      return sortDirection === 'asc' ? comparison : -comparison;
     };
   };
 
@@ -61,7 +86,7 @@ export default function Cockpit() {
 
     // Sort groups by tag sortOrder
     return result.sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [workstreams, sortBy, groupBy]);
+  }, [workstreams, sortBy, sortDirection, groupBy]);
 
   return (
     <>
@@ -69,36 +94,78 @@ export default function Cockpit() {
         {/* Unified compact header */}
         <div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-3">
           <h2 className="text-xl font-bold text-gray-900">Active Workstreams</h2>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            {/* Grouping toggle */}
             <div className="flex items-center gap-2">
-              <label htmlFor="sort" className="text-sm text-gray-600">
-                Sort:
-              </label>
-              <select
-                id="sort"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="rounded border border-gray-300 px-2 py-1 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              >
-                <option value="updatedAt">Last Updated</option>
-                <option value="createdAt">Created Date</option>
-                <option value="name">Name</option>
-              </select>
+              <span className="text-sm text-gray-600">Group:</span>
+              <div className="inline-flex rounded-md shadow-sm">
+                <button
+                  onClick={() => setGroupBy('none')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-l-md border ${
+                    groupBy === 'none'
+                      ? 'bg-gray-100 text-gray-900 border-gray-300'
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  None
+                </button>
+                <button
+                  onClick={() => setGroupBy('tag')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-r-md border-t border-r border-b ${
+                    groupBy === 'tag'
+                      ? 'bg-gray-100 text-gray-900 border-gray-300'
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Tag
+                </button>
+              </div>
             </div>
 
+            {/* Sorting toggle */}
             <div className="flex items-center gap-2">
-              <label htmlFor="group" className="text-sm text-gray-600">
-                Group:
-              </label>
-              <select
-                id="group"
-                value={groupBy}
-                onChange={(e) => setGroupBy(e.target.value as GroupOption)}
-                className="rounded border border-gray-300 px-2 py-1 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              >
-                <option value="none">None</option>
-                <option value="tag">Tag</option>
-              </select>
+              <span className="text-sm text-gray-600">Sort:</span>
+              <div className="inline-flex rounded-md shadow-sm">
+                <button
+                  onClick={() => toggleSort('updatedAt')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-l-md border flex items-center gap-1 ${
+                    sortBy === 'updatedAt'
+                      ? 'bg-gray-100 text-gray-900 border-gray-300'
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Updated
+                  {sortBy === 'updatedAt' && (
+                    <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </button>
+                <button
+                  onClick={() => toggleSort('createdAt')}
+                  className={`px-3 py-1.5 text-sm font-medium border-t border-b flex items-center gap-1 ${
+                    sortBy === 'createdAt'
+                      ? 'bg-gray-100 text-gray-900 border-gray-300'
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Created
+                  {sortBy === 'createdAt' && (
+                    <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </button>
+                <button
+                  onClick={() => toggleSort('name')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-r-md border-t border-r border-b flex items-center gap-1 ${
+                    sortBy === 'name'
+                      ? 'bg-gray-100 text-gray-900 border-gray-300'
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Name
+                  {sortBy === 'name' && (
+                    <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </button>
+              </div>
             </div>
 
             <button
@@ -119,7 +186,8 @@ export default function Cockpit() {
         )}
 
         {isLoading && (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+            <WorkstreamSkeleton />
             <WorkstreamSkeleton />
             <WorkstreamSkeleton />
             <WorkstreamSkeleton />
@@ -155,7 +223,8 @@ export default function Cockpit() {
                   </div>
                 )}
                 
-                <div className="space-y-2">
+                {/* Two-column grid layout */}
+                <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
                   {group.workstreams.map((workstream) => (
                     <WorkstreamCard key={workstream.id} workstream={workstream} />
                   ))}

@@ -32,11 +32,12 @@ function SortableTag({
 }: SortableTagProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: tag.id,
+    transition: null, // Disable animation to prevent glitches
   });
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: isDragging ? transition : undefined,
     opacity: isDragging ? 0.5 : 1,
   };
 
@@ -219,12 +220,19 @@ export default function TagManagement() {
 
   const reorderMutation = useMutation({
     mutationFn: async (tagIds: string[]) => {
+      console.log('Reordering tags:', tagIds);
       const response = await apiClient.put('/api/tags/reorder', { tagIds });
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Reorder successful:', data);
       queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
+    },
+    onError: (error: any) => {
+      console.error('Reorder failed:', error);
+      // Revert optimistic update
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
     },
   });
 

@@ -63,7 +63,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
           
           <div className="ml-4 flex gap-2">
             <button
-              className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400"
               onClick={() => setShowDialog(true)}
             >
               Update
@@ -71,7 +71,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
             
             <div className="relative">
               <button
-                className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm font-medium text-gray-400 hover:bg-gray-50 hover:text-gray-700"
                 onClick={() => setShowMenu(!showMenu)}
               >
                 ⋮

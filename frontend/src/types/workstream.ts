@@ -23,7 +23,6 @@ export interface Workstream {
   context: string | null;
   state: 'active' | 'closed';
   createdAt: string;
-  updatedAt: string;
   closedAt: string | null;
   tag?: Tag | null;
   latestStatus?: StatusUpdate;
