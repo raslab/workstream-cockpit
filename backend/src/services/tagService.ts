@@ -149,15 +149,14 @@ export async function createDefaultTags(projectId: string): Promise<Tag[]> {
 }
 
 /**
- * Reorder tags (update sortOrder for multiple tags)
+ * Reorder tags by providing ordered array of tag IDs
  */
 export async function reorderTags(
   projectId: string,
-  tagOrders: Array<{ tagId: string; sortOrder: number }>
-): Promise<void> {
+  tagIds: string[]
+): Promise<Tag[]> {
   try {
     // Verify all tags belong to the project
-    const tagIds = tagOrders.map((t) => t.tagId);
     const tags = await prisma.tag.findMany({
       where: {
         id: { in: tagIds },
@@ -169,17 +168,20 @@ export async function reorderTags(
       throw new Error('One or more tags not found or access denied');
     }
 
-    // Update sort orders in a transaction
+    // Update sort orders in a transaction based on array position
     await prisma.$transaction(
-      tagOrders.map((order) =>
+      tagIds.map((tagId, index) =>
         prisma.tag.update({
-          where: { id: order.tagId },
-          data: { sortOrder: order.sortOrder },
+          where: { id: tagId },
+          data: { sortOrder: index },
         })
       )
     );
 
-    logger.info(`Reordered ${tagOrders.length} tags for project ${projectId}`);
+    logger.info(`Reordered ${tagIds.length} tags for project ${projectId}`);
+    
+    // Return updated tags in order
+    return await getTagsByProjectId(projectId);
   } catch (error) {
     logger.error('Error reordering tags:', error);
     throw error;

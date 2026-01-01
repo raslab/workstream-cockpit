@@ -221,10 +221,10 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
 });
 
 /**
- * POST /api/tags/reorder
+ * PUT /api/tags/reorder
  * Reorder tags
  */
-router.post('/reorder', async (req: Request, res: Response): Promise<void> => {
+router.put('/reorder', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
     const { tagIds } = req.body;
@@ -232,6 +232,11 @@ router.post('/reorder', async (req: Request, res: Response): Promise<void> => {
     // Validation
     if (!Array.isArray(tagIds) || tagIds.length === 0) {
       res.status(400).json({ error: 'Tag IDs array is required' });
+      return;
+    }
+
+    if (!tagIds.every((id) => typeof id === 'string')) {
+      res.status(400).json({ error: 'All tag IDs must be strings' });
       return;
     }
 
@@ -244,10 +249,14 @@ router.post('/reorder', async (req: Request, res: Response): Promise<void> => {
     }
 
     const projectId = projects[0].id;
-    await reorderTags(projectId, tagIds);
+    const updatedTags = await reorderTags(projectId, tagIds);
     
-    res.status(204).send();
+    res.json(updatedTags);
   } catch (error: any) {
+    if (error.message?.includes('not found or access denied')) {
+      res.status(404).json({ error: 'One or more tags not found' });
+      return;
+    }
     logger.error('Error reordering tags:', error);
     res.status(500).json({ error: 'Failed to reorder tags' });
   }

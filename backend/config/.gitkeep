@@ -1,0 +1,2 @@
+# This file ensures the config directory exists in git
+# Actual GCP service account keys should be placed here but NOT committed

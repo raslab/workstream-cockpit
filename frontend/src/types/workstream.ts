@@ -3,6 +3,7 @@ export interface Tag {
   name: string;
   color: string;
   emoji?: string | null;
+  sortOrder: number;
 }
 
 export interface StatusUpdate {
