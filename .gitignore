@@ -48,6 +48,8 @@ postgres-data/
 # Backend specific
 backend/dist/
 backend/node_modules/
+backend/config/*.json
+backend/config/gcp-service-account.json
 
 # Frontend specific
 frontend/dist/

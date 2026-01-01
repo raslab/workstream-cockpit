@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import cron from 'node-cron';
 import passport from './config/passport';
 import { sessionConfig } from './middleware/session';
 import { attachUserContext } from './middleware/userContext';
@@ -14,6 +15,7 @@ import tagsRoutes from './routes/tags';
 import timelineRoutes from './routes/timeline';
 import { errorHandler } from './middleware/errorHandler';
 import { logger } from './utils/logger';
+import { executeBackup } from './services/backupService';
 
 // Load environment variables
 dotenv.config();
@@ -64,6 +66,24 @@ app.use(errorHandler);
 const server = app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  // Setup backup cron job
+  const backupEnabled = process.env.BACKUP_ENABLED === 'true';
+  if (backupEnabled) {
+    const schedule = process.env.BACKUP_SCHEDULE || '0 2 * * *'; // Default: 2 AM UTC daily
+    logger.info(`Backup system enabled. Schedule: ${schedule}`);
+    
+    cron.schedule(schedule, async () => {
+      logger.info('Scheduled backup triggered');
+      try {
+        await executeBackup();
+      } catch (error: any) {
+        logger.error(`Scheduled backup failed: ${error.message}`);
+      }
+    });
+  } else {
+    logger.info('Backup system disabled');
+  }
 });
 
 // Graceful shutdown

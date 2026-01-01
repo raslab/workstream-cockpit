@@ -41,6 +41,88 @@ Perfect for engineering managers, team leads, and anyone managing multiple paral
 | ⌨️ **Keyboard Shortcuts** | Fast workflows with Cmd/Ctrl+Enter |
 | 🎨 **Grouping & Sorting** | Organize by tags, sort by name/date/updates |
 | ⚡ **Optimistic UI** | Instant feedback, automatic error recovery |
+| 💾 **Automated Backups** | Daily database backups to GCP Cloud Storage with 30-day retention |
+
+---
+
+## 💾 Database Backups
+
+Workstream Cockpit includes automated database backups to Google Cloud Platform (GCP) Cloud Storage.
+
+### Features
+- ✅ **Automated Daily Backups** - Scheduled at 2:00 AM UTC
+- ✅ **30-Day Retention** - Old backups automatically cleaned up
+- ✅ **Compressed Archives** - gzip compression for efficient storage
+- ✅ **Manual Backup Trigger** - On-demand backups when needed
+- ✅ **Retry Logic** - Automatic retries with exponential backoff
+
+### Setup
+
+1. **Create GCP Service Account:**
+   - Go to [GCP Console > IAM & Admin > Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
+   - Create a new service account with "Storage Object Admin" role
+   - Create and download a JSON key file
+
+2. **Create Cloud Storage Bucket:**
+   ```bash
+   gsutil mb gs://workstream-cockpit-backups
+   ```
+
+3. **Configure Backend Environment:**
+   Add to `backend/.env`:
+   ```bash
+   # Backup Configuration
+   BACKUP_ENABLED=true
+   GCP_PROJECT_ID=your-project-id
+   GCP_BUCKET_NAME=workstream-cockpit-backups
+   GCP_SERVICE_ACCOUNT_KEY_PATH=/app/config/gcp-service-account.json
+   BACKUP_SCHEDULE="0 2 * * *"  # 2 AM UTC daily
+   BACKUP_RETENTION_DAYS=30
+   ```
+
+4. **Mount Service Account Key:**
+   - Place your `gcp-service-account.json` in `backend/config/`
+   - Docker Compose will automatically mount it
+
+5. **Restart Backend:**
+   ```bash
+   docker compose restart backend
+   ```
+
+### Manual Backup
+
+Trigger a backup manually:
+```bash
+# From host
+docker compose exec backend npm run backup:manual
+
+# From inside container
+cd backend && npm run backup:manual
+```
+
+### Restore from Backup
+
+1. **Download backup from GCP:**
+   ```bash
+   gsutil cp gs://workstream-cockpit-backups/workstream-cockpit-2025-01-15-020000.sql.gz .
+   ```
+
+2. **Decompress:**
+   ```bash
+   gunzip workstream-cockpit-2025-01-15-020000.sql.gz
+   ```
+
+3. **Restore to database:**
+   ```bash
+   docker compose exec -T db psql -U postgres -d workstream_cockpit < workstream-cockpit-2025-01-15-020000.sql
+   ```
+
+### Monitoring
+
+Check backup logs:
+```bash
+docker compose logs backend | grep -i backup
+```
 
 ---
 

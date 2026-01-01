@@ -29,41 +29,41 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
 
   return (
     <>
-      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+      <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md">
         <div className="flex items-start justify-between">
           <Link to={`/workstreams/${workstream.id}`} className="flex-1">
             <div className="flex items-center gap-2">
               {tag && (
                 <div
-                  className="flex h-6 w-6 items-center justify-center rounded-md text-sm"
+                  className="flex h-5 w-5 items-center justify-center rounded text-sm"
                   style={{ backgroundColor: tag.color }}
                   title={tag.name}
                 >
                   {tag.emoji}
                 </div>
               )}
-              <h3 className="text-lg font-semibold text-gray-900 hover:text-primary-600">
+              <h3 className="text-base font-semibold text-gray-900 hover:text-primary-600">
                 {name}
               </h3>
             </div>
             
             {latestStatus && (
-              <div className="mt-2">
+              <div className="mt-1.5">
                 <p className="text-sm text-gray-700">{latestStatus.status}</p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-0.5 text-xs text-gray-500">
                   Updated {formatDistanceToNow(new Date(latestStatus.updatedAt), { addSuffix: true })}
                 </p>
               </div>
             )}
             
             {!latestStatus && (
-              <p className="mt-2 text-sm text-gray-500">No status updates yet</p>
+              <p className="mt-1.5 text-sm text-gray-500">No status updates yet</p>
             )}
           </Link>
           
           <div className="ml-4 flex gap-2">
             <button
-              className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400"
               onClick={() => setShowDialog(true)}
             >
               Update
@@ -71,7 +71,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
             
             <div className="relative">
               <button
-                className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm font-medium text-gray-400 hover:bg-gray-50 hover:text-gray-700"
                 onClick={() => setShowMenu(!showMenu)}
               >
                 ⋮

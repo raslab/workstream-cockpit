@@ -50,6 +50,7 @@ export async function getWorkstreams(
             name: true,
             color: true,
             emoji: true,
+            sortOrder: true,
           },
         },
         statusUpdates: {
@@ -94,6 +95,7 @@ export async function getWorkstreamById(
             name: true,
             color: true,
             emoji: true,
+            sortOrder: true,
           },
         },
         statusUpdates: {

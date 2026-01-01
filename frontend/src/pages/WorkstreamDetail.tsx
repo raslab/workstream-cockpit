@@ -32,6 +32,7 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['status-updates', workstreamId] });
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
+      queryClient.invalidateQueries({ queryKey: ['workstream', workstreamId] });
       onClose();
     },
   });

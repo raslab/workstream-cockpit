@@ -26,6 +26,8 @@ export function StatusUpdateDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
+      queryClient.invalidateQueries({ queryKey: ['status-updates', workstreamId] });
+      queryClient.invalidateQueries({ queryKey: ['workstream', workstreamId] });
       setStatus('');
       setNote('');
       onClose();

@@ -3,6 +3,7 @@ export interface Tag {
   name: string;
   color: string;
   emoji?: string | null;
+  sortOrder: number;
 }
 
 export interface StatusUpdate {
@@ -22,7 +23,6 @@ export interface Workstream {
   context: string | null;
   state: 'active' | 'closed';
   createdAt: string;
-  updatedAt: string;
   closedAt: string | null;
   tag?: Tag | null;
   latestStatus?: StatusUpdate;
