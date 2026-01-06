@@ -1,10 +1,75 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
+import { useTags } from '../../api/tags';
 
 interface MarkdownRendererProps {
   content: string;
   className?: string;
+}
+
+/**
+ * Component to render a hashtag with its configured color
+ */
+function HashtagSpan({ tagName }: { tagName: string }) {
+  const { data: tags } = useTags();
+  const tag = tags?.find(t => t.name.toLowerCase() === tagName.toLowerCase());
+  
+  const color = tag?.color || '#1DA1F2'; // Default Twitter blue
+  
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-white mx-0.5"
+      style={{ backgroundColor: color }}
+    >
+      #{tagName}
+    </span>
+  );
+}
+
+/**
+ * Preprocess content to convert #hashtags into special format that we can detect
+ */
+function preprocessHashtags(content: string): string {
+  // Match hashtags: word boundary, #, alphanumeric/hyphens/underscores
+  const hashtagRegex = /\B#([a-zA-Z0-9_-]+)\b/g;
+  
+  // Replace with a special marker that won't be interpreted as markdown
+  // We'll use a unique format: <<<HASHTAG:tagname>>>
+  return content.replace(hashtagRegex, (_match, tagName) => {
+    return `<<<HASHTAG:${tagName}>>>`;
+  });
+}
+
+/**
+ * Post-process text nodes to render hashtags
+ */
+function renderTextWithHashtags(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  const hashtagPlaceholderRegex = /<<<HASHTAG:([^>]+)>>>/g;
+  
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = hashtagPlaceholderRegex.exec(text)) !== null) {
+    // Add text before the hashtag
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    
+    // Add the hashtag component
+    const tagName = match[1];
+    parts.push(<HashtagSpan key={`${match.index}-${tagName}`} tagName={tagName} />);
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  
+  return parts.length > 0 ? parts : text;
 }
 
 /**
@@ -16,8 +81,12 @@ interface MarkdownRendererProps {
  * - Tables, strikethrough, task lists (GFM)
  * - Headings with consistent styling
  * - Custom component overrides for security and design
+ * - Hashtag rendering with colors (#tagname)
  */
 export function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
+  // Preprocess content to protect hashtags from markdown interpretation
+  const processedContent = preprocessHashtags(content);
+  
   const components: Components = {
     // Links: Open in new tab with security
     a: ({ ...props }) => (
@@ -67,17 +136,21 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
       <ol {...props} className="my-2 ml-6 list-decimal space-y-1" />
     ),
     
-    // Paragraphs: Spacing
-    p: ({ ...props }) => (
-      <p {...props} className="my-2" />
+    // Paragraphs: Spacing + hashtag rendering
+    p: ({ children, ...props }) => (
+      <p {...props} className="my-2">
+        {typeof children === 'string' ? renderTextWithHashtags(children) : children}
+      </p>
     ),
     
-    // Blockquotes: Visual distinction
-    blockquote: ({ ...props }) => (
+    // Blockquotes: Visual distinction + hashtag rendering
+    blockquote: ({ children, ...props }) => (
       <blockquote
         {...props}
         className="my-2 border-l-4 border-gray-300 pl-4 italic text-gray-600"
-      />
+      >
+        {typeof children === 'string' ? renderTextWithHashtags(children) : children}
+      </blockquote>
     ),
     
     // Tables: Basic styling (GFM feature)
@@ -87,9 +160,16 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
     th: ({ ...props }) => (
       <th {...props} className="border border-gray-300 bg-gray-50 px-3 py-2 text-left font-semibold" />
     ),
-    td: ({ ...props }) => (
-      <td {...props} className="border border-gray-300 px-3 py-2" />
+    td: ({ children, ...props }) => (
+      <td {...props} className="border border-gray-300 px-3 py-2">
+        {typeof children === 'string' ? renderTextWithHashtags(children) : children}
+      </td>
     ),
+    
+    // Text nodes: Render hashtags
+    text: ({ value }: any) => {
+      return <>{renderTextWithHashtags(value)}</>;
+    },
   };
   
   return (
@@ -98,7 +178,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
         remarkPlugins={[remarkGfm]}
         components={components}
       >
-        {content}
+        {processedContent}
       </ReactMarkdown>
     </div>
   );

@@ -3,6 +3,7 @@ import { useWorkstreams } from '../hooks/useWorkstreams';
 import { WorkstreamCard } from '../components/Workstream/WorkstreamCard';
 import { WorkstreamSkeleton } from '../components/Workstream/WorkstreamSkeleton';
 import { WorkstreamCreateDialog } from '../components/Workstream/WorkstreamCreateDialog';
+import { TagFilter } from '../components/Tag/TagFilter';
 import { Workstream } from '../types/workstream';
 
 type SortOption = 'name' | 'createdAt' | 'updatedAt';
@@ -10,7 +11,11 @@ type SortDirection = 'asc' | 'desc';
 type GroupOption = 'none' | 'tag';
 
 export default function Cockpit() {
-  const { data: workstreams, isLoading, error } = useWorkstreams({ state: 'active' });
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const { data: workstreams, isLoading, error } = useWorkstreams({ 
+    state: 'active',
+    tags: selectedTags.length > 0 ? selectedTags : undefined,
+  });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('updatedAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -175,6 +180,11 @@ export default function Cockpit() {
               New Workstream
             </button>
           </div>
+        </div>
+
+        {/* Tag Filter */}
+        <div className="mb-4">
+          <TagFilter selectedTags={selectedTags} onTagsChange={setSelectedTags} />
         </div>
 
         {error && (

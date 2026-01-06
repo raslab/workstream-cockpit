@@ -5,6 +5,7 @@ import {
   FilterPreset,
   getDateRangeFromPreset,
 } from '../components/Timeline/FilterBar';
+import { TagFilter } from '../components/Tag/TagFilter';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
@@ -12,11 +13,13 @@ import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 export default function Timeline() {
   const [selectedPreset, setSelectedPreset] = useState<FilterPreset>('last7');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const dateRange = getDateRangeFromPreset(selectedPreset);
   const { data: timeline, isLoading, error } = useTimeline({
     ...dateRange,
     categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
+    tags: selectedTags.length > 0 ? selectedTags : undefined,
   });
 
   // Group timeline entries by date
@@ -86,6 +89,11 @@ export default function Timeline() {
         selectedCategoryIds={selectedCategoryIds}
         onCategoryIdsChange={setSelectedCategoryIds}
       />
+
+      {/* Tag Filter */}
+      <div className="mb-6">
+        <TagFilter selectedTags={selectedTags} onTagsChange={setSelectedTags} />
+      </div>
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
