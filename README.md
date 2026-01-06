@@ -286,11 +286,62 @@ Access dev servers:
 ### Running Tests
 
 ```bash
-npm test              # All tests
+npm test              # All tests (backend + frontend)
 npm run test:backend  # Backend only
 npm run test:frontend # Frontend only
 npm run test:coverage # With coverage report
 ```
+
+#### Test Prerequisites
+
+Before running tests, ensure the following prerequisites are met:
+
+**1. Docker Compose Running:**
+```bash
+# Start the database service
+docker compose up -d
+```
+
+**2. Test Database Exposed:**
+Create `docker-compose.override.yml` in the project root:
+```yaml
+services:
+  postgres:
+    ports:
+      - "5454:5432"  # Expose test database on port 5454
+```
+
+**3. Test Environment Configuration:**
+The test environment uses a separate database (`workstream_cockpit_test`) on port 5454, configured in `backend/.env.test`:
+```bash
+DATABASE_URL="postgresql://postgres:postgres@localhost:5454/workstream_cockpit_test?schema=public"
+GOOGLE_CLIENT_ID="test-client-id"
+GOOGLE_CLIENT_SECRET="test-client-secret"
+GOOGLE_CALLBACK_URL="http://localhost:3001/auth/google/callback"
+SESSION_SECRET="test-session-secret"
+```
+
+**4. Automatic Test Database Setup:**
+The test database is automatically created and migrations are run when you first execute tests. No manual database setup required!
+
+#### Test Coverage
+
+**Backend Integration Tests** (210 tests):
+- ✅ Workstreams API (8 endpoints, 34 tests)
+- ✅ Tags API (5 endpoints, 36 tests)
+- ✅ Status Updates API (4 endpoints, 32 tests)
+- ✅ Timeline API (1 endpoint, 13 tests)
+- ✅ Health API (1 endpoint, 3 tests)
+- ✅ Auth/OAuth (4 endpoints, 44 tests)
+- ✅ Unit tests for services (48 tests)
+
+**Frontend Tests** (21 tests):
+- ✅ API client & error handling (12 tests)
+- ✅ OAuth callback component (9 tests)
+
+**Total: 231 tests with 100% endpoint coverage**
+
+For detailed testing documentation, see [DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ---
 

@@ -230,6 +230,44 @@ npm run prisma:studio
 - **Frontend Component Tests**: 70% coverage
 - **E2E Tests**: All critical user flows
 
+### Running Backend Integration Tests
+
+**Prerequisites**:
+1. Docker Compose must be running with the database:
+   ```bash
+   docker compose up -d
+   ```
+
+2. Create `docker-compose.override.yml` in the project root to expose the database for tests:
+   ```yaml
+   services:
+     postgres:
+       ports:
+         - "5454:5432"
+   ```
+   **Note**: This file is git-ignored and must be created locally on each development machine.
+
+3. Ensure `backend/.env.test` exists with the test database configuration:
+   ```bash
+   DATABASE_URL="postgresql://postgres:postgres@localhost:5454/workstream_cockpit_test?schema=public"
+   ```
+   **Note**: This uses a separate database (`workstream_cockpit_test`) from the main development database.
+
+**Running Tests**:
+```bash
+cd backend
+npm test                    # Run all tests
+npm test tags.test.ts      # Run specific test file
+npm run test:coverage      # Run with coverage report
+npm run test:watch         # Watch mode
+```
+
+**Test Database Setup**:
+- The test suite automatically creates the `workstream_cockpit_test` database if it doesn't exist
+- Migrations are automatically applied to the test database
+- Each test file uses `cleanDatabase()` in `beforeEach` to ensure test isolation
+- All tests run serially (maxWorkers: 1) to avoid database conflicts
+
 ### TDD Approach
 
 For each feature:
@@ -238,6 +276,34 @@ For each feature:
 3. Refactor for clarity
 4. Add edge case tests
 5. Document scenarios
+
+### Integration Test Structure
+
+All integration tests follow this pattern:
+```typescript
+describe('API Integration Tests', () => {
+  let person: any;
+  let project: any;
+  let app: any;
+
+  beforeAll(async () => {
+    await setupTestDatabase();
+  });
+
+  beforeEach(async () => {
+    await cleanDatabase();
+    person = await createTestPerson({ email: 'test@example.com' });
+    project = await createTestProject(person.id);
+    app = createTestApp(routes, person);
+  });
+
+  afterAll(async () => {
+    await disconnectDatabase();
+  });
+
+  // Test cases...
+});
+```
 
 ## Troubleshooting
 

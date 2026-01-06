@@ -239,11 +239,8 @@ describe('TagService', () => {
       const tag2 = await createTestTag(project.id, { name: 'tag2', sortOrder: 1 });
       const tag3 = await createTestTag(project.id, { name: 'tag3', sortOrder: 2 });
 
-      await reorderTags(project.id, [
-        { tagId: tag3.id, sortOrder: 0 },
-        { tagId: tag1.id, sortOrder: 1 },
-        { tagId: tag2.id, sortOrder: 2 },
-      ]);
+      // Reorder: tag3 first, tag1 second, tag2 third
+      await reorderTags(project.id, [tag3.id, tag1.id, tag2.id]);
 
       const tags = await getTagsByProjectId(project.id);
       
@@ -262,7 +259,7 @@ describe('TagService', () => {
       const tag = await createTestTag(project1.id);
 
       await expect(
-        reorderTags(project2.id, [{ tagId: tag.id, sortOrder: 0 }])
+        reorderTags(project2.id, [tag.id])
       ).rejects.toThrow('One or more tags not found or access denied');
     });
   });
