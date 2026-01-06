@@ -13,7 +13,7 @@ import {
   disconnectDatabase,
   createTestPerson,
   createTestProject,
-  createTestTag,
+  createTestCategory,
   createTestWorkstream,
   createTestStatusUpdate,
 } from '../helpers/testDb';
@@ -46,22 +46,22 @@ describe('WorkstreamService', () => {
       expect(workstream.projectId).toBe(project.id);
       expect(workstream.name).toBe('New Feature Development');
       expect(workstream.state).toBe('active');
-      expect(workstream.tagId).toBeNull();
+      expect(workstream.categoryId).toBeNull();
       expect(workstream.context).toBeNull();
     });
 
     it('should create workstream with tag', async () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
-      const tag = await createTestTag(project.id);
+      const category = await createTestCategory(project.id);
 
       const workstream = await createWorkstream({
         projectId: project.id,
         name: 'Tagged Workstream',
-        tagId: tag.id,
+        categoryId: category.id,
       });
 
-      expect(workstream.tagId).toBe(tag.id);
+      expect(workstream.categoryId).toBe(category.id);
     });
 
     it('should create workstream with context', async () => {
@@ -160,15 +160,15 @@ describe('WorkstreamService', () => {
     it('should include tag information', async () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
-      const tag = await createTestTag(project.id, { name: 'urgent', color: '#FF0000' });
+      const category = await createTestCategory(project.id, { name: 'urgent', color: '#FF0000' });
       
-      await createTestWorkstream(project.id, { name: 'Tagged WS', tagId: tag.id });
+      await createTestWorkstream(project.id, { name: 'Tagged WS', categoryId: category.id });
 
       const workstreams = await getWorkstreams(project.id);
 
-      expect(workstreams[0].tag).toBeDefined();
-      expect(workstreams[0].tag?.name).toBe('urgent');
-      expect(workstreams[0].tag?.color).toBe('#FF0000');
+      expect(workstreams[0].category).toBeDefined();
+      expect(workstreams[0].category?.name).toBe('urgent');
+      expect(workstreams[0].category?.color).toBe('#FF0000');
     });
 
     it('should include latest status update', async () => {
@@ -228,13 +228,13 @@ describe('WorkstreamService', () => {
     it('should include tag and latest status', async () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
-      const tag = await createTestTag(project.id, { name: 'test-tag' });
-      const workstream = await createTestWorkstream(project.id, { tagId: tag.id });
+      const category = await createTestCategory(project.id, { name: 'test-tag' });
+      const workstream = await createTestWorkstream(project.id, { categoryId: category.id });
       await createTestStatusUpdate(workstream.id, { status: 'Current status' });
 
       const found = await getWorkstreamById(workstream.id, project.id);
 
-      expect(found?.tag?.name).toBe('test-tag');
+      expect(found?.category?.name).toBe('test-tag');
       expect(found?.latestStatus?.status).toBe('Current status');
     });
   });
@@ -253,12 +253,12 @@ describe('WorkstreamService', () => {
     it('should update workstream tag', async () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
-      const tag = await createTestTag(project.id);
+      const category = await createTestCategory(project.id);
       const workstream = await createTestWorkstream(project.id);
 
-      const updated = await updateWorkstream(workstream.id, project.id, { tagId: tag.id });
+      const updated = await updateWorkstream(workstream.id, project.id, { categoryId: category.id });
 
-      expect(updated.tagId).toBe(tag.id);
+      expect(updated.categoryId).toBe(category.id);
     });
 
     it('should update workstream context', async () => {
@@ -276,12 +276,12 @@ describe('WorkstreamService', () => {
     it('should clear tag by setting to null', async () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
-      const tag = await createTestTag(project.id);
-      const workstream = await createTestWorkstream(project.id, { tagId: tag.id });
+      const category = await createTestCategory(project.id);
+      const workstream = await createTestWorkstream(project.id, { categoryId: category.id });
 
-      const updated = await updateWorkstream(workstream.id, project.id, { tagId: null });
+      const updated = await updateWorkstream(workstream.id, project.id, { categoryId: null });
 
-      expect(updated.tagId).toBeNull();
+      expect(updated.categoryId).toBeNull();
     });
 
     it('should throw error when updating workstream from different project', async () => {

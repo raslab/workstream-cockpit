@@ -107,15 +107,15 @@ describe('OAuth Callback Flow', () => {
     let projects = await getProjectsByPersonId(person.id);
     expect(projects).toHaveLength(0);
 
-    // After OAuth flow (simulated), should have project and tags
+    // After OAuth flow (simulated), should have project and categories
     const { createDefaultProject } = await import('../../src/services/projectService');
-    const { createDefaultTags } = await import('../../src/services/tagService');
+    const { createDefaultCategories } = await import('../../src/services/categoryService');
     
     const project = await createDefaultProject(person.id);
-    const tags = await createDefaultTags(project.id);
+    const categories = await createDefaultCategories(project.id);
 
     projects = await getProjectsByPersonId(person.id);
     expect(projects).toHaveLength(1);
-    expect(tags).toHaveLength(4);
+    expect(categories).toHaveLength(4);
   });
 });

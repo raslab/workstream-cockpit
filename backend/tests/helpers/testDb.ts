@@ -65,7 +65,7 @@ export async function setupTestDatabase(): Promise<void> {
  * Clean database before each test
  */
 export async function cleanDatabase(): Promise<void> {
-  const tables = ['status_updates', 'workstreams', 'tags', 'projects', 'persons'];
+  const tables = ['status_updates', 'workstreams', 'categories', 'projects', 'persons'];
   
   for (const table of tables) {
     await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${table} CASCADE;`);
@@ -106,14 +106,14 @@ export async function createTestProject(personId: string, data?: { name?: string
 /**
  * Create a test tag
  */
-export async function createTestTag(
+export async function createTestCategory(
   projectId: string,
   data?: { name?: string; color?: string; sortOrder?: number }
 ) {
-  return prisma.tag.create({
+  return prisma.category.create({
     data: {
       projectId,
-      name: data?.name || 'test-tag',
+      name: data?.name || 'test-category',
       color: data?.color || '#3B82F6',
       sortOrder: data?.sortOrder ?? 0,
     },
@@ -127,7 +127,7 @@ export async function createTestWorkstream(
   projectId: string,
   data?: {
     name?: string;
-    tagId?: string;
+    categoryId?: string;
     context?: string;
     state?: string;
   }
@@ -136,7 +136,7 @@ export async function createTestWorkstream(
     data: {
       projectId,
       name: data?.name || 'Test Workstream',
-      tagId: data?.tagId,
+      categoryId: data?.categoryId,
       context: data?.context,
       state: data?.state || 'active',
     },
