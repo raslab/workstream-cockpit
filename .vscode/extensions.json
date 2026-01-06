@@ -1,0 +1,21 @@
+{
+  "recommendations": [
+    // Backend Testing
+    "orta.vscode-jest",
+    
+    // Frontend Testing
+    "vitest.explorer",
+    
+    // General Development
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    
+    // Docker Support
+    "ms-azuretools.vscode-docker",
+    
+    // Database
+    "mtxr.sqltools",
+    "mtxr.sqltools-driver-pg"
+  ]
+}
