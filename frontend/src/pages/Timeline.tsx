@@ -10,12 +10,12 @@ import { Link } from 'react-router-dom';
 
 export default function Timeline() {
   const [selectedPreset, setSelectedPreset] = useState<FilterPreset>('last7');
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
 
   const dateRange = getDateRangeFromPreset(selectedPreset);
   const { data: timeline, isLoading, error } = useTimeline({
     ...dateRange,
-    tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+    categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
   });
 
   // Group timeline entries by date
@@ -80,8 +80,8 @@ export default function Timeline() {
       <FilterBar
         selectedPreset={selectedPreset}
         onPresetChange={setSelectedPreset}
-        selectedTagIds={selectedTagIds}
-        onTagIdsChange={setSelectedTagIds}
+        selectedCategoryIds={selectedCategoryIds}
+        onCategoryIdsChange={setSelectedCategoryIds}
       />
 
       {error && (
@@ -125,13 +125,13 @@ export default function Timeline() {
                     className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
                   >
                     <div className="flex items-start gap-3">
-                      {entry.tag && (
+                      {entry.category && (
                         <div
                           className="mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-xs"
-                          style={{ backgroundColor: entry.tag.color }}
-                          title={entry.tag.name}
+                          style={{ backgroundColor: entry.category.color }}
+                          title={entry.category.name}
                         >
-                          {entry.tag.emoji}
+                          {entry.category.emoji}
                         </div>
                       )}
                       <div className="flex-1">

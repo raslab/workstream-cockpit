@@ -11,6 +11,7 @@ import healthRoutes from './routes/health';
 import authRoutes from './routes/auth';
 import workstreamsRoutes from './routes/workstreams';
 import statusUpdatesRoutes from './routes/statusUpdates';
+import categoriesRoutes from './routes/categories';
 import tagsRoutes from './routes/tags';
 import timelineRoutes from './routes/timeline';
 import { errorHandler } from './middleware/errorHandler';
@@ -56,7 +57,8 @@ app.use('/health', healthRoutes);
 app.use('/auth', authRoutes);
 app.use('/api/workstreams', workstreamsRoutes);
 app.use('/api/status-updates', statusUpdatesRoutes);
-app.use('/api/tags', tagsRoutes);
+app.use('/api/categories', categoriesRoutes);
+app.use('/api/tags', tagsRoutes); // Backward compatibility alias
 app.use('/api/timeline', timelineRoutes);
 
 // Error handling middleware (must be last)

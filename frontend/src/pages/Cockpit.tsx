@@ -67,7 +67,7 @@ export default function Cockpit() {
     // Group first
     const groups = new Map<string, Workstream[]>();
     workstreams.forEach((ws) => {
-      const key = ws.tag?.id || 'untagged';
+      const key = ws.category?.id || 'untagged';
       if (!groups.has(key)) {
         groups.set(key, []);
       }
@@ -77,10 +77,10 @@ export default function Cockpit() {
     // Sort workstreams within each group and add sortOrder
     const result = Array.from(groups.entries()).map(([key, wsList]) => ({
       key,
-      name: key === 'untagged' ? null : wsList[0].tag?.name || null,
-      color: key === 'untagged' ? null : wsList[0].tag?.color || null,
-      emoji: key === 'untagged' ? null : wsList[0].tag?.emoji || null,
-      sortOrder: key === 'untagged' ? 999999 : (wsList[0].tag?.sortOrder ?? 999999),
+      name: key === 'untagged' ? null : wsList[0].category?.name || null,
+      color: key === 'untagged' ? null : wsList[0].category?.color || null,
+      emoji: key === 'untagged' ? null : wsList[0].category?.emoji || null,
+      sortOrder: key === 'untagged' ? 999999 : (wsList[0].category?.sortOrder ?? 999999),
       workstreams: wsList.sort(getSortComparator(sortBy)), // Sort within group
     }));
 
@@ -117,7 +117,7 @@ export default function Cockpit() {
                       : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  Tag
+                  Category
                 </button>
               </div>
             </div>

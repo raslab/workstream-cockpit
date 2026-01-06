@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
-import { useTags } from '../../hooks/useTags';
+import { useCategories } from '../../hooks/useCategories';
 
 interface WorkstreamCreateDialogProps {
   isOpen: boolean;
@@ -10,17 +10,17 @@ interface WorkstreamCreateDialogProps {
 
 export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDialogProps) {
   const [name, setName] = useState('');
-  const [tagId, setTagId] = useState<string>('');
+  const [categoryId, setCategoryId] = useState<string>('');
   const [context, setContext] = useState('');
   const [initialStatus, setInitialStatus] = useState('');
   const [initialNote, setInitialNote] = useState('');
   const queryClient = useQueryClient();
-  const { data: tags } = useTags();
+  const { data: categories } = useCategories();
 
   const createWorkstreamMutation = useMutation({
     mutationFn: async (data: {
       name: string;
-      tagId?: string;
+      categoryId?: string;
       context?: string;
       initialStatus?: string;
       initialNote?: string;
@@ -37,7 +37,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
 
   const resetForm = () => {
     setName('');
-    setTagId('');
+    setCategoryId('');
     setContext('');
     setInitialStatus('');
     setInitialNote('');
@@ -55,7 +55,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
     if (name.trim()) {
       createWorkstreamMutation.mutate({
         name: name.trim(),
-        tagId: tagId || undefined,
+        categoryId: categoryId || undefined,
         context: context.trim() || undefined,
         initialStatus: initialStatus.trim() || undefined,
         initialNote: initialNote.trim() || undefined,
@@ -89,32 +89,32 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
           </div>
 
           <div className="mb-4">
-            <label htmlFor="tagId" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="categoryId" className="mb-1 block text-sm font-medium text-gray-700">
               Tag (optional)
             </label>
             <select
-              id="tagId"
-              value={tagId}
-              onChange={(e) => setTagId(e.target.value)}
+              id="categoryId"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             >
-              <option value="">No tag</option>
-              {tags?.map((tag) => (
-                <option key={tag.id} value={tag.id}>
-                  {tag.name}
+              <option value="">No category</option>
+              {categories?.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
                 </option>
               ))}
             </select>
-            {tagId && tags && (
+            {categoryId && categories && (
               <div className="mt-1 flex items-center gap-2">
                 <div
                   className="h-3 w-3 rounded-full"
                   style={{
-                    backgroundColor: tags.find((t) => t.id === tagId)?.color,
+                    backgroundColor: categories.find((c) => c.id === categoryId)?.color,
                   }}
                 />
                 <span className="text-xs text-gray-500">
-                  {tags.find((t) => t.id === tagId)?.name}
+                  {categories.find((c) => c.id === categoryId)?.name}
                 </span>
               </div>
             )}

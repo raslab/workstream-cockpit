@@ -2,7 +2,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { getOrCreatePerson } from '../services/personService';
 import { createDefaultProject } from '../services/projectService';
-import { createDefaultTags } from '../services/tagService';
+import { createDefaultCategories } from '../services/categoryService';
 import { logger } from '../utils/logger';
 
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
@@ -35,12 +35,12 @@ passport.use(
         const { getProjectsByPersonId } = await import('../services/projectService');
         const projects = await getProjectsByPersonId(person.id);
 
-        // If first time login (no projects), create default project and tags
+        // If first time login (no projects), create default project and categories
         if (projects.length === 0) {
-          logger.info(`First login for user ${email}, creating default project and tags`);
+          logger.info(`First login for user ${email}, creating default project and categories`);
           const defaultProject = await createDefaultProject(person.id);
-          await createDefaultTags(defaultProject.id);
-          logger.info(`Default project and tags created for user ${email}`);
+          await createDefaultCategories(defaultProject.id);
+          logger.info(`Default project and categories created for user ${email}`);
         }
 
         // Return person to be stored in session

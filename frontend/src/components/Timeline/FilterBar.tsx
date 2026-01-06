@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useTags } from '../../hooks/useTags';
+import { useCategories } from '../../hooks/useCategories';
 import { startOfDay, endOfDay, subDays, startOfWeek, endOfWeek } from 'date-fns';
 
 export type FilterPreset = 'all' | 'today' | 'week' | 'last7';
@@ -7,18 +7,18 @@ export type FilterPreset = 'all' | 'today' | 'week' | 'last7';
 interface FilterBarProps {
   selectedPreset: FilterPreset;
   onPresetChange: (preset: FilterPreset) => void;
-  selectedTagIds: string[];
-  onTagIdsChange: (tagIds: string[]) => void;
+  selectedCategoryIds: string[];
+  onCategoryIdsChange: (categoryIds: string[]) => void;
 }
 
 export function FilterBar({
   selectedPreset,
   onPresetChange,
-  selectedTagIds,
-  onTagIdsChange,
+  selectedCategoryIds,
+  onCategoryIdsChange,
 }: FilterBarProps) {
-  const { data: tags } = useTags();
-  const [showTagMenu, setShowTagMenu] = useState(false);
+  const { data: categories } = useCategories();
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
 
   const presets: { value: FilterPreset; label: string }[] = [
     { value: 'all', label: 'All Time' },
@@ -27,11 +27,11 @@ export function FilterBar({
     { value: 'last7', label: 'Last 7 Days' },
   ];
 
-  const toggleTag = (tagId: string) => {
-    if (selectedTagIds.includes(tagId)) {
-      onTagIdsChange(selectedTagIds.filter((id) => id !== tagId));
+  const toggleCategory = (categoryId: string) => {
+    if (selectedCategoryIds.includes(categoryId)) {
+      onCategoryIdsChange(selectedCategoryIds.filter((id) => id !== categoryId));
     } else {
-      onTagIdsChange([...selectedTagIds, tagId]);
+      onCategoryIdsChange([...selectedCategoryIds, categoryId]);
     }
   };
 
@@ -53,47 +53,47 @@ export function FilterBar({
         ))}
       </div>
 
-      {tags && tags.length > 0 && (
+      {categories && categories.length > 0 && (
         <div className="relative">
           <button
-            onClick={() => setShowTagMenu(!showTagMenu)}
+            onClick={() => setShowCategoryMenu(!showCategoryMenu)}
             className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
-            <span>Tags</span>
-            {selectedTagIds.length > 0 && (
+            <span>Categories</span>
+            {selectedCategoryIds.length > 0 && (
               <span className="rounded-full bg-primary-600 px-2 py-0.5 text-xs text-white">
-                {selectedTagIds.length}
+                {selectedCategoryIds.length}
               </span>
             )}
           </button>
 
-          {showTagMenu && (
+          {showCategoryMenu && (
             <div className="absolute left-0 top-full z-10 mt-1 w-64 rounded-md border border-gray-200 bg-white shadow-lg">
               <div className="p-2">
-                {tags.map((tag) => (
+                {categories.map((category) => (
                   <label
-                    key={tag.id}
+                    key={category.id}
                     className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-gray-50"
                   >
                     <input
                       type="checkbox"
-                      checked={selectedTagIds.includes(tag.id)}
-                      onChange={() => toggleTag(tag.id)}
+                      checked={selectedCategoryIds.includes(category.id)}
+                      onChange={() => toggleCategory(category.id)}
                       className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                     />
                     <div
                       className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: tag.color }}
+                      style={{ backgroundColor: category.color }}
                     />
-                    <span className="text-sm text-gray-700">{tag.name}</span>
+                    <span className="text-sm text-gray-700">{category.name}</span>
                   </label>
                 ))}
               </div>
               <div className="border-t border-gray-200 p-2">
                 <button
                   onClick={() => {
-                    onTagIdsChange([]);
-                    setShowTagMenu(false);
+                    onCategoryIdsChange([]);
+                    setShowCategoryMenu(false);
                   }}
                   className="w-full rounded px-2 py-1 text-sm text-gray-600 hover:bg-gray-50"
                 >

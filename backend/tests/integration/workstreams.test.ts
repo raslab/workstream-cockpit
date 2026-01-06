@@ -5,7 +5,7 @@ import {
   disconnectDatabase,
   createTestPerson,
   createTestProject,
-  createTestTag,
+  createTestCategory,
   createTestWorkstream,
   createTestStatusUpdate,
 } from '../helpers/testDb';
@@ -79,15 +79,15 @@ describe('Workstreams API Integration Tests', () => {
     });
 
     it('should include tag information in workstream', async () => {
-      const tag = await createTestTag(project.id, { name: 'urgent', color: '#FF0000' });
-      await createTestWorkstream(project.id, { name: 'Tagged', tagId: tag.id });
+      const category = await createTestCategory(project.id, { name: 'urgent', color: '#FF0000' });
+      await createTestWorkstream(project.id, { name: 'Tagged', categoryId: category.id });
 
       const response = await request(app).get('/');
 
       expect(response.status).toBe(200);
-      expect(response.body[0].tag).toBeDefined();
-      expect(response.body[0].tag.name).toBe('urgent');
-      expect(response.body[0].tag.color).toBe('#FF0000');
+      expect(response.body[0].category).toBeDefined();
+      expect(response.body[0].category.name).toBe('urgent');
+      expect(response.body[0].category.color).toBe('#FF0000');
     });
 
     it('should include latest status update', async () => {
@@ -135,11 +135,11 @@ describe('Workstreams API Integration Tests', () => {
     });
 
     it('should create workstream with all optional fields', async () => {
-      const tag = await createTestTag(project.id);
+      const category = await createTestCategory(project.id);
 
       const response = await request(app).post('/').send({
         name: 'Full Workstream',
-        tagId: tag.id,
+        categoryId: category.id,
         context: 'Background context',
         initialStatus: 'Starting work',
         initialNote: 'First note',
@@ -147,7 +147,7 @@ describe('Workstreams API Integration Tests', () => {
 
       expect(response.status).toBe(201);
       expect(response.body.name).toBe('Full Workstream');
-      expect(response.body.tagId).toBe(tag.id);
+      expect(response.body.categoryId).toBe(category.id);
       expect(response.body.context).toBe('Background context');
     });
 
@@ -233,15 +233,15 @@ describe('Workstreams API Integration Tests', () => {
     });
 
     it('should update workstream tag', async () => {
-      const tag = await createTestTag(project.id);
+      const category = await createTestCategory(project.id);
       const workstream = await createTestWorkstream(project.id);
 
       const response = await request(app).put(`/${workstream.id}`).send({
-        tagId: tag.id,
+        categoryId: category.id,
       });
 
       expect(response.status).toBe(200);
-      expect(response.body.tagId).toBe(tag.id);
+      expect(response.body.categoryId).toBe(category.id);
     });
 
     it('should update workstream context', async () => {
@@ -256,15 +256,15 @@ describe('Workstreams API Integration Tests', () => {
     });
 
     it('should clear tag by setting to null', async () => {
-      const tag = await createTestTag(project.id);
-      const workstream = await createTestWorkstream(project.id, { tagId: tag.id });
+      const category = await createTestCategory(project.id);
+      const workstream = await createTestWorkstream(project.id, { categoryId: category.id });
 
       const response = await request(app).put(`/${workstream.id}`).send({
-        tagId: null,
+        categoryId: null,
       });
 
       expect(response.status).toBe(200);
-      expect(response.body.tagId).toBeNull();
+      expect(response.body.categoryId).toBeNull();
     });
 
     it('should return 404 when workstream does not exist', async () => {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { Workstream } from '../../types/workstream';
-import { useTags } from '../../hooks/useTags';
+import { useCategories } from '../../hooks/useCategories';
 
 interface WorkstreamEditDialogProps {
   workstream: Workstream;
@@ -12,21 +12,21 @@ interface WorkstreamEditDialogProps {
 
 export function WorkstreamEditDialog({ workstream, isOpen, onClose }: WorkstreamEditDialogProps) {
   const [name, setName] = useState(workstream.name);
-  const [tagId, setTagId] = useState<string>(workstream.tagId || '');
+  const [categoryId, setCategoryId] = useState<string>(workstream.categoryId || '');
   const [context, setContext] = useState(workstream.context || '');
   const queryClient = useQueryClient();
-  const { data: tags = [] } = useTags();
+  const { data: categories = [] } = useCategories();
 
   useEffect(() => {
     if (isOpen) {
       setName(workstream.name);
-      setTagId(workstream.tagId || '');
+      setCategoryId(workstream.categoryId || '');
       setContext(workstream.context || '');
     }
   }, [isOpen, workstream]);
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { name: string; tagId: string | null; context: string | null }) => {
+    mutationFn: async (data: { name: string; categoryId: string | null; context: string | null }) => {
       const response = await apiClient.put(`/api/workstreams/${workstream.id}`, data);
       return response.data;
     },
@@ -42,7 +42,7 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
     if (name.trim()) {
       updateMutation.mutate({
         name: name.trim(),
-        tagId: tagId || null,
+        categoryId: categoryId || null,
         context: context.trim() || null,
       });
     }
@@ -73,19 +73,19 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
           </div>
 
           <div className="mb-4">
-            <label htmlFor="tag" className="mb-1 block text-sm font-medium text-gray-700">
-              Tag
+            <label htmlFor="category" className="mb-1 block text-sm font-medium text-gray-700">
+              Category
             </label>
             <select
-              id="tag"
-              value={tagId}
-              onChange={(e) => setTagId(e.target.value)}
+              id="category"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             >
-              <option value="">No tag</option>
-              {tags.map((tag) => (
-                <option key={tag.id} value={tag.id}>
-                  {tag.name}
+              <option value="">No category</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
                 </option>
               ))}
             </select>

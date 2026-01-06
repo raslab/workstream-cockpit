@@ -28,14 +28,14 @@ model Project {
   createdAt DateTime @default(now()) @map("created_at")
 
   person      Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
-  tags        Tag[]
+  categories  Category[]
   workstreams Workstream[]
 
   @@index([personId])
   @@map("projects")
 }
 
-model Tag {
+model Category {
   id        String   @id @default(uuid())
   projectId String   @map("project_id")
   name      String
@@ -49,26 +49,26 @@ model Tag {
 
   @@unique([projectId, name])
   @@index([projectId])
-  @@map("tags")
+  @@map("categories")
 }
 
 model Workstream {
-  id        String   @id @default(uuid())
-  projectId String   @map("project_id")
-  tagId     String?  @map("tag_id")
-  name      String
-  context   String?  @db.Text
-  state     String   @default("active")
-  createdAt DateTime @default(now()) @map("created_at")
-  closedAt  DateTime? @map("closed_at")
+  id         String    @id @default(uuid())
+  projectId  String    @map("project_id")
+  categoryId String?   @map("category_id")
+  name       String
+  context    String?   @db.Text
+  state      String    @default("active")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  closedAt   DateTime? @map("closed_at")
 
   project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tag           Tag?           @relation(fields: [tagId], references: [id], onDelete: SetNull)
+  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   statusUpdates StatusUpdate[]
 
   @@index([projectId])
   @@index([projectId, state])
-  @@index([tagId])
+  @@index([categoryId])
   @@map("workstreams")
 }
 

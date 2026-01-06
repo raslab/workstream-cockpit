@@ -14,7 +14,7 @@ export interface TimelineEntry {
   note?: string | null;
   createdAt: Date;
   updatedAt?: Date;
-  tag?: {
+  category?: {
     id: string;
     name: string;
     color: string;
@@ -25,7 +25,7 @@ export interface TimelineFilters {
   projectId: string;
   startDate?: Date;
   endDate?: Date;
-  tagIds?: string[];
+  categoryIds?: string[];
 }
 
 /**
@@ -45,9 +45,9 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
       dateFilter.lte = filters.endDate;
     }
 
-    if (filters.tagIds && filters.tagIds.length > 0) {
-      workstreamWhereClause.tagId = {
-        in: filters.tagIds,
+    if (filters.categoryIds && filters.categoryIds.length > 0) {
+      workstreamWhereClause.categoryId = {
+        in: filters.categoryIds,
       };
     }
 
@@ -65,7 +65,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
       include: {
         workstream: {
           include: {
-            tag: {
+            category: {
               select: {
                 id: true,
                 name: true,
@@ -90,7 +90,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
     const workstreamsCreated = await prisma.workstream.findMany({
       where: workstreamCreationWhereClause,
       include: {
-        tag: {
+        category: {
           select: {
             id: true,
             name: true,
@@ -116,7 +116,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
     const workstreamsClosed = await prisma.workstream.findMany({
       where: workstreamClosureWhereClause,
       include: {
-        tag: {
+        category: {
           select: {
             id: true,
             name: true,
@@ -139,7 +139,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
         note: update.note,
         createdAt: update.createdAt,
         updatedAt: update.updatedAt,
-        tag: update.workstream.tag,
+        category: update.workstream.category,
       })),
       // Workstream creation events
       ...workstreamsCreated.map((workstream) => ({
@@ -148,7 +148,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
         workstreamId: workstream.id,
         workstreamName: workstream.name,
         createdAt: workstream.createdAt,
-        tag: workstream.tag,
+        category: workstream.category,
       })),
       // Workstream closure events
       ...workstreamsClosed.map((workstream) => ({
@@ -157,7 +157,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
         workstreamId: workstream.id,
         workstreamName: workstream.name,
         createdAt: workstream.closedAt!,
-        tag: workstream.tag,
+        category: workstream.category,
       })),
     ];
 

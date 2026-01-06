@@ -86,7 +86,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
-    const { name, tagId, context, initialStatus, initialNote } = req.body;
+    const { name, categoryId, context, initialStatus, initialNote } = req.body;
 
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -126,7 +126,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const workstream = await createWorkstream({
       projectId,
       name: name.trim(),
-      tagId,
+      categoryId,
       context,
       initialStatus,
       initialNote,
@@ -147,7 +147,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
     const workstreamId = req.params.id;
-    const { name, tagId, context } = req.body;
+    const { name, categoryId, context } = req.body;
 
     // Validation
     if (name !== undefined) {
@@ -179,7 +179,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
     const updates: any = {};
     
     if (name !== undefined) updates.name = name.trim();
-    if (tagId !== undefined) updates.tagId = tagId;
+    if (categoryId !== undefined) updates.categoryId = categoryId;
     if (context !== undefined) updates.context = context;
 
     const workstream = await updateWorkstream(workstreamId, projectId, updates);

@@ -6,7 +6,7 @@ import {
   disconnectDatabase,
   createTestPerson,
   createTestProject,
-  createTestTag,
+  createTestCategory,
   createTestWorkstream,
   createTestStatusUpdate,
   prisma,
@@ -51,20 +51,20 @@ describe('Timeline API Integration Tests', () => {
 
     it('should return timeline with status updates, workstream creations, and closures', async () => {
       // Create tag
-      const tag = await createTestTag(project.id, {
+      const category = await createTestCategory(project.id, {
         name: 'Feature',
         color: '#FF0000',
       });
 
-      await prisma.tag.update({
-        where: { id: tag.id },
+      await prisma.category.update({
+        where: { id: category.id },
         data: { emoji: '🚀' },
       });
 
       // Create workstream
       const workstream = await createTestWorkstream(project.id, {
         name: 'Test Workstream',
-        tagId: tag.id,
+        categoryId: category.id,
       });
 
       // Create status update
@@ -99,8 +99,8 @@ describe('Timeline API Integration Tests', () => {
         workstreamName: 'Test Workstream',
         status: 'In Progress',
         note: 'Working on it',
-        tag: {
-          id: tag.id,
+        category: {
+          id: category.id,
           name: 'Feature',
           color: '#FF0000',
           emoji: '🚀',
@@ -240,13 +240,13 @@ describe('Timeline API Integration Tests', () => {
     });
 
     it('should filter timeline by single tag', async () => {
-      const tag1 = await createTestTag(project.id, {
+      const category1 = await createTestCategory(project.id, {
         name: 'Feature',
         color: '#FF0000',
         sortOrder: 0,
       });
 
-      const tag2 = await createTestTag(project.id, {
+      const category2 = await createTestCategory(project.id, {
         name: 'Bug',
         color: '#00FF00',
         sortOrder: 1,
@@ -254,12 +254,12 @@ describe('Timeline API Integration Tests', () => {
 
       const workstream1 = await createTestWorkstream(project.id, {
         name: 'Feature Workstream',
-        tagId: tag1.id,
+        categoryId: category1.id,
       });
 
       const workstream2 = await createTestWorkstream(project.id, {
         name: 'Bug Workstream',
-        tagId: tag2.id,
+        categoryId: category2.id,
       });
 
       await createTestStatusUpdate(workstream1.id, {
@@ -272,7 +272,7 @@ describe('Timeline API Integration Tests', () => {
 
       const res = await request(app)
         .get('/')
-        .query({ tagIds: tag1.id });
+        .query({ categoryIds: category1.id });
 
       expect(res.status).toBe(200);
       const workstreamNames = res.body.map((e: any) => e.workstreamName);
@@ -281,19 +281,19 @@ describe('Timeline API Integration Tests', () => {
     });
 
     it('should filter timeline by multiple tags', async () => {
-      const tag1 = await createTestTag(project.id, {
+      const category1 = await createTestCategory(project.id, {
         name: 'Feature',
         color: '#FF0000',
         sortOrder: 0,
       });
 
-      const tag2 = await createTestTag(project.id, {
+      const category2 = await createTestCategory(project.id, {
         name: 'Bug',
         color: '#00FF00',
         sortOrder: 1,
       });
 
-      const tag3 = await createTestTag(project.id, {
+      const category3 = await createTestCategory(project.id, {
         name: 'Documentation',
         color: '#0000FF',
         sortOrder: 2,
@@ -301,17 +301,17 @@ describe('Timeline API Integration Tests', () => {
 
       const workstream1 = await createTestWorkstream(project.id, {
         name: 'Feature Workstream',
-        tagId: tag1.id,
+        categoryId: category1.id,
       });
 
       const workstream2 = await createTestWorkstream(project.id, {
         name: 'Bug Workstream',
-        tagId: tag2.id,
+        categoryId: category2.id,
       });
 
       const workstream3 = await createTestWorkstream(project.id, {
         name: 'Docs Workstream',
-        tagId: tag3.id,
+        categoryId: category3.id,
       });
 
       await createTestStatusUpdate(workstream1.id, {
@@ -328,7 +328,7 @@ describe('Timeline API Integration Tests', () => {
 
       const res = await request(app)
         .get('/')
-        .query({ tagIds: `${tag1.id},${tag2.id}` });
+        .query({ categoryIds: `${category1.id},${category2.id}` });
 
       expect(res.status).toBe(200);
       const workstreamNames = res.body.map((e: any) => e.workstreamName);
@@ -338,13 +338,13 @@ describe('Timeline API Integration Tests', () => {
     });
 
     it('should combine date and tag filters', async () => {
-      const tag1 = await createTestTag(project.id, {
+      const category1 = await createTestCategory(project.id, {
         name: 'Feature',
         color: '#FF0000',
         sortOrder: 0,
       });
 
-      const tag2 = await createTestTag(project.id, {
+      const category2 = await createTestCategory(project.id, {
         name: 'Bug',
         color: '#00FF00',
         sortOrder: 1,
@@ -354,7 +354,7 @@ describe('Timeline API Integration Tests', () => {
         data: {
           name: 'Old Feature',
           projectId: project.id,
-          tagId: tag1.id,
+          categoryId: category1.id,
           createdAt: new Date('2024-01-01'),
         },
       });
@@ -363,7 +363,7 @@ describe('Timeline API Integration Tests', () => {
         data: {
           name: 'Recent Feature',
           projectId: project.id,
-          tagId: tag1.id,
+          categoryId: category1.id,
           createdAt: new Date('2024-05-01'),
         },
       });
@@ -372,7 +372,7 @@ describe('Timeline API Integration Tests', () => {
         data: {
           name: 'Recent Bug',
           projectId: project.id,
-          tagId: tag2.id,
+          categoryId: category2.id,
           createdAt: new Date('2024-05-15'),
         },
       });
@@ -401,10 +401,10 @@ describe('Timeline API Integration Tests', () => {
         },
       });
 
-      // Filter for tag1 (Feature) after May 1st
+      // Filter for category1 (Feature) after May 1st
       const res = await request(app)
         .get('/')
-        .query({ tagIds: tag1.id, startDate: '2024-05-01' });
+        .query({ categoryIds: category1.id, startDate: '2024-05-01' });
 
       expect(res.status).toBe(200);
       const workstreamNames = res.body.map((e: any) => e.workstreamName);
@@ -431,7 +431,7 @@ describe('Timeline API Integration Tests', () => {
       expect(res.body).toHaveProperty('error', 'Invalid endDate format');
     });
 
-    it('should handle empty tagIds gracefully', async () => {
+    it('should handle empty categoryIds gracefully', async () => {
       const workstream = await createTestWorkstream(project.id, {
         name: 'Test Workstream',
       });
@@ -442,7 +442,7 @@ describe('Timeline API Integration Tests', () => {
 
       const res = await request(app)
         .get('/')
-        .query({ tagIds: '' });
+        .query({ categoryIds: '' });
 
       expect(res.status).toBe(200);
       expect(res.body.length).toBeGreaterThan(0);
