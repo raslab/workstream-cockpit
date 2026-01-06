@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 export interface CreateWorkstreamInput {
   projectId: string;
   name: string;
-  tagId?: string;
+  categoryId?: string;
   context?: string;
   initialStatus?: string;
   initialNote?: string;
@@ -14,13 +14,13 @@ export interface CreateWorkstreamInput {
 
 export interface UpdateWorkstreamInput {
   name?: string;
-  tagId?: string | null;
+  categoryId?: string | null;
   context?: string;
 }
 
 export interface WorkstreamWithLatestStatus extends Workstream {
   latestStatus?: StatusUpdate;
-  tag?: {
+  category?: {
     id: string;
     name: string;
     color: string;
@@ -44,7 +44,7 @@ export async function getWorkstreams(
     const workstreams = await prisma.workstream.findMany({
       where: whereClause,
       include: {
-        tag: {
+        category: {
           select: {
             id: true,
             name: true,
@@ -89,7 +89,7 @@ export async function getWorkstreamById(
         projectId,
       },
       include: {
-        tag: {
+        category: {
           select: {
             id: true,
             name: true,
@@ -133,7 +133,7 @@ export async function createWorkstream(input: CreateWorkstreamInput): Promise<Wo
         data: {
           projectId: input.projectId,
           name: input.name,
-          tagId: input.tagId,
+          categoryId: input.categoryId,
           context: input.context,
           state: 'active',
         },
