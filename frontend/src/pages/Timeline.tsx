@@ -59,12 +59,14 @@ export default function Timeline() {
       case 'status_update':
       default:
         return (
-          <>
-            <p className="text-sm text-gray-700">{entry.status}</p>
+          <div>
+            <MarkdownRenderer content={entry.status!} className="text-sm text-gray-700" />
             {entry.note && (
-              <MarkdownRenderer content={entry.note} className="mt-2 text-sm text-gray-600 italic" />
+              <div className="mt-3 border-t border-gray-900 pt-2">
+                <MarkdownRenderer content={entry.note} className="text-sm text-gray-600" />
+              </div>
             )}
-          </>
+          </div>
         );
     }
   };

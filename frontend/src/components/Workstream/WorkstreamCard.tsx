@@ -5,6 +5,7 @@ import { Workstream } from '../../types/workstream';
 import { formatDistanceToNow } from 'date-fns';
 import { StatusUpdateDialog } from '../StatusUpdate/StatusUpdateDialog';
 import { apiClient } from '../../api/client';
+import { MarkdownRenderer } from '../Markdown/MarkdownRenderer';
 
 interface WorkstreamCardProps {
   workstream: Workstream;
@@ -49,7 +50,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
             
             {latestStatus && (
               <div className="mt-1.5">
-                <p className="text-sm text-gray-700">{latestStatus.status}</p>
+                <MarkdownRenderer content={latestStatus.status} className="text-sm text-gray-700" />
                 <p className="mt-0.5 text-xs text-gray-500">
                   Updated {formatDistanceToNow(new Date(latestStatus.updatedAt), { addSuffix: true })}
                 </p>

@@ -34,6 +34,7 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
       queryClient.invalidateQueries({ queryKey: ['status-updates', workstreamId] });
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
       queryClient.invalidateQueries({ queryKey: ['workstream', workstreamId] });
+      queryClient.invalidateQueries({ queryKey: ['timeline'] });
       onClose();
     },
   });
@@ -142,6 +143,8 @@ export default function WorkstreamDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['status-updates', id] });
       queryClient.invalidateQueries({ queryKey: ['workstream', id] });
+      queryClient.invalidateQueries({ queryKey: ['workstreams'] });
+      queryClient.invalidateQueries({ queryKey: ['timeline'] });
       setDeleteConfirm(null);
     },
   });
@@ -187,40 +190,44 @@ export default function WorkstreamDetail() {
             ← Back to Cockpit
           </button>
           
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                {workstream.category && (
-                  <div
-                    className="flex h-8 w-8 items-center justify-center rounded-md text-lg"
-                    style={{ backgroundColor: workstream.category.color }}
-                    title={workstream.category.name}
-                  >
-                    {workstream.category.emoji}
-                  </div>
-                )}
-                <h1 className="text-3xl font-bold text-gray-900">{workstream.name}</h1>
-              </div>
-              {workstream.context && (
-                <MarkdownRenderer content={workstream.context} className="mt-2 text-sm text-gray-600" />
+          {/* Workstream header */}
+            <div className="flex items-center gap-2">
+              {workstream.category && (
+                <div
+                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-lg"
+                  style={{ backgroundColor: workstream.category.color }}
+                  title={workstream.category.name}
+                >
+                  {workstream.category.emoji}
+                </div>
               )}
-            </div>
+              <h1 className="text-3xl font-bold text-gray-900">{workstream.name}</h1>
 
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowEditDialog(true)}
-                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => setShowNewStatusDialog(true)}
-                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-              >
-                Add Update
-              </button>
+              <div className="flex-1"></div>
+
+              {/* Action buttons */}
+              <div className="flex flex-shrink-0 items-center gap-2">
+                <button
+                  onClick={() => setShowEditDialog(true)}
+                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => setShowNewStatusDialog(true)}
+                  className="whitespace-nowrap rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                >
+                  Add Update
+                </button>
+              </div>
             </div>
-          </div>
+          
+          {/* Context */}
+          {workstream.context && (
+            <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+              <MarkdownRenderer content={workstream.context} className="text-sm text-gray-700" />
+            </div>
+          )}
         </div>
 
         {/* Status History */}
@@ -236,26 +243,23 @@ export default function WorkstreamDetail() {
           <div className="space-y-4">
             {statusUpdates?.map((update) => (
               <div key={update.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-baseline gap-2">
-                      <time className="text-sm font-medium text-gray-900">
-                        {format(parseISO(update.createdAt), 'MMM d, yyyy • h:mm a')}
-                      </time>
-                      {update.createdAt !== update.updatedAt && (
-                        <span className="text-xs text-gray-500">(edited)</span>
-                      )}
-                      <span className="text-xs text-gray-500">
-                        • {formatDistanceToNow(parseISO(update.createdAt), { addSuffix: true })}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm text-gray-700">{update.status}</p>
-                    {update.note && (
-                      <MarkdownRenderer content={update.note} className="mt-2 text-sm text-gray-600 italic" />
-                    )}
-                  </div>
+                
+                {/* Timestamp */}
+                <div className="flex items-baseline gap-2">
+                  <time className="text-sm font-medium text-gray-900">
+                    {format(parseISO(update.createdAt), 'MMM d, yyyy • h:mm a')}
+                  </time>
+                  {update.createdAt !== update.updatedAt && (
+                    <span className="text-xs text-gray-500">(edited)</span>
+                  )}
+                  <span className="text-xs text-gray-500">
+                    • {formatDistanceToNow(parseISO(update.createdAt), { addSuffix: true })}
+                  </span>
 
-                  <div className="ml-4 flex gap-2">
+                  <div className="flex-1"></div>
+
+                  {/* Action buttons */}
+                  <div className="flex justify-end gap-2 mb-3">
                     <button
                       onClick={() => setEditingStatus(update)}
                       className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -290,6 +294,18 @@ export default function WorkstreamDetail() {
                     )}
                   </div>
                 </div>
+                
+                {/* Status */}
+                <div className="mt-2">
+                  <MarkdownRenderer content={update.status} className="text-sm text-gray-700" />
+                </div>
+                
+                {/* Note (if exists) */}
+                {update.note && (
+                  <div className="mt-3 border-t border-gray-900 pt-3">
+                    <MarkdownRenderer content={update.note} className="text-sm text-gray-600" />
+                  </div>
+                )}
               </div>
             ))}
           </div>

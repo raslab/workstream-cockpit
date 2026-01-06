@@ -35,10 +35,6 @@ export function SettingsSidebar() {
           </NavLink>
         ))}
       </div>
-      
-      <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-        <strong>💡 Tip:</strong> Settings are organized by category. More options will be added here over time.
-      </div>
     </nav>
   );
 }
