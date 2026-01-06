@@ -12,7 +12,7 @@ export interface TimelineEntry {
   note?: string | null;
   createdAt: string;
   updatedAt?: string;
-  tag?: {
+  category?: {
     id: string;
     name: string;
     color: string;
@@ -23,12 +23,12 @@ export interface TimelineEntry {
 interface UseTimelineOptions {
   startDate?: Date;
   endDate?: Date;
-  tagIds?: string[];
+  categoryIds?: string[];
 }
 
 export function useTimeline(options: UseTimelineOptions = {}) {
   return useQuery<TimelineEntry[]>({
-    queryKey: ['timeline', options.startDate, options.endDate, options.tagIds],
+    queryKey: ['timeline', options.startDate, options.endDate, options.categoryIds],
     queryFn: async () => {
       const params = new URLSearchParams();
       
@@ -38,8 +38,8 @@ export function useTimeline(options: UseTimelineOptions = {}) {
       if (options.endDate) {
         params.set('endDate', options.endDate.toISOString());
       }
-      if (options.tagIds && options.tagIds.length > 0) {
-        params.set('tagIds', options.tagIds.join(','));
+      if (options.categoryIds && options.categoryIds.length > 0) {
+        params.set('categoryIds', options.categoryIds.join(','));
       }
       
       const url = `/api/timeline${params.toString() ? `?${params.toString()}` : ''}`;

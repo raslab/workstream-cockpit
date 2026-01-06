@@ -11,7 +11,7 @@ interface WorkstreamCardProps {
 }
 
 export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
-  const { name, tag, latestStatus } = workstream;
+  const { name, category, latestStatus } = workstream;
   const [showDialog, setShowDialog] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const queryClient = useQueryClient();
@@ -33,13 +33,13 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
         <div className="flex items-start justify-between">
           <Link to={`/workstreams/${workstream.id}`} className="flex-1">
             <div className="flex items-center gap-2">
-              {tag && (
+              {category && (
                 <div
                   className="flex h-5 w-5 items-center justify-center rounded text-sm"
-                  style={{ backgroundColor: tag.color }}
-                  title={tag.name}
+                  style={{ backgroundColor: category.color }}
+                  title={category.name}
                 >
-                  {tag.emoji}
+                  {category.emoji}
                 </div>
               )}
               <h3 className="text-base font-semibold text-gray-900 hover:text-primary-600">

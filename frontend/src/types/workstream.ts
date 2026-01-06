@@ -1,4 +1,4 @@
-export interface Tag {
+export interface Category {
   id: string;
   name: string;
   color: string;
@@ -19,11 +19,11 @@ export interface Workstream {
   id: string;
   projectId: string;
   name: string;
-  tagId: string | null;
+  categoryId: string | null;
   context: string | null;
   state: 'active' | 'closed';
   createdAt: string;
   closedAt: string | null;
-  tag?: Tag | null;
+  category?: Category | null;
   latestStatus?: StatusUpdate;
 }
