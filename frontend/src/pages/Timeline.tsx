@@ -7,6 +7,7 @@ import {
 } from '../components/Timeline/FilterBar';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { Link } from 'react-router-dom';
+import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 
 export default function Timeline() {
   const [selectedPreset, setSelectedPreset] = useState<FilterPreset>('last7');
@@ -58,12 +59,14 @@ export default function Timeline() {
       case 'status_update':
       default:
         return (
-          <>
-            <p className="text-sm text-gray-700">{entry.status}</p>
+          <div>
+            <MarkdownRenderer content={entry.status!} className="text-sm text-gray-700" />
             {entry.note && (
-              <p className="mt-2 text-sm text-gray-600 italic">{entry.note}</p>
+              <div className="mt-3 border-t border-gray-900 pt-2">
+                <MarkdownRenderer content={entry.note} className="text-sm text-gray-600" />
+              </div>
             )}
-          </>
+          </div>
         );
     }
   };

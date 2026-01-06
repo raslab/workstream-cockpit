@@ -7,7 +7,7 @@ import OAuthCallback from '@/pages/OAuthCallback';
 import Cockpit from '@/pages/Cockpit';
 import Timeline from '@/pages/Timeline';
 import Archive from '@/pages/Archive';
-import CategoryManagement from '@/pages/CategoryManagement';
+import Settings from '@/pages/Settings';
 import WorkstreamDetail from '@/pages/WorkstreamDetail';
 
 function App() {
@@ -47,11 +47,11 @@ function App() {
           }
         />
         <Route
-          path="/categories"
+          path="/settings/*"
           element={
             <ProtectedRoute>
               <Layout>
-                <CategoryManagement />
+                <Settings />
               </Layout>
             </ProtectedRoute>
           }

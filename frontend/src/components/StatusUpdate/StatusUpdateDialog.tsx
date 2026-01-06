@@ -28,6 +28,7 @@ export function StatusUpdateDialog({
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
       queryClient.invalidateQueries({ queryKey: ['status-updates', workstreamId] });
       queryClient.invalidateQueries({ queryKey: ['workstream', workstreamId] });
+      queryClient.invalidateQueries({ queryKey: ['timeline'] });
       setStatus('');
       setNote('');
       onClose();
