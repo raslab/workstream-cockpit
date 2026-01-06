@@ -279,11 +279,11 @@ export default function CategoryManagement() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+    <div>
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Category Management</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Categories</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Create and customize tags to organize your workstreams
+          Create and customize categories to organize your workstreams
         </p>
       </div>
 

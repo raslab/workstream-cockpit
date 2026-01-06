@@ -9,7 +9,7 @@ export default function Header() {
     { path: '/', label: 'Cockpit' },
     { path: '/timeline', label: 'Timeline' },
     { path: '/archive', label: 'Archive' },
-    { path: '/categories', label: 'Categories' },
+    { path: '/settings', label: 'Settings' },
   ];
 
   return (
@@ -21,19 +21,25 @@ export default function Header() {
             
             {user && (
               <nav className="ml-10 flex space-x-4">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`rounded-md px-3 py-2 text-sm font-medium ${
-                      location.pathname === item.path
-                        ? 'bg-primary-100 text-primary-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                {navItems.map((item) => {
+                  const isActive = item.path === '/' 
+                    ? location.pathname === '/'
+                    : location.pathname.startsWith(item.path);
+                  
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`rounded-md px-3 py-2 text-sm font-medium ${
+                        isActive
+                          ? 'bg-primary-100 text-primary-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
               </nav>
             )}
           </div>

@@ -7,6 +7,7 @@ import { useStatusHistory } from '../hooks/useStatusHistory';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { StatusUpdateDialog } from '../components/StatusUpdate/StatusUpdateDialog';
 import { WorkstreamEditDialog } from '../components/Workstream/WorkstreamEditDialog';
+import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 
 interface StatusEditDialogProps {
   statusUpdate: StatusUpdate;
@@ -115,9 +116,11 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
 export default function WorkstreamDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [showNewStatusDialog, setShowNewStatusDialog] = useState(false);
   const [editingStatus, setEditingStatus] = useState<StatusUpdate | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const { data: workstream, isLoading: workstreamLoading } = useQuery<Workstream>({
     queryKey: ['workstream', id],
@@ -129,6 +132,19 @@ export default function WorkstreamDetail() {
   });
 
   const { data: statusUpdates, isLoading: historyLoading } = useStatusHistory(id!);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (statusUpdateId: string) => {
+      await apiClient.delete(`/api/status-updates/${statusUpdateId}`, {
+        data: { workstreamId: id },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['status-updates', id] });
+      queryClient.invalidateQueries({ queryKey: ['workstream', id] });
+      setDeleteConfirm(null);
+    },
+  });
 
   const isLoading = workstreamLoading || historyLoading;
 
@@ -186,7 +202,7 @@ export default function WorkstreamDetail() {
                 <h1 className="text-3xl font-bold text-gray-900">{workstream.name}</h1>
               </div>
               {workstream.context && (
-                <p className="mt-2 text-sm text-gray-600">{workstream.context}</p>
+                <MarkdownRenderer content={workstream.context} className="mt-2 text-sm text-gray-600" />
               )}
             </div>
 
@@ -235,16 +251,44 @@ export default function WorkstreamDetail() {
                     </div>
                     <p className="mt-2 text-sm text-gray-700">{update.status}</p>
                     {update.note && (
-                      <p className="mt-2 text-sm text-gray-600 italic">{update.note}</p>
+                      <MarkdownRenderer content={update.note} className="mt-2 text-sm text-gray-600 italic" />
                     )}
                   </div>
 
-                  <button
-                    onClick={() => setEditingStatus(update)}
-                    className="ml-4 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Edit
-                  </button>
+                  <div className="ml-4 flex gap-2">
+                    <button
+                      onClick={() => setEditingStatus(update)}
+                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Edit
+                    </button>
+                    
+                    {deleteConfirm === update.id ? (
+                      <>
+                        <button
+                          onClick={() => setDeleteConfirm(null)}
+                          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                          disabled={deleteMutation.isPending}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => deleteMutation.mutate(update.id)}
+                          className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                          disabled={deleteMutation.isPending}
+                        >
+                          {deleteMutation.isPending ? 'Deleting...' : 'Confirm'}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setDeleteConfirm(update.id)}
+                        className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
