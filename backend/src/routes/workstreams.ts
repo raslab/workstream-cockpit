@@ -23,11 +23,18 @@ router.use(requireUserContext);
  * Get all workstreams for the user's default project
  * Query params:
  *   - state: 'active' | 'closed' (optional)
+ *   - tags: comma-separated list of tag names (optional)
  */
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
     const state = req.query.state as 'active' | 'closed' | undefined;
+    const tagsQuery = req.query.tags as string | undefined;
+
+    // Parse comma-separated tags
+    const tags = tagsQuery 
+      ? tagsQuery.split(',').map(t => t.trim()).filter(Boolean)
+      : undefined;
 
     // Get user's projects (for Phase 1, we'll use the first/default project)
     const projects = await getProjectsByPersonId(personId);
@@ -38,7 +45,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     const projectId = projects[0].id;
-    const workstreams = await getWorkstreams(projectId, state);
+    const workstreams = await getWorkstreams(projectId, state, tags);
 
     res.json(workstreams);
   } catch (error) {

@@ -1,43 +1,37 @@
-import { Router, Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 import { requireUserContext } from '../middleware/userContext';
 import { getProjectsByPersonId } from '../services/projectService';
-import {
-  getCategoriesByProjectId,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  reorderCategories,
-} from '../services/categoryService';
+import * as tagService from '../services/tagService';
 import { logger } from '../utils/logger';
 
-const router = Router();
+const router = express.Router();
 
 // All routes require authentication
 router.use(requireUserContext);
 
 /**
  * GET /api/tags
- * Get all tags for the user's default project
+ * Get all tags for current project
  */
-router.get('/', async (req: Request, res: Response): Promise<void> => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const personId = req.userContext!.personId;
 
-    // Get user's projects (for Phase 1, we'll use the first/default project)
+    // Get user's projects
     const projects = await getProjectsByPersonId(personId);
     
     if (projects.length === 0) {
-      res.json([]);
+      res.json({ tags: [] });
       return;
     }
 
     const projectId = projects[0].id;
-    const tags = await getCategoriesByProjectId(projectId);
+    const tags = await tagService.getTagsByProjectId(projectId);
 
-    res.json(tags);
-  } catch (error) {
-    logger.error('Error fetching tags:', error);
-    res.status(500).json({ error: 'Failed to fetch tags' });
+    res.json({ tags });
+  } catch (error: any) {
+    logger.error('GET /api/tags error:', error);
+    res.status(500).json({ message: 'Failed to fetch tags' });
   }
 });
 
@@ -48,194 +42,87 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
-    const { name, color, emoji } = req.body;
+    const { name, color } = req.body;
 
-    // Validation
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      res.status(400).json({ error: 'Tag name is required' });
+    // Validate required fields
+    if (!name || !color) {
+      res.status(400).json({ message: 'Name and color are required' });
       return;
-    }
-
-    if (name.length > 100) {
-      res.status(400).json({ error: 'Tag name must be 100 characters or less' });
-      return;
-    }
-
-    if (!color || typeof color !== 'string') {
-      res.status(400).json({ error: 'Tag color is required' });
-      return;
-    }
-
-    // Validate hex color format
-    if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
-      res.status(400).json({ error: 'Tag color must be a valid hex color (e.g., #FF5733)' });
-      return;
-    }
-
-    // Validate emoji (optional, single emoji character)
-    if (emoji !== undefined && emoji !== null) {
-      if (typeof emoji !== 'string') {
-        res.status(400).json({ error: 'Emoji must be a string' });
-        return;
-      }
-      // Basic emoji validation - just check length for now
-      if (emoji.length > 10) {
-        res.status(400).json({ error: 'Emoji must be a single emoji character' });
-        return;
-      }
     }
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
     
     if (projects.length === 0) {
-      res.status(400).json({ error: 'No project found for user' });
+      res.status(400).json({ message: 'No project found for user' });
       return;
     }
 
     const projectId = projects[0].id;
-    const tag = await createCategory({
+    const tag = await tagService.createTag({
       projectId,
-      name: name.trim(),
-      color: color.toUpperCase(),
-      emoji: emoji?.trim() || null,
+      name,
+      color,
     });
 
-    res.status(201).json(tag);
+    res.status(201).json({ tag });
   } catch (error: any) {
-    if (error.message?.includes('Unique constraint')) {
-      res.status(400).json({ error: 'A tag with this name already exists' });
+    logger.error('POST /api/tags error:', error);
+    
+    // Return 400 for validation errors
+    if (error.message.includes('Invalid') || error.message.includes('already exists')) {
+      res.status(400).json({ message: error.message });
       return;
     }
-    logger.error('Error creating tag:', error);
-    res.status(500).json({ error: 'Failed to create tag' });
+
+    res.status(500).json({ message: 'Failed to create tag' });
   }
 });
 
 /**
- * PUT /api/tags/reorder
- * Reorder tags
- * NOTE: Must come BEFORE /:id route to avoid treating "reorder" as an ID
- */
-router.put('/reorder', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const personId = req.userContext!.personId;
-    const { tagIds } = req.body;
-
-    logger.info(`Reorder request from person ${personId} with ${tagIds?.length || 0} tags`);
-
-    // Validation
-    if (!Array.isArray(tagIds) || tagIds.length === 0) {
-      res.status(400).json({ error: 'Tag IDs array is required' });
-      return;
-    }
-
-    if (!tagIds.every((id) => typeof id === 'string')) {
-      res.status(400).json({ error: 'All tag IDs must be strings' });
-      return;
-    }
-
-    // Get user's projects
-    const projects = await getProjectsByPersonId(personId);
-    
-    if (projects.length === 0) {
-      logger.error(`No project found for person ${personId}`);
-      res.status(400).json({ error: 'No project found for user' });
-      return;
-    }
-
-    const projectId = projects[0].id;
-    logger.info(`Reordering tags for project ${projectId}`);
-    
-    const updatedTags = await reorderCategories(projectId, tagIds);
-    
-    logger.info(`Successfully reordered ${updatedTags.length} tags`);
-    res.json(updatedTags);
-  } catch (error: any) {
-    logger.error('Error in reorder endpoint:', error);
-    if (error.message?.includes('not found or access denied')) {
-      res.status(404).json({ error: 'Tag not found' });
-      return;
-    }
-    logger.error('Error reordering tags:', error);
-    res.status(500).json({ error: 'Failed to reorder tags' });
-  }
-});
-
-/**
- * PUT /api/tags/:id
+ * PATCH /api/tags/:id
  * Update a tag
  */
-router.put('/:id', async (req: Request, res: Response): Promise<void> => {
+router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
-    const tagId = req.params.id;
-    const { name, color, emoji } = req.body;
+    const { id } = req.params;
+    const { name, color } = req.body;
 
-    // Validation
-    if (name !== undefined) {
-      if (typeof name !== 'string' || name.trim().length === 0) {
-        res.status(400).json({ error: 'Tag name cannot be empty' });
-        return;
-      }
-
-      if (name.length > 100) {
-        res.status(400).json({ error: 'Tag name must be 100 characters or less' });
-        return;
-      }
-    }
-
-    if (color !== undefined) {
-      if (typeof color !== 'string') {
-        res.status(400).json({ error: 'Tag color must be a string' });
-        return;
-      }
-
-      if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
-        res.status(400).json({ error: 'Tag color must be a valid hex color (e.g., #FF5733)' });
-        return;
-      }
-    }
-
-    if (emoji !== undefined && emoji !== null) {
-      if (typeof emoji !== 'string') {
-        res.status(400).json({ error: 'Emoji must be a string' });
-        return;
-      }
-      if (emoji.length > 10) {
-        res.status(400).json({ error: 'Emoji must be a single emoji character' });
-        return;
-      }
+    // Validate at least one field provided
+    if (name === undefined && color === undefined) {
+      res.status(400).json({ message: 'At least one field (name or color) is required' });
+      return;
     }
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
     
     if (projects.length === 0) {
-      res.status(404).json({ error: 'Tag not found' });
+      res.status(404).json({ message: 'Tag not found' });
       return;
     }
 
     const projectId = projects[0].id;
-    const updates: any = {};
-    
-    if (name !== undefined) updates.name = name.trim();
-    if (color !== undefined) updates.color = color.toUpperCase();
-    if (emoji !== undefined) updates.emoji = emoji?.trim() || null;
+    const tag = await tagService.updateTag(id, projectId, { name, color });
 
-    const tag = await updateCategory(tagId, projectId, updates);
-    res.json(tag);
+    res.json({ tag });
   } catch (error: any) {
-    if (error.message === 'Tag not found or access denied') {
-      res.status(404).json({ error: 'Tag not found' });
+    logger.error(`PATCH /api/tags/${req.params.id} error:`, error);
+
+    // Return 404 for not found
+    if (error.message === 'Tag not found') {
+      res.status(404).json({ message: 'Tag not found' });
       return;
     }
-    if (error.message?.includes('Unique constraint')) {
-      res.status(400).json({ error: 'A tag with this name already exists' });
+
+    // Return 400 for validation errors
+    if (error.message.includes('Invalid') || error.message.includes('already exists')) {
+      res.status(400).json({ message: error.message });
       return;
     }
-    logger.error('Error updating tag:', error);
-    res.status(500).json({ error: 'Failed to update tag' });
+
+    res.status(500).json({ message: 'Failed to update tag' });
   }
 });
 
@@ -246,27 +133,30 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
 router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
-    const tagId = req.params.id;
+    const { id } = req.params;
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
     
     if (projects.length === 0) {
-      res.status(404).json({ error: 'Tag not found' });
+      res.status(404).json({ message: 'Tag not found' });
       return;
     }
 
     const projectId = projects[0].id;
-    await deleteCategory(tagId, projectId);
-    
+    await tagService.deleteTag(id, projectId);
+
     res.status(204).send();
   } catch (error: any) {
-    if (error.message === 'Tag not found or access denied') {
-      res.status(404).json({ error: 'Tag not found' });
+    logger.error(`DELETE /api/tags/${req.params.id} error:`, error);
+
+    // Return 404 for not found
+    if (error.message === 'Tag not found') {
+      res.status(404).json({ message: 'Tag not found' });
       return;
     }
-    logger.error('Error deleting tag:', error);
-    res.status(500).json({ error: 'Failed to delete tag' });
+
+    res.status(500).json({ message: 'Failed to delete tag' });
   }
 });
 

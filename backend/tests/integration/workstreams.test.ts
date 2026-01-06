@@ -418,4 +418,163 @@ describe('Workstreams API Integration Tests', () => {
       expect(stillExists).toBeDefined();
     });
   });
+
+  describe('Tag Filtering', () => {
+    it('should filter workstreams by single tag in context', async () => {
+      await createTestWorkstream(project.id, {
+        name: 'Backend WS',
+        context: 'Working on #backend API',
+      });
+      await createTestWorkstream(project.id, {
+        name: 'Frontend WS',
+        context: 'Building #frontend UI',
+      });
+
+      const response = await request(app).get('/?tags=backend');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveLength(1);
+      expect(response.body[0].name).toBe('Backend WS');
+    });
+
+    it('should filter workstreams by multiple tags (OR logic)', async () => {
+      await createTestWorkstream(project.id, {
+        name: 'Backend WS',
+        context: 'Working on #backend API',
+      });
+      await createTestWorkstream(project.id, {
+        name: 'Frontend WS',
+        context: 'Building #frontend UI',
+      });
+      await createTestWorkstream(project.id, {
+        name: 'Database WS',
+        context: 'Setting up #database',
+      });
+
+      const response = await request(app).get('/?tags=backend,frontend');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveLength(2);
+      const names = response.body.map((ws: any) => ws.name);
+      expect(names).toContain('Backend WS');
+      expect(names).toContain('Frontend WS');
+      expect(names).not.toContain('Database WS');
+    });
+
+    it('should filter workstreams by tags in status updates', async () => {
+      const ws1 = await createTestWorkstream(project.id, { name: 'WS1' });
+      const ws2 = await createTestWorkstream(project.id, { name: 'WS2' });
+
+      await createTestStatusUpdate(ws1.id, {
+        status: 'Working on #backend',
+        note: 'Making progress',
+      });
+      await createTestStatusUpdate(ws2.id, {
+        status: 'Working on #frontend',
+        note: 'Building UI',
+      });
+
+      const response = await request(app).get('/?tags=backend');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveLength(1);
+      expect(response.body[0].name).toBe('WS1');
+    });
+
+    it('should filter by tags in both context and status updates', async () => {
+      // Create workstream with tag in context
+      await createTestWorkstream(project.id, {
+        name: 'WS1',
+        context: 'Project #backend work',
+      });
+      
+      // Create workstream with tag in status update
+      const ws2 = await createTestWorkstream(project.id, { name: 'WS2' });
+
+      await createTestStatusUpdate(ws2.id, {
+        status: 'Update',
+        note: 'Working on #backend tasks',
+      });
+
+      const response = await request(app).get('/?tags=backend');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveLength(2);
+    });
+
+    it('should be case-insensitive when filtering tags', async () => {
+      await createTestWorkstream(project.id, {
+        name: 'WS1',
+        context: 'Working on #Backend API',
+      });
+
+      const response = await request(app).get('/?tags=backend');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveLength(1);
+    });
+
+    it('should return empty array when no workstreams match tags', async () => {
+      await createTestWorkstream(project.id, {
+        name: 'WS1',
+        context: 'No tags here',
+      });
+
+      const response = await request(app).get('/?tags=backend');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual([]);
+    });
+
+    it('should combine state and tag filters', async () => {
+      await createTestWorkstream(project.id, {
+        name: 'Active Backend',
+        context: '#backend work',
+        state: 'active',
+      });
+      await createTestWorkstream(project.id, {
+        name: 'Closed Backend',
+        context: '#backend work',
+        state: 'closed',
+      });
+      await createTestWorkstream(project.id, {
+        name: 'Active Frontend',
+        context: '#frontend work',
+        state: 'active',
+      });
+
+      const response = await request(app).get('/?state=active&tags=backend');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveLength(1);
+      expect(response.body[0].name).toBe('Active Backend');
+    });
+
+    it('should handle tags with hyphens and underscores', async () => {
+      await createTestWorkstream(project.id, {
+        name: 'WS1',
+        context: 'Working on #backend-api and #team_alpha',
+      });
+
+      const response1 = await request(app).get('/?tags=backend-api');
+      const response2 = await request(app).get('/?tags=team_alpha');
+
+      expect(response1.status).toBe(200);
+      expect(response1.body).toHaveLength(1);
+      expect(response2.status).toBe(200);
+      expect(response2.body).toHaveLength(1);
+    });
+
+    it('should handle whitespace in tags query parameter', async () => {
+      await createTestWorkstream(project.id, {
+        name: 'WS1',
+        context: '#backend work',
+      });
+
+      const response = await request(app).get('/?tags= backend , frontend ');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveLength(1);
+    });
+  });
 });
