@@ -1,0 +1,61 @@
+{
+  "folders": [
+    {
+      "name": "Workstream Cockpit (Root)",
+      "path": "."
+    },
+    {
+      "name": "Backend",
+      "path": "./backend"
+    },
+    {
+      "name": "Frontend", 
+      "path": "./frontend"
+    }
+  ],
+  "settings": {
+    // Jest Configuration (Backend)
+    "jest.runMode": "on-demand",
+    "jest.rootPath": "backend",
+    "jest.jestCommandLine": "npm test --",
+    "jest.nodeEnv": {
+      "NODE_ENV": "test"
+    },
+    "jest.outputConfig": "terminal-based",
+    
+    // Vitest Configuration (Frontend)
+    "vitest.enable": true,
+    "vitest.commandLine": "npm test",
+    "vitest.workspaceConfig": "frontend/vitest.config.ts",
+    
+    // TypeScript
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true,
+    
+    // Testing
+    "testing.automaticallyOpenPeekView": "failureInVisibleDocument",
+    
+    // File Associations
+    "files.associations": {
+      "*.test.ts": "typescript",
+      "*.test.tsx": "typescriptreact",
+      "*.spec.ts": "typescript"
+    },
+    
+    // Exclude from search
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/coverage": true,
+      "**/.nyc_output": true
+    },
+    
+    // Search Configuration
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/coverage": true,
+      "**/.nyc_output": true,
+      "**/dist": true,
+      "**/build": true
+    }
+  }
+}

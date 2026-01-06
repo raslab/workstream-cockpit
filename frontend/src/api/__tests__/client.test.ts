@@ -178,9 +178,10 @@ describe('API Client - OAuth Redirect Loop Prevention', () => {
     it('should use correct API base URL', () => {
       const baseURL = apiClient.defaults.baseURL;
       
-      // Should point to backend
+      // Should use relative path for production (nginx proxies /api to backend)
+      // or full URL for development if VITE_API_URL is set
       expect(baseURL).toBeTruthy();
-      expect(baseURL).toContain('http');
+      expect(baseURL).toBe('/');
     });
 
     it('should handle API routes correctly', async () => {

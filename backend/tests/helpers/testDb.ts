@@ -1,14 +1,64 @@
 import { PrismaClient } from '@prisma/client';
 import { execSync } from 'child_process';
+import * as path from 'path';
+
+// Load test environment variables from .env.test
+require('dotenv').config({ path: path.join(__dirname, '../../.env.test') });
 
 const prisma = new PrismaClient();
 
 /**
  * Setup test database before all tests
+ * 
+ * Prerequisites:
+ * 1. Docker Compose must be running: docker-compose up -d
+ * 2. docker-compose.override.yml must expose postgres on port 5454
+ * 3. .env.test must be configured with test database URL
+ * 
+ * This will:
+ * - Create the test database if it doesn't exist
+ * - Run all migrations on the test database
  */
 export async function setupTestDatabase(): Promise<void> {
-  // Run migrations
-  execSync('npx prisma migrate deploy', { env: process.env });
+  try {
+    // Create test database if it doesn't exist
+    // Use postgres database to create the test database
+    const { Client } = require('pg');
+    const adminClient = new Client({
+      host: 'localhost',
+      port: 5454,
+      user: 'postgres',
+      password: 'postgres',
+      database: 'postgres', // Connect to default postgres DB to create test DB
+    });
+
+    try {
+      await adminClient.connect();
+      // Check if test database exists
+      const result = await adminClient.query(
+        "SELECT 1 FROM pg_database WHERE datname = 'workstream_cockpit_test'"
+      );
+      
+      if (result.rows.length === 0) {
+        // Create test database
+        await adminClient.query('CREATE DATABASE workstream_cockpit_test');
+        console.log('Created test database: workstream_cockpit_test');
+      }
+    } catch (error) {
+      console.error('Error creating test database:', error);
+    } finally {
+      await adminClient.end();
+    }
+
+    // Run migrations on test database
+    execSync('npx prisma migrate deploy', { 
+      env: { ...process.env },
+      stdio: 'inherit'
+    });
+  } catch (error) {
+    console.error('Error setting up test database:', error);
+    throw error;
+  }
 }
 
 /**
