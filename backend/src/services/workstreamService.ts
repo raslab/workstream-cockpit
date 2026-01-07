@@ -35,12 +35,19 @@ export interface WorkstreamWithLatestStatus extends Workstream {
 export async function getWorkstreams(
   projectId: string,
   state?: 'active' | 'closed',
-  tags?: string[]
+  tags?: string[],
+  categoryIds?: string[],
+  notUpdatedToday?: boolean
 ): Promise<WorkstreamWithLatestStatus[]> {
   try {
     const whereClause: any = { projectId };
     if (state) {
       whereClause.state = state;
+    }
+
+    // Filter by category IDs
+    if (categoryIds && categoryIds.length > 0) {
+      whereClause.categoryId = { in: categoryIds };
     }
 
     let workstreams = await prisma.workstream.findMany({
@@ -76,6 +83,22 @@ export async function getWorkstreams(
 
         // Match if any tag overlaps (OR logic)
         return normalizedFilterTags.some(filterTag => wsTags.includes(filterTag));
+      });
+    }
+
+    // Filter by "not updated today" if requested
+    if (notUpdatedToday) {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
+      workstreams = workstreams.filter(ws => {
+        if (ws.statusUpdates.length === 0) {
+          // No status updates means it was never updated
+          return true;
+        }
+        // Check if the latest status update is before today
+        const latestUpdate = ws.statusUpdates[0];
+        return new Date(latestUpdate.updatedAt) < startOfToday;
       });
     }
 

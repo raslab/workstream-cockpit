@@ -1,36 +1,34 @@
 import { useState } from 'react';
 import { useCategories } from '../../hooks/useCategories';
 import { TagFilter } from '../Tag/TagFilter';
+import { DateRangeFilter } from './DateRangeFilter';
 import { startOfDay, endOfDay, subDays, startOfWeek, endOfWeek } from 'date-fns';
 
-export type FilterPreset = 'all' | 'today' | 'week' | 'last7';
+export type FilterPreset = 'all' | 'today' | 'week' | 'last7' | 'custom';
 
 interface FilterBarProps {
-  selectedPreset: FilterPreset;
-  onPresetChange: (preset: FilterPreset) => void;
   selectedCategoryIds: string[];
   onCategoryIdsChange: (categoryIds: string[]) => void;
   selectedTags: string[];
   onTagsChange: (tags: string[]) => void;
+  customStartDate?: Date;
+  customEndDate?: Date;
+  onCustomStartDateChange: (date: Date | undefined) => void;
+  onCustomEndDateChange: (date: Date | undefined) => void;
 }
 
 export function FilterBar({
-  selectedPreset,
-  onPresetChange,
   selectedCategoryIds,
   onCategoryIdsChange,
   selectedTags,
   onTagsChange,
+  customStartDate,
+  customEndDate,
+  onCustomStartDateChange,
+  onCustomEndDateChange,
 }: FilterBarProps) {
   const { data: categories } = useCategories();
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
-
-  const presets: { value: FilterPreset; label: string }[] = [
-    { value: 'all', label: 'All Time' },
-    { value: 'today', label: 'Today' },
-    { value: 'week', label: 'This Week' },
-    { value: 'last7', label: 'Last 7 Days' },
-  ];
 
   const toggleCategory = (categoryId: string) => {
     if (selectedCategoryIds.includes(categoryId)) {
@@ -42,21 +40,17 @@ export function FilterBar({
 
   return (
     <div className="mb-6 flex flex-wrap items-center gap-4">
-      <div className="flex gap-2">
-        {presets.map((preset) => (
-          <button
-            key={preset.value}
-            onClick={() => onPresetChange(preset.value)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              selectedPreset === preset.value
-                ? 'bg-primary-600 text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-            }`}
-          >
-            {preset.label}
-          </button>
-        ))}
-      </div>
+      {/* Date Range Filter */}
+      <DateRangeFilter
+        startDate={customStartDate}
+        endDate={customEndDate}
+        onStartDateChange={onCustomStartDateChange}
+        onEndDateChange={onCustomEndDateChange}
+        onClear={() => {
+          onCustomStartDateChange(undefined);
+          onCustomEndDateChange(undefined);
+        }}
+      />
 
       {categories && categories.length > 0 && (
         <div className="relative">
