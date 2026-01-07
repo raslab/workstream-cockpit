@@ -34,12 +34,14 @@ Perfect for engineering managers, team leads, and anyone managing multiple paral
 | 🎯 **Glanceable Cockpit** | See all active workstreams at a glance with visual status indicators |
 | ⚡ **Quick Status Updates** | One-click status changes (green/yellow/red) with optional notes |
 | 📊 **Timeline View** | Cross-workstream reporting with lifecycle events for meetings |
-| 🏷️ **Smart Tags** | Categorize with custom colors and emojis (� 🎯 🚀 💡) |
+| 🏷️ **Smart Categories** | Organize with custom colors and emojis (🔥 🎯 🚀 💡) |
+| #️⃣ **Hashtag Tags** | Use #hashtags in updates, filter by tags, auto-colored pills |
 | 📜 **Full History** | Complete chronological status history with inline editing |
 | 📦 **Archive** | Close completed work, reopen when needed |
 | 🔐 **Google OAuth** | Secure single sign-on, automatic setup |
 | ⌨️ **Keyboard Shortcuts** | Fast workflows with Cmd/Ctrl+Enter |
-| 🎨 **Grouping & Sorting** | Organize by tags, sort by name/date/updates |
+| 🎨 **Grouping & Sorting** | Organize by categories, sort by name/date/updates |
+| 🔍 **Tag Filtering** | Filter Cockpit and Timeline by hashtags |
 | ⚡ **Optimistic UI** | Instant feedback, automatic error recovery |
 | 💾 **Automated Backups** | Daily database backups to GCP Cloud Storage with 30-day retention |
 

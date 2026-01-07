@@ -1,5 +1,6 @@
 import { PrismaClient, Workstream, StatusUpdate } from '@prisma/client';
 import { logger } from '../utils/logger';
+import { extractTagsFromFields } from '../utils/tagExtractor';
 
 const prisma = new PrismaClient();
 
@@ -29,11 +30,12 @@ export interface WorkstreamWithLatestStatus extends Workstream {
 }
 
 /**
- * Get all workstreams for a project (with optional state filter)
+ * Get all workstreams for a project (with optional state and tags filter)
  */
 export async function getWorkstreams(
   projectId: string,
-  state?: 'active' | 'closed'
+  state?: 'active' | 'closed',
+  tags?: string[]
 ): Promise<WorkstreamWithLatestStatus[]> {
   try {
     const whereClause: any = { projectId };
@@ -41,7 +43,7 @@ export async function getWorkstreams(
       whereClause.state = state;
     }
 
-    const workstreams = await prisma.workstream.findMany({
+    let workstreams = await prisma.workstream.findMany({
       where: whereClause,
       include: {
         category: {
@@ -55,18 +57,43 @@ export async function getWorkstreams(
         },
         statusUpdates: {
           orderBy: { createdAt: 'desc' },
-          take: 1,
         },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    // Transform to include latestStatus
+    // Filter by tags if provided
+    if (tags && tags.length > 0) {
+      const normalizedFilterTags = tags.map(t => t.toLowerCase());
+      
+      workstreams = workstreams.filter(ws => {
+        // Extract tags from context and all status updates (both status and note fields)
+        const texts = [
+          ws.context,
+          ...ws.statusUpdates.flatMap(su => [su.status, su.note]),
+        ];
+        const wsTags = extractTagsFromFields(...texts);
+
+        // Match if any tag overlaps (OR logic)
+        return normalizedFilterTags.some(filterTag => wsTags.includes(filterTag));
+      });
+    }
+
+    // Transform to include latestStatus and extract all tags
     return workstreams.map((ws) => {
-      const { statusUpdates, ...workstream } = ws;
+      const { statusUpdates, ...workstream} = ws;
+      
+      // Extract all tags from context and all status updates
+      const texts = [
+        ws.context,
+        ...statusUpdates.flatMap(su => [su.status, su.note]),
+      ];
+      const allTags = extractTagsFromFields(...texts);
+      
       return {
         ...workstream,
         latestStatus: statusUpdates[0] || undefined,
+        allTags, // Include extracted tags for frontend display
       };
     });
   } catch (error) {

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { Workstream } from '../../types/workstream';
 import { useCategories } from '../../hooks/useCategories';
+import { TagAutocomplete } from '../Tag/TagAutocomplete';
 
 interface WorkstreamEditDialogProps {
   workstream: Workstream;
@@ -16,6 +17,9 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
   const [context, setContext] = useState(workstream.context || '');
   const queryClient = useQueryClient();
   const { data: categories = [] } = useCategories();
+  
+  // Ref for autocomplete
+  const contextRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -95,14 +99,22 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
             <label htmlFor="context" className="mb-1 block text-sm font-medium text-gray-700">
               Context
             </label>
-            <textarea
-              id="context"
-              value={context}
-              onChange={(e) => setContext(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              rows={4}
-              maxLength={2000}
-            />
+            <div className="relative">
+              <textarea
+                ref={contextRef}
+                id="context"
+                value={context}
+                onChange={(e) => setContext(e.target.value)}
+                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                rows={4}
+                maxLength={2000}
+              />
+              <TagAutocomplete
+                textareaRef={contextRef}
+                value={context}
+                onChange={setContext}
+              />
+            </div>
             <div className="mt-1 text-xs text-gray-500">{context.length}/2000 characters</div>
           </div>
 

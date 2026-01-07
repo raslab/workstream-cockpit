@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
+import { extractTags } from '../utils/tagExtractor';
 
 const prisma = new PrismaClient();
 
@@ -26,6 +27,7 @@ export interface TimelineFilters {
   startDate?: Date;
   endDate?: Date;
   categoryIds?: string[];
+  tags?: string[];
 }
 
 /**
@@ -64,7 +66,9 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
       where: statusUpdateWhereClause,
       include: {
         workstream: {
-          include: {
+          select: {
+            name: true,
+            context: true,
             category: {
               select: {
                 id: true,
@@ -89,7 +93,11 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
 
     const workstreamsCreated = await prisma.workstream.findMany({
       where: workstreamCreationWhereClause,
-      include: {
+      select: {
+        id: true,
+        name: true,
+        context: true,
+        createdAt: true,
         category: {
           select: {
             id: true,
@@ -115,7 +123,11 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
 
     const workstreamsClosed = await prisma.workstream.findMany({
       where: workstreamClosureWhereClause,
-      include: {
+      select: {
+        id: true,
+        name: true,
+        context: true,
+        closedAt: true,
         category: {
           select: {
             id: true,
@@ -140,6 +152,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
         createdAt: update.createdAt,
         updatedAt: update.updatedAt,
         category: update.workstream.category,
+        workstreamContext: update.workstream.context,
       })),
       // Workstream creation events
       ...workstreamsCreated.map((workstream) => ({
@@ -149,6 +162,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
         workstreamName: workstream.name,
         createdAt: workstream.createdAt,
         category: workstream.category,
+        workstreamContext: workstream.context,
       })),
       // Workstream closure events
       ...workstreamsClosed.map((workstream) => ({
@@ -158,13 +172,40 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
         workstreamName: workstream.name,
         createdAt: workstream.closedAt!,
         category: workstream.category,
+        workstreamContext: workstream.context,
       })),
     ];
 
-    // Sort by date descending
-    timeline.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    // Filter by tags if specified
+    let filteredTimeline = timeline;
+    if (filters.tags && filters.tags.length > 0) {
+      filteredTimeline = timeline.filter((entry: any) => {
+        // Extract tags from all relevant text fields
+        const textFields = [
+          entry.workstreamContext,
+          entry.status,
+          entry.note,
+        ].filter(Boolean);
+        
+        const entryTags = extractTags(textFields.join(' '));
+        
+        // Check if any of the filter tags are in the entry's tags
+        return filters.tags!.some(filterTag => 
+          entryTags.some(entryTag => entryTag.toLowerCase() === filterTag.toLowerCase())
+        );
+      });
+    }
 
-    return timeline;
+    // Remove temporary workstreamContext field before returning
+    const cleanedTimeline = filteredTimeline.map((entry: any) => {
+      const { workstreamContext, ...rest } = entry;
+      return rest as TimelineEntry;
+    });
+
+    // Sort by date descending
+    cleanedTimeline.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    return cleanedTimeline;
   } catch (error) {
     logger.error('Error getting timeline:', error);
     throw error;

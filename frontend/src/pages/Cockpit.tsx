@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useWorkstreams } from '../hooks/useWorkstreams';
 import { WorkstreamCard } from '../components/Workstream/WorkstreamCard';
 import { WorkstreamSkeleton } from '../components/Workstream/WorkstreamSkeleton';
 import { WorkstreamCreateDialog } from '../components/Workstream/WorkstreamCreateDialog';
+import { TagFilter } from '../components/Tag/TagFilter';
 import { Workstream } from '../types/workstream';
 
 type SortOption = 'name' | 'createdAt' | 'updatedAt';
@@ -10,7 +12,23 @@ type SortDirection = 'asc' | 'desc';
 type GroupOption = 'none' | 'tag';
 
 export default function Cockpit() {
-  const { data: workstreams, isLoading, error } = useWorkstreams({ state: 'active' });
+  const location = useLocation();
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Check if we have filterTags from navigation state (from clicking a tag chip)
+  useEffect(() => {
+    const state = location.state as { filterTags?: string[] } | null;
+    if (state?.filterTags) {
+      setSelectedTags(state.filterTags);
+      // Clear the state so it doesn't persist on page reload
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
+
+  const { data: workstreams, isLoading, error } = useWorkstreams({ 
+    state: 'active',
+    tags: selectedTags.length > 0 ? selectedTags : undefined,
+  });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('updatedAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -167,6 +185,9 @@ export default function Cockpit() {
                 </button>
               </div>
             </div>
+
+            {/* Tag Filter Dropdown */}
+            <TagFilter selectedTags={selectedTags} onTagsChange={setSelectedTags} />
 
             <button
               onClick={() => setShowCreateDialog(true)}

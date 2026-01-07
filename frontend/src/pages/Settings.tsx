@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { SettingsSidebar } from '../components/Settings/SettingsSidebar';
 import CategoryManagement from './CategoryManagement';
+import TagManagement from './TagManagement';
 
 export default function Settings() {
   return (
@@ -15,6 +16,7 @@ export default function Settings() {
         <main className="flex-1">
           <Routes>
             <Route path="categories" element={<CategoryManagement />} />
+            <Route path="tags" element={<TagManagement />} />
             <Route path="*" element={<Navigate to="categories" replace />} />
           </Routes>
         </main>

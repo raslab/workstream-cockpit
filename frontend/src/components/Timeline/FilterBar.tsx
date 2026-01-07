@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCategories } from '../../hooks/useCategories';
+import { TagFilter } from '../Tag/TagFilter';
 import { startOfDay, endOfDay, subDays, startOfWeek, endOfWeek } from 'date-fns';
 
 export type FilterPreset = 'all' | 'today' | 'week' | 'last7';
@@ -9,6 +10,8 @@ interface FilterBarProps {
   onPresetChange: (preset: FilterPreset) => void;
   selectedCategoryIds: string[];
   onCategoryIdsChange: (categoryIds: string[]) => void;
+  selectedTags: string[];
+  onTagsChange: (tags: string[]) => void;
 }
 
 export function FilterBar({
@@ -16,6 +19,8 @@ export function FilterBar({
   onPresetChange,
   selectedCategoryIds,
   onCategoryIdsChange,
+  selectedTags,
+  onTagsChange,
 }: FilterBarProps) {
   const { data: categories } = useCategories();
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
@@ -65,6 +70,7 @@ export function FilterBar({
                 {selectedCategoryIds.length}
               </span>
             )}
+            <span className="text-xs">{showCategoryMenu ? '▲' : '▼'}</span>
           </button>
 
           {showCategoryMenu && (
@@ -104,6 +110,9 @@ export function FilterBar({
           )}
         </div>
       )}
+
+      {/* Tag Filter */}
+      <TagFilter selectedTags={selectedTags} onTagsChange={onTagsChange} />
     </div>
   );
 }

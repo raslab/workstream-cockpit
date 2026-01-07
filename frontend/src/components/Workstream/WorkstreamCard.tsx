@@ -6,16 +6,20 @@ import { formatDistanceToNow } from 'date-fns';
 import { StatusUpdateDialog } from '../StatusUpdate/StatusUpdateDialog';
 import { apiClient } from '../../api/client';
 import { MarkdownRenderer } from '../Markdown/MarkdownRenderer';
+import { TagChip } from '../Tag/TagChip';
 
 interface WorkstreamCardProps {
   workstream: Workstream;
 }
 
 export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
-  const { name, category, latestStatus } = workstream;
+  const { name, category, latestStatus, allTags } = workstream;
   const [showDialog, setShowDialog] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const queryClient = useQueryClient();
+
+  // Use allTags from backend if available, otherwise empty array
+  const tags = allTags || [];
 
   const closeMutation = useMutation({
     mutationFn: async (workstreamId: string) => {
@@ -51,6 +55,16 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
             {latestStatus && (
               <div className="mt-1.5">
                 <MarkdownRenderer content={latestStatus.status} className="text-sm text-gray-700" />
+                
+                {/* Display extracted tags */}
+                {tags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {tags.map((tag) => (
+                      <TagChip key={tag} tagName={tag} />
+                    ))}
+                  </div>
+                )}
+                
                 <p className="mt-0.5 text-xs text-gray-500">
                   Updated {formatDistanceToNow(new Date(latestStatus.updatedAt), { addSuffix: true })}
                 </p>

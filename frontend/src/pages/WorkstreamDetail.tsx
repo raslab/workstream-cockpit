@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -8,6 +8,7 @@ import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { StatusUpdateDialog } from '../components/StatusUpdate/StatusUpdateDialog';
 import { WorkstreamEditDialog } from '../components/Workstream/WorkstreamEditDialog';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
+import { TagAutocomplete } from '../components/Tag/TagAutocomplete';
 
 interface StatusEditDialogProps {
   statusUpdate: StatusUpdate;
@@ -20,6 +21,10 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
   const [status, setStatus] = useState(statusUpdate.status);
   const [note, setNote] = useState(statusUpdate.note || '');
   const queryClient = useQueryClient();
+  
+  // Refs for autocomplete
+  const statusRef = useRef<HTMLTextAreaElement>(null);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
 
   const updateMutation = useMutation({
     mutationFn: async (data: { status: string; note: string }) => {
@@ -58,15 +63,23 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
             <label htmlFor="status" className="mb-1 block text-sm font-medium text-gray-700">
               Status <span className="text-red-500">*</span>
             </label>
-            <textarea
-              id="status"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              rows={3}
-              maxLength={500}
-              autoFocus
-            />
+            <div className="relative">
+              <textarea
+                ref={statusRef}
+                id="status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                rows={3}
+                maxLength={500}
+                autoFocus
+              />
+              <TagAutocomplete
+                textareaRef={statusRef}
+                value={status}
+                onChange={setStatus}
+              />
+            </div>
             <div className="mt-1 text-xs text-gray-500">{status.length}/500 characters</div>
           </div>
 
@@ -74,14 +87,22 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
             <label htmlFor="note" className="mb-1 block text-sm font-medium text-gray-700">
               Note (optional)
             </label>
-            <textarea
-              id="note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              rows={3}
-              maxLength={2000}
-            />
+            <div className="relative">
+              <textarea
+                ref={noteRef}
+                id="note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                rows={3}
+                maxLength={2000}
+              />
+              <TagAutocomplete
+                textareaRef={noteRef}
+                value={note}
+                onChange={setNote}
+              />
+            </div>
             <div className="mt-1 text-xs text-gray-500">{note.length}/2000 characters</div>
           </div>
 
