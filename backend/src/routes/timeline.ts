@@ -16,11 +16,12 @@ router.use(requireUserContext);
  *   - startDate: ISO date string (optional)
  *   - endDate: ISO date string (optional)
  *   - categoryIds: comma-separated category IDs (optional)
+ *   - tags: comma-separated tag names/IDs (optional)
  */
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
-    const { startDate, endDate, categoryIds } = req.query;
+    const { startDate, endDate, categoryIds, tags } = req.query;
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
@@ -53,6 +54,10 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     
     if (categoryIds && typeof categoryIds === 'string') {
       filters.categoryIds = categoryIds.split(',').filter((id: string) => id.trim());
+    }
+    
+    if (tags && typeof tags === 'string') {
+      filters.tags = tags.split(',').filter((tag: string) => tag.trim());
     }
 
     const timeline = await getTimeline(filters);
