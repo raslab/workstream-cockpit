@@ -1,28 +1,19 @@
 import { useState } from 'react';
 import { useTimeline, TimelineEntry } from '../hooks/useTimeline';
-import {
-  FilterBar,
-  FilterPreset,
-  getDateRangeFromPreset,
-} from '../components/Timeline/FilterBar';
+import { FilterBar } from '../components/Timeline/FilterBar';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 
 export default function Timeline() {
-  const [selectedPreset, setSelectedPreset] = useState<FilterPreset>('last7');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>();
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>();
 
-  // Use custom dates if set, otherwise use preset
-  const dateRange = customStartDate || customEndDate
-    ? { startDate: customStartDate, endDate: customEndDate }
-    : getDateRangeFromPreset(selectedPreset);
-
   const { data: timeline, isLoading, error } = useTimeline({
-    ...dateRange,
+    startDate: customStartDate,
+    endDate: customEndDate,
     categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
     tags: selectedTags.length > 0 ? selectedTags : undefined,
   });
@@ -89,13 +80,6 @@ export default function Timeline() {
       </div>
 
       <FilterBar
-        selectedPreset={selectedPreset}
-        onPresetChange={(preset) => {
-          setSelectedPreset(preset);
-          // Clear custom dates when preset is selected
-          setCustomStartDate(undefined);
-          setCustomEndDate(undefined);
-        }}
         selectedCategoryIds={selectedCategoryIds}
         onCategoryIdsChange={setSelectedCategoryIds}
         selectedTags={selectedTags}

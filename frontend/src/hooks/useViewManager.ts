@@ -1,10 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { ViewConfig, ViewStorage } from '../types/view';
-import {
-  loadViewsFromStorage,
-  saveViewsToStorage,
-  generateViewId,
-} from '../utils/viewStorage';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { ViewConfig } from '../types/view';
+import * as viewsApi from '../api/views';
 
 // Deep equality check for view configs
 function isEqual(a: any, b: any): boolean {
@@ -12,122 +9,158 @@ function isEqual(a: any, b: any): boolean {
 }
 
 export function useViewManager() {
-  const [storage, setStorage] = useState<ViewStorage>(() => loadViewsFromStorage());
-  const [currentConfig, setCurrentConfig] = useState<ViewConfig['config']>(() => {
-    const activeView = storage.views.find(v => v.id === storage.activeViewId);
-    return activeView?.config || storage.views[0].config;
-  });
+  const queryClient = useQueryClient();
 
-  // Persist to localStorage whenever storage changes
-  useEffect(() => {
-    saveViewsToStorage(storage);
-  }, [storage]);
+  // Local state for active view and current config
+  const [activeViewId, setActiveViewId] = useState<string | null>(null);
+  const [currentConfig, setCurrentConfig] = useState<ViewConfig['config'] | null>(null);
+
+  // Fetch all views
+  const {
+    data: views = [],
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ['views'],
+    queryFn: () => viewsApi.getViews(),
+  });
 
   // Get active view
   const activeView = useMemo(
-    () => storage.views.find(v => v.id === storage.activeViewId),
-    [storage.views, storage.activeViewId]
+    () => views.find(v => v.id === activeViewId) || views.find(v => v.isDefault) || views[0],
+    [views, activeViewId]
   );
+
+  // Initialize active view and current config when views are loaded
+  useEffect(() => {
+    if (views.length > 0 && !activeViewId) {
+      const defaultView = views.find(v => v.isDefault) || views[0];
+      setActiveViewId(defaultView.id);
+      setCurrentConfig(defaultView.config);
+    }
+  }, [views, activeViewId]);
 
   // Check if current config differs from saved view config
   const hasUnsavedChanges = useMemo(() => {
-    if (!activeView) return false;
+    if (!activeView || !currentConfig) return false;
     return !isEqual(activeView.config, currentConfig);
   }, [activeView, currentConfig]);
+
+  // Create view mutation
+  const createViewMutation = useMutation({
+    mutationFn: (input: viewsApi.CreateViewDTO) => viewsApi.createView(input),
+    onSuccess: (newView) => {
+      queryClient.invalidateQueries({ queryKey: ['views'] });
+      setActiveViewId(newView.id);
+      setCurrentConfig(newView.config);
+    },
+  });
+
+  // Update view mutation
+  const updateViewMutation = useMutation({
+    mutationFn: ({ viewId, input }: { viewId: string; input: viewsApi.UpdateViewDTO }) =>
+      viewsApi.updateView(viewId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['views'] });
+    },
+  });
+
+  // Delete view mutation
+  const deleteViewMutation = useMutation({
+    mutationFn: (viewId: string) => viewsApi.deleteView(viewId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['views'] });
+    },
+  });
 
   /**
    * Create a new view with the given name and current config
    */
-  const createView = useCallback((name: string) => {
-    const newView: ViewConfig = {
-      id: generateViewId(),
-      name,
-      isDefault: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      config: { ...currentConfig },
-    };
+  const createView = useCallback(
+    async (name: string) => {
+      if (!currentConfig) return;
 
-    setStorage(prev => ({
-      ...prev,
-      views: [...prev.views, newView],
-      activeViewId: newView.id,
-    }));
+      const result = await createViewMutation.mutateAsync({
+        name,
+        isDefault: false,
+        config: currentConfig,
+      });
 
-    return newView.id;
-  }, [currentConfig]);
+      return result.id;
+    },
+    [currentConfig, createViewMutation]
+  );
 
   /**
    * Update an existing view
    */
-  const updateView = useCallback((id: string, updates: Partial<ViewConfig>) => {
-    setStorage(prev => ({
-      ...prev,
-      views: prev.views.map(v =>
-        v.id === id
-          ? { ...v, ...updates, updatedAt: new Date() }
-          : v
-      ),
-    }));
-  }, []);
+  const updateView = useCallback(
+    async (id: string, updates: Partial<Pick<ViewConfig, 'name' | 'isDefault' | 'config'>>) => {
+      await updateViewMutation.mutateAsync({
+        viewId: id,
+        input: updates,
+      });
+    },
+    [updateViewMutation]
+  );
 
   /**
    * Delete a view (cannot delete default view)
    */
-  const deleteView = useCallback((id: string) => {
-    // Prevent deleting default view
-    const viewToDelete = storage.views.find(v => v.id === id);
-    if (viewToDelete?.isDefault) {
-      console.warn('Cannot delete default view');
-      return false;
-    }
-
-    setStorage(prev => {
-      const newViews = prev.views.filter(v => v.id !== id);
-      const newActiveId = prev.activeViewId === id
-        ? prev.defaultViewId
-        : prev.activeViewId;
-
-      return {
-        ...prev,
-        views: newViews,
-        activeViewId: newActiveId,
-      };
-    });
-
-    // Update current config if we switched views
-    if (storage.activeViewId === id) {
-      const defaultView = storage.views.find(v => v.id === storage.defaultViewId);
-      if (defaultView) {
-        setCurrentConfig(defaultView.config);
+  const deleteView = useCallback(
+    async (id: string) => {
+      const viewToDelete = views.find(v => v.id === id);
+      if (viewToDelete?.isDefault) {
+        console.warn('Cannot delete default view');
+        return false;
       }
-    }
 
-    return true;
-  }, [storage.views, storage.activeViewId, storage.defaultViewId]);
+      try {
+        await deleteViewMutation.mutateAsync(id);
+
+        // If we deleted the active view, switch to default
+        if (activeViewId === id) {
+          const defaultView = views.find(v => v.isDefault);
+          if (defaultView) {
+            setActiveViewId(defaultView.id);
+            setCurrentConfig(defaultView.config);
+          }
+        }
+
+        return true;
+      } catch (error) {
+        console.error('Failed to delete view:', error);
+        return false;
+      }
+    },
+    [views, activeViewId, deleteViewMutation]
+  );
 
   /**
    * Switch to a different view
    */
-  const switchView = useCallback((id: string) => {
-    const view = storage.views.find(v => v.id === id);
-    if (!view) {
-      console.warn(`View ${id} not found`);
-      return false;
-    }
+  const switchView = useCallback(
+    (id: string) => {
+      const view = views.find(v => v.id === id);
+      if (!view) {
+        console.warn(`View ${id} not found`);
+        return false;
+      }
 
-    setStorage(prev => ({ ...prev, activeViewId: id }));
-    setCurrentConfig(view.config);
-    return true;
-  }, [storage.views]);
+      setActiveViewId(id);
+      setCurrentConfig(view.config);
+      return true;
+    },
+    [views]
+  );
 
   /**
    * Save current config to active view
    */
-  const saveCurrentView = useCallback(() => {
-    if (!activeView) return;
+  const saveCurrentView = useCallback(async () => {
+    if (!activeView || !currentConfig) return;
 
-    updateView(activeView.id, { config: currentConfig });
+    await updateView(activeView.id, { config: currentConfig });
   }, [activeView, currentConfig, updateView]);
 
   /**
@@ -141,33 +174,45 @@ export function useViewManager() {
   /**
    * Rename a view
    */
-  const renameView = useCallback((id: string, newName: string) => {
-    // Validate name
-    if (!newName || newName.length < 3 || newName.length > 50) {
-      console.warn('View name must be 3-50 characters');
-      return false;
-    }
+  const renameView = useCallback(
+    async (id: string, newName: string) => {
+      // Validate name
+      if (!newName || newName.length < 3 || newName.length > 50) {
+        console.warn('View name must be 3-50 characters');
+        return false;
+      }
 
-    // Check for duplicate names
-    const duplicate = storage.views.find(
-      v => v.id !== id && v.name.toLowerCase() === newName.toLowerCase()
-    );
-    if (duplicate) {
-      console.warn('A view with this name already exists');
-      return false;
-    }
+      // Check for duplicate names
+      const duplicate = views.find(v => v.id !== id && v.name.toLowerCase() === newName.toLowerCase());
+      if (duplicate) {
+        console.warn('A view with this name already exists');
+        return false;
+      }
 
-    updateView(id, { name: newName });
-    return true;
-  }, [storage.views, updateView]);
+      try {
+        await updateView(id, { name: newName });
+        return true;
+      } catch (error) {
+        console.error('Failed to rename view:', error);
+        return false;
+      }
+    },
+    [views, updateView]
+  );
 
   return {
     // State
-    views: storage.views,
+    views,
     activeView,
-    activeViewId: storage.activeViewId,
-    currentConfig,
+    activeViewId: activeViewId || '',
+    currentConfig: currentConfig || {
+      filters: { categoryIds: [], tags: [], temporal: { notUpdatedToday: false } },
+      sort: { field: 'updatedAt' as const, direction: 'desc' as const },
+      group: { by: 'category' as const },
+    },
     hasUnsavedChanges,
+    isLoading,
+    error,
 
     // Actions
     setCurrentConfig,
