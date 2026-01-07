@@ -13,8 +13,14 @@ export default function Timeline() {
   const [selectedPreset, setSelectedPreset] = useState<FilterPreset>('last7');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>();
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>();
 
-  const dateRange = getDateRangeFromPreset(selectedPreset);
+  // Use custom dates if set, otherwise use preset
+  const dateRange = customStartDate || customEndDate
+    ? { startDate: customStartDate, endDate: customEndDate }
+    : getDateRangeFromPreset(selectedPreset);
+
   const { data: timeline, isLoading, error } = useTimeline({
     ...dateRange,
     categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
@@ -84,11 +90,20 @@ export default function Timeline() {
 
       <FilterBar
         selectedPreset={selectedPreset}
-        onPresetChange={setSelectedPreset}
+        onPresetChange={(preset) => {
+          setSelectedPreset(preset);
+          // Clear custom dates when preset is selected
+          setCustomStartDate(undefined);
+          setCustomEndDate(undefined);
+        }}
         selectedCategoryIds={selectedCategoryIds}
         onCategoryIdsChange={setSelectedCategoryIds}
         selectedTags={selectedTags}
         onTagsChange={setSelectedTags}
+        customStartDate={customStartDate}
+        customEndDate={customEndDate}
+        onCustomStartDateChange={setCustomStartDate}
+        onCustomEndDateChange={setCustomEndDate}
       />
 
       {error && (

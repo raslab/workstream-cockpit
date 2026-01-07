@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useCategories } from '../../hooks/useCategories';
 import { TagFilter } from '../Tag/TagFilter';
+import { DateRangeFilter } from './DateRangeFilter';
 import { startOfDay, endOfDay, subDays, startOfWeek, endOfWeek } from 'date-fns';
 
-export type FilterPreset = 'all' | 'today' | 'week' | 'last7';
+export type FilterPreset = 'all' | 'today' | 'week' | 'last7' | 'custom';
 
 interface FilterBarProps {
   selectedPreset: FilterPreset;
@@ -12,6 +13,10 @@ interface FilterBarProps {
   onCategoryIdsChange: (categoryIds: string[]) => void;
   selectedTags: string[];
   onTagsChange: (tags: string[]) => void;
+  customStartDate?: Date;
+  customEndDate?: Date;
+  onCustomStartDateChange?: (date: Date | undefined) => void;
+  onCustomEndDateChange?: (date: Date | undefined) => void;
 }
 
 export function FilterBar({
@@ -21,6 +26,10 @@ export function FilterBar({
   onCategoryIdsChange,
   selectedTags,
   onTagsChange,
+  customStartDate,
+  customEndDate,
+  onCustomStartDateChange,
+  onCustomEndDateChange,
 }: FilterBarProps) {
   const { data: categories } = useCategories();
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
@@ -37,6 +46,15 @@ export function FilterBar({
       onCategoryIdsChange(selectedCategoryIds.filter((id) => id !== categoryId));
     } else {
       onCategoryIdsChange([...selectedCategoryIds, categoryId]);
+    }
+  };
+
+  const handleDateRangeChange = (start: Date | undefined, end: Date | undefined) => {
+    if (onCustomStartDateChange) onCustomStartDateChange(start);
+    if (onCustomEndDateChange) onCustomEndDateChange(end);
+    // When custom date is set, switch to custom preset
+    if (start || end) {
+      onPresetChange('custom');
     }
   };
 
@@ -57,6 +75,17 @@ export function FilterBar({
           </button>
         ))}
       </div>
+
+      {/* Date Range Filter */}
+      {onCustomStartDateChange && onCustomEndDateChange && (
+        <DateRangeFilter
+          startDate={customStartDate}
+          endDate={customEndDate}
+          onStartDateChange={(date) => handleDateRangeChange(date, customEndDate)}
+          onEndDateChange={(date) => handleDateRangeChange(customStartDate, date)}
+          onClear={() => handleDateRangeChange(undefined, undefined)}
+        />
+      )}
 
       {categories && categories.length > 0 && (
         <div className="relative">

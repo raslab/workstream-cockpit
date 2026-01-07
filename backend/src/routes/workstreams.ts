@@ -24,16 +24,25 @@ router.use(requireUserContext);
  * Query params:
  *   - state: 'active' | 'closed' (optional)
  *   - tags: comma-separated list of tag names (optional)
+ *   - categoryIds: comma-separated list of category IDs (optional)
+ *   - notUpdatedToday: 'true' | 'false' (optional)
  */
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
     const state = req.query.state as 'active' | 'closed' | undefined;
     const tagsQuery = req.query.tags as string | undefined;
+    const categoryIdsQuery = req.query.categoryIds as string | undefined;
+    const notUpdatedToday = req.query.notUpdatedToday === 'true';
 
     // Parse comma-separated tags
     const tags = tagsQuery 
       ? tagsQuery.split(',').map(t => t.trim()).filter(Boolean)
+      : undefined;
+
+    // Parse comma-separated category IDs
+    const categoryIds = categoryIdsQuery
+      ? categoryIdsQuery.split(',').map(id => id.trim()).filter(Boolean)
       : undefined;
 
     // Get user's projects (for Phase 1, we'll use the first/default project)
@@ -45,7 +54,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     const projectId = projects[0].id;
-    const workstreams = await getWorkstreams(projectId, state, tags);
+    const workstreams = await getWorkstreams(projectId, state, tags, categoryIds, notUpdatedToday);
 
     res.json(workstreams);
   } catch (error) {
