@@ -74,7 +74,7 @@ export function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
                     className="inline-block h-3 w-3 rounded-full"
                     style={{ backgroundColor: tag.color }}
                   />
-                  <span className="flex-1">#{tag.name}</span>
+                  <span className="flex-1">#{tag.displayName}</span>
                 </button>
               );
             })}

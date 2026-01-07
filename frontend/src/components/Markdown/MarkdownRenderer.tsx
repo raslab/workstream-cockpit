@@ -43,34 +43,18 @@ function HashtagSpan({ tagName }: { tagName: string }) {
 }
 
 /**
- * Preprocess content to convert #hashtags into special format that we can detect
- * Only matches single-word tags: #backend, #Tech-Leads, #api_v2
- * Does NOT support multi-word tags to avoid ambiguity
- */
-function preprocessHashtags(content: string): string {
-  // Match single-word hashtags only
-  const hashtagRegex = /\B#([a-zA-Z0-9_-]+)\b/g;
-  
-  // Replace with a special marker that won't be interpreted as markdown
-  // We'll use a unique format: <<<HASHTAG:tagname>>>
-  return content.replace(hashtagRegex, (_match, tagName) => {
-    return `<<<HASHTAG:${tagName.trim()}>>>`;
-  });
-}
-
-/**
- * Post-process text nodes to render hashtags
- * Works recursively on children to handle all text nodes, including nested React elements
+ * Process text content and replace hashtags with React components
  */
 function renderTextWithHashtags(children: any): React.ReactNode {
   if (typeof children === 'string') {
-    const parts: React.ReactNode[] = [];
-    const hashtagPlaceholderRegex = /<<<HASHTAG:([^>]+)>>>/g;
+    // Match hashtags: #word, #word-with-hyphens, #word_with_underscores
+    const hashtagRegex = /\B#([a-zA-Z0-9_-]+)\b/g;
     
+    const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match;
     
-    while ((match = hashtagPlaceholderRegex.exec(children)) !== null) {
+    while ((match = hashtagRegex.exec(children)) !== null) {
       // Add text before the hashtag
       if (match.index > lastIndex) {
         parts.push(children.slice(lastIndex, match.index));
@@ -136,39 +120,44 @@ function renderTextWithHashtags(children: any): React.ReactNode {
  * - Hashtag rendering with colors (#tagname)
  */
 export function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
-  // Preprocess content to protect hashtags from markdown interpretation
-  const processedContent = preprocessHashtags(content);
-  
   const components: Components = {
     // Links: Open in new tab with security
-    a: ({ ...props }) => (
+    a: ({ children, ...props }) => (
       <a
         {...props}
         target="_blank"
         rel="noopener noreferrer"
         className="text-primary-600 underline hover:text-primary-800"
-      />
+      >
+        {renderTextWithHashtags(children)}
+      </a>
     ),
     
-    // Headings: Styled hierarchy
-    h1: ({ ...props }) => (
-      <h1 {...props} className="mb-2 mt-4 text-xl font-bold text-gray-900" />
+    // Headings: Styled hierarchy + hashtag rendering
+    h1: ({ children, ...props }) => (
+      <h1 {...props} className="mb-2 mt-4 text-xl font-bold text-gray-900">
+        {renderTextWithHashtags(children)}
+      </h1>
     ),
-    h2: ({ ...props }) => (
-      <h2 {...props} className="mb-2 mt-3 text-lg font-semibold text-gray-900" />
+    h2: ({ children, ...props }) => (
+      <h2 {...props} className="mb-2 mt-3 text-lg font-semibold text-gray-900">
+        {renderTextWithHashtags(children)}
+      </h2>
     ),
-    h3: ({ ...props }) => (
-      <h3 {...props} className="mb-1 mt-2 text-base font-semibold text-gray-900" />
+    h3: ({ children, ...props }) => (
+      <h3 {...props} className="mb-1 mt-2 text-base font-semibold text-gray-900">
+        {renderTextWithHashtags(children)}
+      </h3>
     ),
     
-    // Code: Inline and block styles
+    // Code: Inline and block styles (with hashtag rendering for inline code)
     code: ({ inline, className, children, ...props }: any) => {
       return inline ? (
         <code
           {...props}
           className="rounded bg-gray-100 px-1.5 py-0.5 text-sm font-mono text-gray-800"
         >
-          {children}
+          {renderTextWithHashtags(children)}
         </code>
       ) : (
         <code
@@ -236,6 +225,25 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
         {renderTextWithHashtags(children)}
       </strong>
     ),
+    
+    // Delete/Strikethrough: hashtag rendering
+    del: ({ children, ...props }) => (
+      <del {...props}>
+        {renderTextWithHashtags(children)}
+      </del>
+    ),
+    
+    // Divs and spans: hashtag rendering
+    div: ({ children, ...props }) => (
+      <div {...props}>
+        {renderTextWithHashtags(children)}
+      </div>
+    ),
+    span: ({ children, ...props }) => (
+      <span {...props}>
+        {renderTextWithHashtags(children)}
+      </span>
+    ),
   };
   
   return (
@@ -244,7 +252,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
         remarkPlugins={[remarkGfm]}
         components={components}
       >
-        {processedContent}
+        {content}
       </ReactMarkdown>
     </div>
   );
