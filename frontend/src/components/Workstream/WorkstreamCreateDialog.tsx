@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useCategories } from '../../hooks/useCategories';
+import { TagAutocomplete } from '../Tag/TagAutocomplete';
 
 interface WorkstreamCreateDialogProps {
   isOpen: boolean;
@@ -16,6 +17,11 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
   const [initialNote, setInitialNote] = useState('');
   const queryClient = useQueryClient();
   const { data: categories } = useCategories();
+  
+  // Refs for autocomplete
+  const contextRef = useRef<HTMLTextAreaElement>(null);
+  const initialStatusRef = useRef<HTMLTextAreaElement>(null);
+  const initialNoteRef = useRef<HTMLTextAreaElement>(null);
 
   const createWorkstreamMutation = useMutation({
     mutationFn: async (data: {
@@ -124,15 +130,23 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
             <label htmlFor="context" className="mb-1 block text-sm font-medium text-gray-700">
               Context (optional)
             </label>
-            <textarea
-              id="context"
-              value={context}
-              onChange={(e) => setContext(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              rows={3}
-              maxLength={2000}
-              placeholder="Add background information or description"
-            />
+            <div className="relative">
+              <textarea
+                ref={contextRef}
+                id="context"
+                value={context}
+                onChange={(e) => setContext(e.target.value)}
+                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                rows={3}
+                maxLength={2000}
+                placeholder="Add background information or description"
+              />
+              <TagAutocomplete
+                textareaRef={contextRef}
+                value={context}
+                onChange={setContext}
+              />
+            </div>
             <div className="mt-1 text-xs text-gray-500">{context.length}/2000 characters</div>
           </div>
 
@@ -140,15 +154,23 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
             <label htmlFor="initialStatus" className="mb-1 block text-sm font-medium text-gray-700">
               Initial Status (optional)
             </label>
-            <textarea
-              id="initialStatus"
-              value={initialStatus}
-              onChange={(e) => setInitialStatus(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              rows={2}
-              maxLength={500}
-              placeholder="What's the current status?"
-            />
+            <div className="relative">
+              <textarea
+                ref={initialStatusRef}
+                id="initialStatus"
+                value={initialStatus}
+                onChange={(e) => setInitialStatus(e.target.value)}
+                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                rows={2}
+                maxLength={500}
+                placeholder="What's the current status?"
+              />
+              <TagAutocomplete
+                textareaRef={initialStatusRef}
+                value={initialStatus}
+                onChange={setInitialStatus}
+              />
+            </div>
             <div className="mt-1 text-xs text-gray-500">
               {initialStatus.length}/500 characters
             </div>
@@ -158,15 +180,23 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
             <label htmlFor="initialNote" className="mb-1 block text-sm font-medium text-gray-700">
               Initial Note (optional)
             </label>
-            <textarea
-              id="initialNote"
-              value={initialNote}
-              onChange={(e) => setInitialNote(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              rows={2}
-              maxLength={2000}
-              placeholder="Add details about the initial status"
-            />
+            <div className="relative">
+              <textarea
+                ref={initialNoteRef}
+                id="initialNote"
+                value={initialNote}
+                onChange={(e) => setInitialNote(e.target.value)}
+                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                rows={2}
+                maxLength={2000}
+                placeholder="Add details about the initial status"
+              />
+              <TagAutocomplete
+                textareaRef={initialNoteRef}
+                value={initialNote}
+                onChange={setInitialNote}
+              />
+            </div>
             <div className="mt-1 text-xs text-gray-500">
               {initialNote.length}/2000 characters
             </div>

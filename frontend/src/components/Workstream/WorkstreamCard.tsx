@@ -7,22 +7,19 @@ import { StatusUpdateDialog } from '../StatusUpdate/StatusUpdateDialog';
 import { apiClient } from '../../api/client';
 import { MarkdownRenderer } from '../Markdown/MarkdownRenderer';
 import { TagChip } from '../Tag/TagChip';
-import { extractTags } from '../../utils/tagExtractor';
 
 interface WorkstreamCardProps {
   workstream: Workstream;
 }
 
 export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
-  const { name, category, latestStatus } = workstream;
+  const { name, category, latestStatus, allTags } = workstream;
   const [showDialog, setShowDialog] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const queryClient = useQueryClient();
 
-  // Extract tags from latest status
-  const tags = latestStatus 
-    ? extractTags(latestStatus.status, latestStatus.note)
-    : [];
+  // Use allTags from backend if available, otherwise empty array
+  const tags = allTags || [];
 
   const closeMutation = useMutation({
     mutationFn: async (workstreamId: string) => {

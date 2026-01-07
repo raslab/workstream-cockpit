@@ -5,31 +5,42 @@ const prisma = new PrismaClient();
 
 export interface CreateTagInput {
   projectId: string;
-  name: string;
+  displayName: string;  // User-friendly name with spaces (e.g., "Alan Awake")
   color: string;
 }
 
 export interface UpdateTagInput {
-  name?: string;
+  displayName?: string;  // User-friendly name with spaces
   color?: string;
 }
 
-// Tag name validation regex
-const TAG_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
+/**
+ * Generate tag ID from display name
+ * Converts spaces to underscores and lowercases
+ * Example: "Alan Awake" -> "alan_awake"
+ */
+export function generateTagId(displayName: string): string {
+  return displayName.trim().toLowerCase().replace(/\s+/g, '_');
+}
 
 /**
- * Validate tag name format
+ * Validate tag display name format
+ * Allows alphanumeric, hyphens, underscores, and spaces
+ * Must start and end with alphanumeric
  */
-export function validateTagName(name: string): boolean {
-  if (!name || name.length === 0 || name.length > 50) {
+export function validateTagDisplayName(displayName: string): boolean {
+  if (!displayName || displayName.length === 0 || displayName.length > 50) {
     return false;
   }
-  return TAG_NAME_PATTERN.test(name);
+  
+  // Must start and end with alphanumeric, can contain hyphens, underscores, spaces
+  const pattern = /^[a-zA-Z0-9][a-zA-Z0-9_\s-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
+  return pattern.test(displayName);
 }
 
 /**
  * Normalize tag name to lowercase
- */
+``` */
 export function normalizeTagName(name: string): string {
   return name.toLowerCase().trim();
 }
@@ -46,9 +57,9 @@ export function validateColor(color: string): boolean {
  */
 export async function createTag(input: CreateTagInput): Promise<Tag> {
   try {
-    // Validate name format
-    if (!validateTagName(input.name)) {
-      throw new Error('Invalid tag name format. Use only letters, numbers, hyphens, and underscores.');
+    // Validate display name format
+    if (!validateTagDisplayName(input.displayName)) {
+      throw new Error('Invalid tag display name. Must start and end with alphanumeric characters.');
     }
 
     // Validate color format
@@ -56,24 +67,26 @@ export async function createTag(input: CreateTagInput): Promise<Tag> {
       throw new Error('Invalid color format. Use hex format (#RRGGBB).');
     }
 
-    const normalizedName = normalizeTagName(input.name);
+    // Generate tag ID from display name
+    const tagId = generateTagId(input.displayName);
 
-    logger.info(`Creating tag: ${normalizedName} for project ${input.projectId}`);
+    logger.info(`Creating tag: "${input.displayName}" (ID: ${tagId}) for project ${input.projectId}`);
 
     const tag = await prisma.tag.create({
       data: {
         projectId: input.projectId,
-        name: normalizedName,
+        name: tagId,  // Store as ID with underscores
+        displayName: input.displayName.trim(),  // Store original display name
         color: input.color.toUpperCase(),
       },
     });
 
-    logger.info(`Tag created successfully: ${tag.id}`);
+    logger.info(`Tag created successfully: ${tag.id}, displayName: "${tag.displayName}", ID: ${tag.name}`);
     return tag;
   } catch (error: any) {
     // Handle unique constraint violation
     if (error.code === 'P2002') {
-      throw new Error(`Tag "${input.name}" already exists in this project.`);
+      throw new Error(`Tag "${input.displayName}" (ID: ${generateTagId(input.displayName)}) already exists in this project.`);
     }
     logger.error('Error creating tag:', error);
     throw error;
@@ -134,10 +147,10 @@ export async function updateTag(
       throw new Error('Tag not found');
     }
 
-    // Validate name if provided
-    if (input.name !== undefined) {
-      if (!validateTagName(input.name)) {
-        throw new Error('Invalid tag name format. Use only letters, numbers, hyphens, and underscores.');
+    // Validate display name if provided
+    if (input.displayName !== undefined) {
+      if (!validateTagDisplayName(input.displayName)) {
+        throw new Error('Invalid tag display name. Must start and end with alphanumeric characters.');
       }
     }
 
@@ -149,26 +162,27 @@ export async function updateTag(
     }
 
     const updateData: any = {};
-    if (input.name !== undefined) {
-      updateData.name = normalizeTagName(input.name);
+    if (input.displayName !== undefined) {
+      updateData.displayName = input.displayName.trim();
+      updateData.name = generateTagId(input.displayName);  // Regenerate ID from new display name
     }
     if (input.color !== undefined) {
       updateData.color = input.color.toUpperCase();
     }
 
-    logger.info(`Updating tag ${id}`);
+    logger.info(`Updating tag ${id}, displayName: "${input.displayName || existingTag.displayName}"`);
 
     const tag = await prisma.tag.update({
       where: { id },
       data: updateData,
     });
 
-    logger.info(`Tag updated successfully: ${tag.id}`);
+    logger.info(`Tag updated successfully: ${tag.id}, displayName: "${tag.displayName}", ID: ${tag.name}`);
     return tag;
   } catch (error: any) {
     // Handle unique constraint violation
     if (error.code === 'P2002') {
-      throw new Error(`Tag "${input.name}" already exists in this project.`);
+      throw new Error(`Tag "${input.displayName}" (ID: ${generateTagId(input.displayName!)}) already exists in this project.`);
     }
     logger.error('Error updating tag:', error);
     throw error;

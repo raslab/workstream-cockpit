@@ -125,12 +125,16 @@ export async function createTestCategory(
  */
 export async function createTestTag(
   projectId: string,
-  data?: { name?: string; color?: string }
+  data?: { name?: string; displayName?: string; color?: string }
 ) {
+  const displayName = data?.displayName || data?.name || 'Test Tag';
+  const name = data?.name || displayName.toLowerCase().replace(/\s+/g, '_');
+  
   return prisma.tag.create({
     data: {
       projectId,
-      name: data?.name || 'test-tag',
+      name,
+      displayName,
       color: data?.color || '#1DA1F2',
     },
   });

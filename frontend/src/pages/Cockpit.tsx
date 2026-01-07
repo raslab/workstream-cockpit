@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useWorkstreams } from '../hooks/useWorkstreams';
 import { WorkstreamCard } from '../components/Workstream/WorkstreamCard';
 import { WorkstreamSkeleton } from '../components/Workstream/WorkstreamSkeleton';
@@ -11,7 +12,19 @@ type SortDirection = 'asc' | 'desc';
 type GroupOption = 'none' | 'tag';
 
 export default function Cockpit() {
+  const location = useLocation();
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Check if we have filterTags from navigation state (from clicking a tag chip)
+  useEffect(() => {
+    const state = location.state as { filterTags?: string[] } | null;
+    if (state?.filterTags) {
+      setSelectedTags(state.filterTags);
+      // Clear the state so it doesn't persist on page reload
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
+
   const { data: workstreams, isLoading, error } = useWorkstreams({ 
     state: 'active',
     tags: selectedTags.length > 0 ? selectedTags : undefined,
@@ -173,6 +186,9 @@ export default function Cockpit() {
               </div>
             </div>
 
+            {/* Tag Filter Dropdown */}
+            <TagFilter selectedTags={selectedTags} onTagsChange={setSelectedTags} />
+
             <button
               onClick={() => setShowCreateDialog(true)}
               className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
@@ -180,11 +196,6 @@ export default function Cockpit() {
               New Workstream
             </button>
           </div>
-        </div>
-
-        {/* Tag Filter */}
-        <div className="mb-4">
-          <TagFilter selectedTags={selectedTags} onTagsChange={setSelectedTags} />
         </div>
 
         {error && (

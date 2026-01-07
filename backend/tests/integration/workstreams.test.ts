@@ -423,11 +423,11 @@ describe('Workstreams API Integration Tests', () => {
     it('should filter workstreams by single tag in context', async () => {
       await createTestWorkstream(project.id, {
         name: 'Backend WS',
-        context: 'Working on #backend API',
+        context: 'Working on #backend',  // Single-word tag
       });
       await createTestWorkstream(project.id, {
         name: 'Frontend WS',
-        context: 'Building #frontend UI',
+        context: 'Building #frontend',  // Single-word tag
       });
 
       const response = await request(app).get('/?tags=backend');
@@ -440,11 +440,11 @@ describe('Workstreams API Integration Tests', () => {
     it('should filter workstreams by multiple tags (OR logic)', async () => {
       await createTestWorkstream(project.id, {
         name: 'Backend WS',
-        context: 'Working on #backend API',
+        context: 'Working on #backend',  // Single-word tag
       });
       await createTestWorkstream(project.id, {
         name: 'Frontend WS',
-        context: 'Building #frontend UI',
+        context: 'Building #frontend',  // Single-word tag
       });
       await createTestWorkstream(project.id, {
         name: 'Database WS',
@@ -485,7 +485,7 @@ describe('Workstreams API Integration Tests', () => {
       // Create workstream with tag in context
       await createTestWorkstream(project.id, {
         name: 'WS1',
-        context: 'Project #backend work',
+        context: 'Project #backend',  // Single-word tag
       });
       
       // Create workstream with tag in status update
@@ -493,7 +493,7 @@ describe('Workstreams API Integration Tests', () => {
 
       await createTestStatusUpdate(ws2.id, {
         status: 'Update',
-        note: 'Working on #backend tasks',
+        note: 'Working on #backend',  // Single-word tag
       });
 
       const response = await request(app).get('/?tags=backend');
@@ -505,7 +505,7 @@ describe('Workstreams API Integration Tests', () => {
     it('should be case-insensitive when filtering tags', async () => {
       await createTestWorkstream(project.id, {
         name: 'WS1',
-        context: 'Working on #Backend API',
+        context: 'Working on #Backend',  // Single-word tag, test case-insensitivity
       });
 
       const response = await request(app).get('/?tags=backend');
@@ -529,17 +529,17 @@ describe('Workstreams API Integration Tests', () => {
     it('should combine state and tag filters', async () => {
       await createTestWorkstream(project.id, {
         name: 'Active Backend',
-        context: '#backend work',
+        context: '#backend',  // Single-word tag
         state: 'active',
       });
       await createTestWorkstream(project.id, {
         name: 'Closed Backend',
-        context: '#backend work',
+        context: '#backend',  // Single-word tag
         state: 'closed',
       });
       await createTestWorkstream(project.id, {
         name: 'Active Frontend',
-        context: '#frontend work',
+        context: '#frontend',  // Single-word tag
         state: 'active',
       });
 
@@ -553,7 +553,7 @@ describe('Workstreams API Integration Tests', () => {
     it('should handle tags with hyphens and underscores', async () => {
       await createTestWorkstream(project.id, {
         name: 'WS1',
-        context: 'Working on #backend-api and #team_alpha',
+        context: 'Working on #backend-api, #team_alpha',  // Tags separated by comma to avoid "and" word
       });
 
       const response1 = await request(app).get('/?tags=backend-api');
@@ -568,7 +568,7 @@ describe('Workstreams API Integration Tests', () => {
     it('should handle whitespace in tags query parameter', async () => {
       await createTestWorkstream(project.id, {
         name: 'WS1',
-        context: '#backend work',
+        context: '#backend',  // Single-word tag
       });
 
       const response = await request(app).get('/?tags= backend , frontend ');

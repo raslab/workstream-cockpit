@@ -38,15 +38,17 @@ router.get('/', async (req: Request, res: Response) => {
 /**
  * POST /api/tags
  * Create a new tag
+ * Request body: { displayName: string, color: string }
+ * Response: { tag, message } where message includes the generated ID
  */
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
-    const { name, color } = req.body;
+    const { displayName, color } = req.body;
 
     // Validate required fields
-    if (!name || !color) {
-      res.status(400).json({ message: 'Name and color are required' });
+    if (!displayName || !color) {
+      res.status(400).json({ message: 'Display name and color are required' });
       return;
     }
 
@@ -61,11 +63,15 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const projectId = projects[0].id;
     const tag = await tagService.createTag({
       projectId,
-      name,
+      displayName,
       color,
     });
 
-    res.status(201).json({ tag });
+    // Return tag with helpful message showing the generated ID
+    res.status(201).json({ 
+      tag,
+      message: `Tag created: #${tag.displayName} (ID: #${tag.name})`
+    });
   } catch (error: any) {
     logger.error('POST /api/tags error:', error);
     
@@ -82,16 +88,17 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 /**
  * PATCH /api/tags/:id
  * Update a tag
+ * Request body: { displayName?: string, color?: string }
  */
 router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
     const { id } = req.params;
-    const { name, color } = req.body;
+    const { displayName, color } = req.body;
 
     // Validate at least one field provided
-    if (name === undefined && color === undefined) {
-      res.status(400).json({ message: 'At least one field (name or color) is required' });
+    if (displayName === undefined && color === undefined) {
+      res.status(400).json({ message: 'At least one field (displayName or color) is required' });
       return;
     }
 
@@ -104,9 +111,12 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     }
 
     const projectId = projects[0].id;
-    const tag = await tagService.updateTag(id, projectId, { name, color });
+    const tag = await tagService.updateTag(id, projectId, { displayName, color });
 
-    res.json({ tag });
+    res.json({ 
+      tag,
+      message: displayName ? `Tag updated: #${tag.displayName} (ID: #${tag.name})` : 'Tag updated'
+    });
   } catch (error: any) {
     logger.error(`PATCH /api/tags/${req.params.id} error:`, error);
 

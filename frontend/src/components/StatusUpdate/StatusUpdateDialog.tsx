@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { TagAutocomplete } from '../Tag/TagAutocomplete';
 
 interface StatusUpdateDialogProps {
   workstreamId: string;
@@ -17,6 +18,8 @@ export function StatusUpdateDialog({
 }: StatusUpdateDialogProps) {
   const [status, setStatus] = useState('');
   const [note, setNote] = useState('');
+  const statusRef = useRef<HTMLTextAreaElement>(null);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
   const queryClient = useQueryClient();
 
   const createStatusMutation = useMutation({
@@ -76,17 +79,23 @@ export function StatusUpdateDialog({
             </label>
             <textarea
               id="status"
+              ref={statusRef}
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               onKeyDown={handleKeyDown}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               rows={3}
               maxLength={500}
-              placeholder="What's the current status?"
+              placeholder="What's the current status? Use #tags for categorization"
               autoFocus
             />
+            <TagAutocomplete 
+              value={status} 
+              onChange={setStatus} 
+              textareaRef={statusRef}
+            />
             <div className="mt-1 text-xs text-gray-500">
-              {status.length}/500 characters
+              {status.length}/500 characters • Type # for tag suggestions
             </div>
           </div>
 
@@ -96,13 +105,19 @@ export function StatusUpdateDialog({
             </label>
             <textarea
               id="note"
+              ref={noteRef}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               onKeyDown={handleKeyDown}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               rows={3}
               maxLength={2000}
-              placeholder="Add any additional details..."
+              placeholder="Add any additional details... Use #tags here too!"
+            />
+            <TagAutocomplete 
+              value={note} 
+              onChange={setNote} 
+              textareaRef={noteRef}
             />
             <div className="mt-1 text-xs text-gray-500">
               {note.length}/2000 characters

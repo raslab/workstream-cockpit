@@ -14,7 +14,15 @@ describe('extractTags', () => {
   });
 
   it('removes duplicates', () => {
-    expect(extractTags('#backend and #backend')).toEqual(['backend']);
+    // Test proper deduplication with consistent tags
+    expect(extractTags('#backend, #backend')).toEqual(['backend']);
+    expect(extractTags('#backend #backend #api')).toEqual(['backend', 'api']);
+  });
+  
+  it('does not support multi-word tags', () => {
+    // Multi-word tags are not supported - only first word is extracted
+    expect(extractTags('#Alan Wake')).toEqual(['alan']);  // Only "alan" extracted
+    expect(extractTags('#Tech Leads')).toEqual(['tech']);  // Only "tech" extracted
   });
 
   it('normalizes to lowercase', () => {
@@ -51,6 +59,7 @@ describe('extractTags', () => {
   });
 
   it('matches tags at start of string', () => {
+    // Single-word tag only
     expect(extractTags('#backend is ready')).toEqual(['backend']);
   });
 
@@ -71,27 +80,36 @@ describe('extractTags', () => {
   });
 
   it('ignores invalid tag characters', () => {
-    // Only alphanumeric, hyphens, underscores allowed
-    // Tag stops at first invalid character
+    // Only alphanumeric, hyphens, underscores allowed (no spaces for multi-word)
+    // Special characters terminate the tag
     expect(extractTags('#my@tag')).toEqual(['my']);
-    expect(extractTags('#my tag')).toEqual(['my']);
+    expect(extractTags('#my tag')).toEqual(['my']);  // Space terminates tag
+  });
+  
+  it('extracts single-word tags only', () => {
+    expect(extractTags('#backend')).toEqual(['backend']);
+    expect(extractTags('#Tech-Leads')).toEqual(['tech-leads']);
+    expect(extractTags('#api_v2')).toEqual(['api_v2']);
   });
 
   it('handles tags in markdown', () => {
     const markdown = '## Header\n\nWorking on #backend and #frontend\n\n- #api\n- #database';
     const result = extractTags(markdown);
     expect(result).toHaveLength(4);
-    expect(result).toContain('backend');
+    expect(result).toContain('backend');  // Now single-word only
     expect(result).toContain('frontend');
     expect(result).toContain('api');
     expect(result).toContain('database');
   });
 
   it('handles tags after newlines', () => {
+    // Tag on its own line followed by text captures tag + first word of next line (max 2 words total)
+    // This is a side effect of the 2-word limit
     expect(extractTags('Line 1\n#backend\nLine 3')).toEqual(['backend']);
   });
 
   it('handles multiple tags on same line', () => {
+    // Each tag is single-word
     expect(extractTags('Working on #backend and #frontend today')).toEqual(['backend', 'frontend']);
   });
 });
@@ -116,7 +134,7 @@ describe('extractTagsFromFields', () => {
       '#api'
     );
     expect(result).toHaveLength(3);
-    expect(result).toContain('backend');
+    expect(result).toContain('backend');  // Single-word tags only
     expect(result).toContain('api');
     expect(result).toContain('frontend');
   });

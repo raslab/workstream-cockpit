@@ -24,8 +24,15 @@ function TagItem({
   setDeleteConfirm,
   deleteConfirm,
 }: TagItemProps) {
-  const [editName, setEditName] = useState(tag.name);
+  const [editDisplayName, setEditDisplayName] = useState(tag.displayName);
   const [editColor, setEditColor] = useState(tag.color);
+  
+  // Generate tag ID preview
+  const generateTagId = (displayName: string): string => {
+    return displayName.trim().toLowerCase().replace(/\s+/g, '_');
+  };
+  
+  const tagIdPreview = generateTagId(editDisplayName);
 
   if (isEditing) {
     return (
@@ -33,22 +40,30 @@ function TagItem({
         <h3 className="mb-4 text-lg font-semibold text-gray-900">Edit Tag</h3>
         <div className="mb-4">
           <label className="mb-1 block text-sm font-medium text-gray-700">
-            Tag Name <span className="text-red-500">*</span>
+            Tag Display Name <span className="text-red-500">*</span>
           </label>
           <div className="flex items-center gap-2">
             <span className="text-gray-500">#</span>
             <input
               type="text"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
+              value={editDisplayName}
+              onChange={(e) => setEditDisplayName(e.target.value)}
               className="flex-1 rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               maxLength={50}
-              placeholder="backend, team-alpha, api-v2"
+              placeholder="Backend Team, Alan Awake, API v2"
             />
           </div>
           <div className="mt-1 text-xs text-gray-500">
-            Alphanumeric, hyphens, and underscores only • {editName.length}/50 characters
+            Alphanumeric, hyphens, underscores, and spaces allowed • {editDisplayName.length}/50 characters
           </div>
+          {editDisplayName.trim() && (
+            <div className="mt-2 rounded-md bg-blue-50 p-2 text-xs text-blue-800">
+              <strong>Tag ID:</strong> #{tagIdPreview}
+              {editDisplayName !== tagIdPreview && (
+                <span className="ml-1">(Use this ID in text: #{tagIdPreview})</span>
+              )}
+            </div>
+          )}
         </div>
         <div className="mb-4">
           <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -64,9 +79,9 @@ function TagItem({
             Cancel
           </button>
           <button
-            onClick={() => onUpdate({ ...tag, name: editName, color: editColor })}
+            onClick={() => onUpdate({ ...tag, displayName: editDisplayName, color: editColor })}
             className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
-            disabled={!editName.trim()}
+            disabled={!editDisplayName.trim()}
           >
             Save
           </button>
@@ -85,8 +100,10 @@ function TagItem({
       </div>
 
       <div className="flex-1">
-        <h3 className="font-medium text-gray-900">#{tag.name}</h3>
-        <p className="text-sm text-gray-500">{tag.color}</p>
+        <h3 className="font-medium text-gray-900">#{tag.displayName}</h3>
+        <p className="text-xs text-gray-500">
+          ID: #{tag.name} • {tag.color}
+        </p>
       </div>
 
       <div className="flex gap-2">
@@ -133,22 +150,29 @@ export default function TagManagement() {
 
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [newTagName, setNewTagName] = useState('');
+  const [newTagDisplayName, setNewTagDisplayName] = useState('');
   const [newTagColor, setNewTagColor] = useState('#1DA1F2');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  
+  // Generate tag ID preview for new tag
+  const generateTagId = (displayName: string): string => {
+    return displayName.trim().toLowerCase().replace(/\s+/g, '_');
+  };
+  
+  const newTagIdPreview = generateTagId(newTagDisplayName);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newTagName.trim()) {
+    if (newTagDisplayName.trim()) {
       createMutation.mutate(
         {
-          name: newTagName.trim(),
+          displayName: newTagDisplayName.trim(),
           color: newTagColor,
         },
         {
           onSuccess: () => {
             setIsCreating(false);
-            setNewTagName('');
+            setNewTagDisplayName('');
             setNewTagColor('#1DA1F2');
           },
         }
@@ -161,7 +185,7 @@ export default function TagManagement() {
       {
         id: tag.id,
         updates: {
-          name: tag.name,
+          displayName: tag.displayName,
           color: tag.color,
         },
       },
@@ -204,23 +228,32 @@ export default function TagManagement() {
           <form onSubmit={handleCreate}>
             <div className="mb-4">
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                Tag Name <span className="text-red-500">*</span>
+                Tag Display Name <span className="text-red-500">*</span>
               </label>
               <div className="flex items-center gap-2">
                 <span className="text-gray-500 text-lg">#</span>
                 <input
                   type="text"
-                  value={newTagName}
-                  onChange={(e) => setNewTagName(e.target.value)}
+                  value={newTagDisplayName}
+                  onChange={(e) => setNewTagDisplayName(e.target.value)}
                   className="flex-1 rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   maxLength={50}
-                  placeholder="e.g., backend, team-alpha, api-v2"
+                  placeholder="e.g., Backend Team, Alan Awake, API v2"
                   autoFocus
                 />
               </div>
               <div className="mt-1 text-xs text-gray-500">
-                Alphanumeric, hyphens, and underscores only • {newTagName.length}/50 characters
+                Alphanumeric, hyphens, underscores, and spaces allowed • {newTagDisplayName.length}/50 characters
               </div>
+              {newTagDisplayName.trim() && (
+                <div className="mt-2 rounded-md bg-blue-50 p-2 text-sm text-blue-800">
+                  <strong>Tag ID:</strong> #{newTagIdPreview}
+                  <br />
+                  <span className="text-xs">
+                    Use <code className="bg-blue-100 px-1 rounded">#{newTagIdPreview}</code> in text for autocompletion and matching
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="mb-4">
@@ -244,7 +277,7 @@ export default function TagManagement() {
                 type="button"
                 onClick={() => {
                   setIsCreating(false);
-                  setNewTagName('');
+                  setNewTagDisplayName('');
                   setNewTagColor('#1DA1F2');
                 }}
                 className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -255,7 +288,7 @@ export default function TagManagement() {
               <button
                 type="submit"
                 className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-                disabled={!newTagName.trim() || createMutation.isPending}
+                disabled={!newTagDisplayName.trim() || createMutation.isPending}
               >
                 {createMutation.isPending ? 'Creating...' : 'Create Tag'}
               </button>
@@ -294,8 +327,13 @@ export default function TagManagement() {
       {!isLoading && tags && tags.length > 0 && (
         <div className="space-y-3">
           <div className="mb-4 rounded-md bg-blue-50 p-3 text-sm text-blue-800">
-            <strong>💡 How to use tags:</strong> Type #tagname in any workstream context or status update. 
-            Tags are automatically extracted and can be used for filtering.
+            <strong>💡 How to use tags:</strong>
+            <ul className="mt-2 space-y-1 list-disc pl-5">
+              <li>Type the <strong>tag ID</strong> (shown below each tag) in workstream context or status updates</li>
+              <li>Example: For "Alan Awake", type <code className="bg-blue-100 px-1 rounded">#alan_awake</code></li>
+              <li>The autocomplete will help you select the right tag</li>
+              <li>Tags display with their friendly names everywhere in the UI</li>
+            </ul>
           </div>
           {tags.map((tag) => (
             <TagItem

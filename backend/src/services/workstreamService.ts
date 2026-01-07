@@ -79,12 +79,21 @@ export async function getWorkstreams(
       });
     }
 
-    // Transform to include latestStatus (take only the latest)
+    // Transform to include latestStatus and extract all tags
     return workstreams.map((ws) => {
-      const { statusUpdates, ...workstream } = ws;
+      const { statusUpdates, ...workstream} = ws;
+      
+      // Extract all tags from context and all status updates
+      const texts = [
+        ws.context,
+        ...statusUpdates.flatMap(su => [su.status, su.note]),
+      ];
+      const allTags = extractTagsFromFields(...texts);
+      
       return {
         ...workstream,
         latestStatus: statusUpdates[0] || undefined,
+        allTags, // Include extracted tags for frontend display
       };
     });
   } catch (error) {

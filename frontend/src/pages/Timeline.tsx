@@ -5,7 +5,6 @@ import {
   FilterPreset,
   getDateRangeFromPreset,
 } from '../components/Timeline/FilterBar';
-import { TagFilter } from '../components/Tag/TagFilter';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
@@ -88,12 +87,9 @@ export default function Timeline() {
         onPresetChange={setSelectedPreset}
         selectedCategoryIds={selectedCategoryIds}
         onCategoryIdsChange={setSelectedCategoryIds}
+        selectedTags={selectedTags}
+        onTagsChange={setSelectedTags}
       />
-
-      {/* Tag Filter */}
-      <div className="mb-6">
-        <TagFilter selectedTags={selectedTags} onTagsChange={setSelectedTags} />
-      </div>
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">

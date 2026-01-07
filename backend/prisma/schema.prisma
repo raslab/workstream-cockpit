@@ -54,12 +54,13 @@ model Category {
 }
 
 model Tag {
-  id        String   @id @default(uuid())
-  projectId String   @map("project_id")
-  name      String
-  color     String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(uuid())
+  projectId   String   @map("project_id")
+  name        String   // Tag ID: lowercase with underscores (e.g., "alan_awake")
+  displayName String   @map("display_name") // User-friendly name with spaces (e.g., "Alan Awake")
+  color       String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 

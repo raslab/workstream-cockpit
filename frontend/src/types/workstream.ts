@@ -26,4 +26,5 @@ export interface Workstream {
   closedAt: string | null;
   category?: Category | null;
   latestStatus?: StatusUpdate;
+  allTags?: string[]; // All tags extracted from context and all status updates
 }
