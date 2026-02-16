@@ -88,6 +88,7 @@ export default function Timeline() {
         customEndDate={customEndDate}
         onCustomStartDateChange={setCustomStartDate}
         onCustomEndDateChange={setCustomEndDate}
+        timelineEntries={timeline}
       />
 
       {error && (
