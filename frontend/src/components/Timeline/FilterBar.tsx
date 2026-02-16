@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useCategories } from '../../hooks/useCategories';
 import { TagFilter } from '../Tag/TagFilter';
 import { DateRangeFilter } from './DateRangeFilter';
+import { ExportButton } from './ExportButton';
+import { TimelineEntry } from '../../hooks/useTimeline';
 import { startOfDay, endOfDay, subDays, startOfWeek, endOfWeek } from 'date-fns';
 
 export type FilterPreset = 'all' | 'today' | 'week' | 'last7' | 'custom';
@@ -15,6 +17,7 @@ interface FilterBarProps {
   customEndDate?: Date;
   onCustomStartDateChange: (date: Date | undefined) => void;
   onCustomEndDateChange: (date: Date | undefined) => void;
+  timelineEntries?: TimelineEntry[];
 }
 
 export function FilterBar({
@@ -26,6 +29,7 @@ export function FilterBar({
   customEndDate,
   onCustomStartDateChange,
   onCustomEndDateChange,
+  timelineEntries = [],
 }: FilterBarProps) {
   const { data: categories } = useCategories();
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
@@ -107,6 +111,11 @@ export function FilterBar({
 
       {/* Tag Filter */}
       <TagFilter selectedTags={selectedTags} onTagsChange={onTagsChange} />
+
+      {/* Export Button - pushed to right */}
+      <div className="ml-auto">
+        <ExportButton entries={timelineEntries} />
+      </div>
     </div>
   );
 }
