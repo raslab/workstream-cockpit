@@ -23,6 +23,7 @@ The Model Context Protocol (MCP) exposes server capabilities through discoverabl
   - workstreams / streams
   - status updates / narrative history
   - settings: categories, tags, and saved views
+  - timeline queries across streams and updates
 - Add a Settings UI section where the signed-in user can create, inspect, and revoke PATs.
 - Authorize MCP requests with a standard bearer token header containing the generated PAT.
 - Reuse existing user/project authorization rules so a PAT can only access the issuing user's default project data.
@@ -195,13 +196,15 @@ Output:
 
 #### `updates_list`
 
-Lists narrative updates for a workstream.
+Lists narrative updates for a workstream, optionally bounded by update creation dates.
 
 Input:
 
 ```json
 {
   "workstreamId": "workstream UUID",
+  "startDate": "optional ISO timestamp/date, inclusive",
+  "endDate": "optional ISO timestamp/date, inclusive",
   "limit": 100,
   "cursor": "optional opaque cursor"
 }
@@ -213,6 +216,53 @@ Output:
 {
   "ok": true,
   "updates": [],
+  "nextCursor": null
+}
+```
+
+#### `timeline_query`
+
+Queries the cross-stream timeline for recent operational history, including status updates, stream creation events, and stream closure events. This covers prompts such as “give me all streams/updates for the last 7 days with tags A,B,C”.
+
+Input:
+
+```json
+{
+  "startDate": "optional ISO timestamp/date, inclusive",
+  "endDate": "optional ISO timestamp/date, inclusive",
+  "relativeDays": "optional integer shorthand; 7 means from now minus 7 days through now",
+  "tagNames": ["optional tag IDs such as alan_awake"],
+  "categoryIds": ["optional category UUIDs"],
+  "eventTypes": ["status_update", "workstream_created", "workstream_closed"],
+  "limit": 100,
+  "cursor": "optional opaque cursor"
+}
+```
+
+Rules:
+
+- `relativeDays` is convenience input for clients; if present, the handler converts it to `startDate`/`endDate`.
+- If both explicit dates and `relativeDays` are provided, explicit dates win.
+- `tagNames` filters against tags extracted from workstream context, update status, and update note, matching current timeline behavior.
+- Results are sorted newest first.
+
+Output:
+
+```json
+{
+  "ok": true,
+  "events": [
+    {
+      "id": "status-...",
+      "eventType": "status_update",
+      "workstreamId": "workstream UUID",
+      "workstreamName": "Stream name",
+      "status": "Narrative status",
+      "note": "Optional longer note",
+      "createdAt": "ISO timestamp",
+      "category": {}
+    }
+  ],
   "nextCursor": null
 }
 ```
@@ -301,26 +351,6 @@ Input:
 
 Output: reopened workstream.
 
-#### `workstreams_delete`
-
-Deletes a stream and its update history. Mark this tool destructive in annotations.
-
-Input:
-
-```json
-{
-  "id": "workstream UUID",
-  "confirm": true
-}
-```
-
-Output:
-
-```json
-{ "ok": true, "deletedId": "workstream UUID" }
-```
-
-Require `confirm: true` to reduce accidental LLM-triggered deletes.
 
 ### Update write tools
 
@@ -473,6 +503,44 @@ Input:
 
 Output: deleted ID.
 
+#### `settings_views_list`
+
+Lists all saved views for the issuing user's default project.
+
+Input:
+
+```json
+{}
+```
+
+Output:
+
+```json
+{
+  "ok": true,
+  "views": []
+}
+```
+
+#### `settings_view_get`
+
+Gets one saved view, including its full config.
+
+Input:
+
+```json
+{ "id": "view UUID" }
+```
+
+Output:
+
+```json
+{
+  "ok": true,
+  "view": {}
+}
+```
+
 #### `settings_view_create`
 
 Input:
@@ -526,7 +594,7 @@ MCP tools must enforce the same limits as the REST API:
 - Category name: max 100 chars.
 - Category color: `#RRGGBB`, normalized uppercase.
 - Tag color: use the same validation as tag service; align it with category color if missing.
-- Destructive tools require `confirm: true`.
+- Destructive tools require `confirm: true`. Workstream deletion is intentionally not exposed through MCP.
 - Unknown IDs return not found, not access denied, to avoid leaking existence across users.
 
 ## Authorization and safety
@@ -567,7 +635,7 @@ Backend tests:
 - Read-only PAT can call read tools and is denied write tools.
 - Read-write PAT can create/update entities inside only the owner project.
 - Destructive tools reject missing `confirm: true`.
-- Every MCP tool has validation tests for required fields and length/color constraints.
+- Every MCP tool has validation tests for required fields, date filters, timeline filters, and length/color constraints.
 - Existing session-authenticated REST routes keep working.
 
 Frontend tests:
