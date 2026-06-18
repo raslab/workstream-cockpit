@@ -163,12 +163,18 @@ open http://localhost:3000
 
 **Backend** (`.env`):
 ```bash
-DATABASE_URL="postgresql://postgres:postgres@db:5432/workstream_cockpit"
+POSTGRES_HOST="postgres"
+POSTGRES_PORT="5432"
+POSTGRES_USER="workstream"
+POSTGRES_PASSWORD="change-me"
+POSTGRES_DB="workstream_cockpit"
 SESSION_SECRET="your-secure-random-secret"
 GOOGLE_CLIENT_ID="your-id.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET="your-secret"
 GOOGLE_CALLBACK_URL="http://localhost:3001/api/auth/google/callback"
 ```
+
+`DATABASE_URL` is composed internally from `POSTGRES_*` for Prisma. Set it only as an advanced override.
 
 **Frontend** (`frontend/.env`):
 ```bash
@@ -318,14 +324,20 @@ docker run -d \
 **2. Test Environment Configuration:**
 The test environment uses a separate database (`workstream_cockpit_test`) configured in `backend/.env.test`:
 ```bash
-DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:35268/workstream_cockpit_test?schema=public"
+POSTGRES_HOST="host.docker.internal"
+POSTGRES_PORT="35268"
+POSTGRES_USER="postgres"
+POSTGRES_PASSWORD="postgres"
+POSTGRES_DB="workstream_cockpit_test"
 GOOGLE_CLIENT_ID="test-client-id"
 GOOGLE_CLIENT_SECRET="test-client-secret"
 GOOGLE_CALLBACK_URL="http://localhost:3001/auth/google/callback"
 SESSION_SECRET="test-session-secret"
 ```
 
-If you run tests directly on the host and `host.docker.internal` does not resolve, use `localhost` instead.
+Tests compose Prisma's `DATABASE_URL` from those `POSTGRES_*` values at runtime.
+
+If you run tests directly on the host and `host.docker.internal` does not resolve, set `POSTGRES_HOST=localhost` locally.
 
 **3. Automatic Test Database Setup:**
 The test database is automatically created and migrations are run when you first execute tests. No manual database setup required!
@@ -404,12 +416,18 @@ For detailed testing documentation, see [DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 **Backend (.env):**
 ```bash
-DATABASE_URL="postgresql://postgres:postgres@db:5432/workstream_cockpit"
+POSTGRES_HOST="postgres"
+POSTGRES_PORT="5432"
+POSTGRES_USER="workstream"
+POSTGRES_PASSWORD="change-me"
+POSTGRES_DB="workstream_cockpit"
 SESSION_SECRET="generate-secure-random-string"
 GOOGLE_CLIENT_ID="<from-google-cloud-console>"
 GOOGLE_CLIENT_SECRET="<from-google-cloud-console>"
 GOOGLE_CALLBACK_URL="http://localhost:3001/api/auth/google/callback"
 ```
+
+`DATABASE_URL` is normally derived at runtime. Use explicit `DATABASE_URL` only for custom deployments that need a full connection string override.
 
 **Frontend (.env):**
 ```bash

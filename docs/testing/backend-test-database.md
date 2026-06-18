@@ -34,14 +34,20 @@ docker ps --filter name=workstream-cockpit-test-postgres
 `backend/.env.test` is configured for Hermes/subagent containers by default:
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:35268/workstream_cockpit_test?schema=public"
+POSTGRES_HOST=host.docker.internal
+POSTGRES_PORT=35268
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=workstream_cockpit_test
 ```
 
-If you run tests directly on the host and `host.docker.internal` does not resolve, change the host locally to `localhost`:
+If you run tests directly on the host and `host.docker.internal` does not resolve, change only the host locally:
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:35268/workstream_cockpit_test?schema=public"
+POSTGRES_HOST=localhost
 ```
+
+The test bootstrap composes Prisma's required `DATABASE_URL` from `POSTGRES_*`. Set `DATABASE_URL` only as an advanced override.
 
 ## Run tests
 
@@ -59,13 +65,13 @@ npm run test --workspace=backend -- --runTestsByPath backend/tests/integration/w
 
 ## Automatic setup behavior
 
-The test helper reads `DATABASE_URL` and uses the same host, port, user, password, and database name for setup.
+The test helper composes `DATABASE_URL` from `POSTGRES_*` and uses the same host, port, user, password, and database name for setup.
 
 On the first run it:
 
 1. Connects to the sidecar's default `postgres` database.
-2. Creates the test database named in `DATABASE_URL` if missing.
-3. Runs `npx prisma migrate deploy` against the test database.
+2. Creates the test database named in `POSTGRES_DB` if missing.
+3. Runs `npm run migrate:deploy` against the test database.
 4. Cleans tables between tests.
 
 ## Troubleshooting

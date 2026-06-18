@@ -1,34 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 import { execSync } from 'child_process';
 import * as path from 'path';
+import { ensureDatabaseUrl, getDatabaseUrlConfig } from '../../src/config/databaseUrl';
 
 // Load test environment variables from .env.test
 require('dotenv').config({ path: path.join(__dirname, '../../.env.test') });
+ensureDatabaseUrl();
 
 const prisma = new PrismaClient();
-
-function getTestDatabaseConfig() {
-  const databaseUrl = process.env.DATABASE_URL;
-
-  if (!databaseUrl) {
-    throw new Error('DATABASE_URL is required for integration tests');
-  }
-
-  const parsedUrl = new URL(databaseUrl);
-  const databaseName = decodeURIComponent(parsedUrl.pathname.replace(/^\//, ''));
-
-  if (!databaseName) {
-    throw new Error('DATABASE_URL must include a test database name');
-  }
-
-  return {
-    host: parsedUrl.hostname,
-    port: Number(parsedUrl.port || 5432),
-    user: decodeURIComponent(parsedUrl.username),
-    password: decodeURIComponent(parsedUrl.password),
-    databaseName,
-  };
-}
 
 function quotePostgresIdentifier(identifier: string): string {
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(identifier)) {
@@ -42,8 +21,8 @@ function quotePostgresIdentifier(identifier: string): string {
  * Setup test database before all tests
  *
  * Prerequisites:
- * 1. A PostgreSQL test sidecar is reachable at the DATABASE_URL host/port
- * 2. .env.test is configured with the test database URL
+ * 1. A PostgreSQL test sidecar is reachable at the configured POSTGRES_HOST/POSTGRES_PORT
+ * 2. .env.test is configured with POSTGRES_* database settings
  *
  * This will:
  * - Create the test database if it doesn't exist
@@ -52,10 +31,10 @@ function quotePostgresIdentifier(identifier: string): string {
 export async function setupTestDatabase(): Promise<void> {
   try {
     // Create test database if it doesn't exist.
-    // Use the same host/user/password as DATABASE_URL, but connect to the
+    // Use the same host/user/password as the composed database URL, but connect to the
     // default postgres database first so we can create the target test DB.
     const { Client } = require('pg');
-    const testDbConfig = getTestDatabaseConfig();
+    const testDbConfig = getDatabaseUrlConfig();
     const adminClient = new Client({
       host: testDbConfig.host,
       port: testDbConfig.port,
@@ -84,7 +63,7 @@ export async function setupTestDatabase(): Promise<void> {
     }
 
     // Run migrations on test database
-    execSync('npx prisma migrate deploy', {
+    execSync('npm run migrate:deploy', {
       env: { ...process.env },
       stdio: 'inherit'
     });

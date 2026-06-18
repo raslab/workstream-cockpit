@@ -1,8 +1,9 @@
+import './config/env';
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import dotenv from 'dotenv';
 import cron from 'node-cron';
 import passport from './config/passport';
 import { sessionConfig } from './middleware/session';
@@ -19,8 +20,6 @@ import { errorHandler } from './middleware/errorHandler';
 import { logger } from './utils/logger';
 import { executeBackup } from './services/backupService';
 
-// Load environment variables
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
