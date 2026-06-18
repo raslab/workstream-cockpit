@@ -1,378 +1,198 @@
-# Development Guide - Workstream Cockpit
+# Development guide
 
-## Project Status
+This guide covers local development commands and implementation reference material. For Docker deployment, environment configuration, and backups, see [Deployment and operations](./DEPLOYMENT.md).
 
-**Current Phase**: Phase 1 Complete - Infrastructure & Project Setup ✅  
-**Branch**: `001-cockpit-core`  
-**Implementation Progress**: Foundation ready for development
+## Project layout
 
-### Completed Work
+- `frontend/` — React, TypeScript, Vite, Tailwind CSS
+- `backend/` — Node.js, Express, TypeScript, Prisma
+- `docs/` — product, operational, testing, and security documentation
+- `docker-compose.yml` — local/self-hosted runtime stack
+- `.env.example` — runtime configuration template
 
-✅ **Phase 1.1: Monorepo Structure**
-- Created `/backend` and `/frontend` directories
-- Set up root `package.json` with workspace configuration
-- Configured `.gitignore` for Node.js projects
-- Created comprehensive README.md
+## Prerequisites
 
-✅ **Phase 1.2: Backend Foundation**
-- Initialized Node.js/TypeScript project with Express.js
-- Configured Prisma ORM with PostgreSQL schema
-- Set up Jest testing framework
-- Created ESLint and Prettier configurations
-- Implemented logging utility and error handling middleware
-- Created health check endpoint
-- Set up database connection utility
+- Node.js 20+
+- npm 10+
+- Docker and Docker Compose
+- Google OAuth credentials for sign-in flows
 
-✅ **Phase 1.3: Frontend Foundation**
-- Initialized React 18 + TypeScript project with Vite
-- Configured Tailwind CSS for styling
-- Set up React Query for server state management
-- Configured React Router for navigation
-- Set up Vitest + React Testing Library
-- Created placeholder pages (Login, Cockpit, Timeline, Archive)
-- Implemented API client with error handling
-
-✅ **Phase 1.4: Docker & Deployment**
-- Created Dockerfile for backend
-- Created Dockerfile for frontend with nginx
-- Created docker-compose.yml orchestrating all services
-- Configured nginx reverse proxy for frontend
-- Set up environment variable templates
-
-### Database Schema
-
-The Prisma schema defines the following models:
-
-- **Person**: User accounts (Google OAuth)
-- **Project**: Workstream groupings  
-- **Tag**: Categories with colors
-- **Workstream**: Tracked initiatives
-- **StatusUpdate**: Status history
-
-## Next Steps
-
-### Immediate Actions (Phase 2)
-
-1. **Install Dependencies**
-   ```bash
-   # From project root
-   npm install
-   ```
-
-2. **Set Up Environment Variables**
-   ```bash
-   # Copy environment templates
-   cp .env.example .env
-   
-   # Edit .env files with your Google OAuth credentials
-   ```
-
-3. **Set Up Google OAuth**
-   - Create a Google Cloud Project
-   - Enable Google OAuth API
-   - Create OAuth 2.0 credentials (client ID and secret)
-   - Add authorized redirect URI: `http://localhost:3000/auth/google/callback`
-   - Copy credentials to `.env` file
-
-4. **Generate Prisma Client**
-   ```bash
-   cd backend
-   npm run prisma:generate
-   ```
-
-5. **Create Initial Database Migration**
-   ```bash
-   cd backend
-   npm run migrate
-   ```
-
-6. **Start Development Servers**
-   ```bash
-   # Option 1: Run with Docker
-   docker-compose up
-
-   # Option 2: Run locally
-   # Terminal 1 - Backend
-   cd backend
-   npm run dev
-
-   # Terminal 2 - Frontend
-   cd frontend
-   npm run dev
-   ```
-
-### Development Workflow
-
-#### Running Tests
+## First-time setup
 
 ```bash
-# All tests
-npm test
-
-# Backend tests only
-npm run test:backend
-
-# Frontend tests only
-npm run test:frontend
-
-# Watch mode
-cd backend && npm run test:watch
-cd frontend && npm run test:watch
-```
-
-#### Code Quality
-
-```bash
-# Lint code
-npm run lint
-
-# Format code
-npm run format
-```
-
-#### Database Management
-
-```bash
-cd backend
-
-# Create a new migration
-npm run migrate
-
-# Reset database
-npx prisma migrate reset
-
-# Open Prisma Studio (GUI for database)
-npm run prisma:studio
-```
-
-## Implementation Roadmap
-
-### Phase 2: Authentication & User Management (Week 2)
-- [ ] Implement Google OAuth backend routes
-- [ ] Create Person auto-creation on first login
-- [ ] Create default Project and Tags on first login
-- [ ] Implement session management
-- [ ] Add authentication middleware
-- [ ] Create Login page with OAuth integration
-- [ ] Implement AuthContext for frontend
-- [ ] Add data isolation enforcement
-
-### Phase 3: Core Data Management (Weeks 3-5)
-- [ ] Create Project CRUD API
-- [ ] Create Tag CRUD API with default tags
-- [ ] Create Workstream CRUD API
-- [ ] Create StatusUpdate CRUD API
-- [ ] Implement validation and error handling
-- [ ] Write comprehensive tests (80% backend coverage)
-
-### Phase 4: Primary UI Views (Weeks 6-8)
-- [ ] Build Cockpit view (read-only)
-- [ ] Create StatusUpdateDialog component
-- [ ] Implement WorkstreamCreateDialog
-- [ ] Build WorkstreamDetail view
-- [ ] Create TagManagement UI
-- [ ] Add skeleton loading states
-- [ ] Write component tests (70% frontend coverage)
-
-### Phase 5: Timeline & Reporting (Weeks 9-10)
-- [ ] Create Timeline API endpoint
-- [ ] Build Timeline view
-- [ ] Implement date range filtering
-- [ ] Add tag filtering
-- [ ] Create Archive view
-- [ ] Implement reopen functionality
-
-### Phase 6: Polish & Testing (Weeks 11-12)
-- [ ] Implement retry logic with exponential backoff
-- [ ] Performance optimization
-- [ ] End-to-end testing
-- [ ] Cross-browser testing
-- [ ] Documentation updates
-- [ ] Production deployment preparation
-
-## Architecture Notes
-
-### Port Configuration
-
-- **Backend**: Internal 3000 → Host 3000
-- **Frontend**: Internal 5173 (dev) / 80 (prod) → Host 3001
-- **PostgreSQL**: Internal 5432 → Host 5433
-
-### API Structure
-
-```
-/health                 - Health check
-/auth/google           - OAuth initiation
-/auth/google/callback  - OAuth callback
-/auth/logout           - Logout
-/api/projects          - Project management
-/api/tags              - Tag CRUD
-/api/workstreams       - Workstream CRUD
-/api/status-updates    - Status update CRUD
-/api/timeline          - Cross-workstream reporting
-```
-
-### Frontend Routes
-
-```
-/login                  - Authentication page
-/                       - Cockpit view (active workstreams)
-/timeline               - Timeline view (reporting)
-/archive                - Archived workstreams
-```
-
-## Testing Strategy
-
-### Test Coverage Targets
-
-- **Backend Unit Tests**: 80% coverage
-- **Backend Integration Tests**: 100% of API endpoints
-- **Frontend Component Tests**: 70% coverage
-- **E2E Tests**: All critical user flows
-
-### Running Backend Integration Tests
-
-**Prerequisites**:
-1. Start the permanent host-side test database sidecar:
-   ```bash
-   docker rm -f workstream-cockpit-test-postgres 2>/dev/null || true
-
-   docker run -d \
-     --name workstream-cockpit-test-postgres \
-     --restart unless-stopped \
-     -e POSTGRES_USER=postgres \
-     -e POSTGRES_PASSWORD=postgres \
-     -e POSTGRES_DB=postgres \
-     -p 35268:5432 \
-     postgres:15-alpine
-   ```
-
-2. Ensure `backend/.env.test` points at the sidecar via component settings.
-
-   For Hermes/subagent containers:
-   ```bash
-   POSTGRES_HOST="host.docker.internal"
-   POSTGRES_PORT="35268"
-   POSTGRES_USER="postgres"
-   POSTGRES_PASSWORD="postgres"
-   POSTGRES_DB="workstream_cockpit_test"
-   ```
-
-   For tests run directly on a host where `host.docker.internal` is unavailable, use `POSTGRES_HOST=localhost` instead.
-
-   **Note**: This uses a separate database (`workstream_cockpit_test`) from the main development database. Prisma's required `DATABASE_URL` is composed at runtime from `POSTGRES_*`.
-
-Detailed setup: [Backend test database](./testing/backend-test-database.md).
-
-**Running Tests**:
-```bash
-cd backend
-npm test                    # Run all tests
-npm test tags.test.ts      # Run specific test file
-npm run test:coverage      # Run with coverage report
-npm run test:watch         # Watch mode
-```
-
-**Test Database Setup**:
-- The test suite automatically creates the `workstream_cockpit_test` database if it doesn't exist
-- Migrations are automatically applied to the test database
-- Each test file uses `cleanDatabase()` in `beforeEach` to ensure test isolation
-- All tests run serially (maxWorkers: 1) to avoid database conflicts
-
-### TDD Approach
-
-For each feature:
-1. Write failing test first
-2. Implement minimal code to pass
-3. Refactor for clarity
-4. Add edge case tests
-5. Document scenarios
-
-### Integration Test Structure
-
-All integration tests follow this pattern:
-```typescript
-describe('API Integration Tests', () => {
-  let person: any;
-  let project: any;
-  let app: any;
-
-  beforeAll(async () => {
-    await setupTestDatabase();
-  });
-
-  beforeEach(async () => {
-    await cleanDatabase();
-    person = await createTestPerson({ email: 'test@example.com' });
-    project = await createTestProject(person.id);
-    app = createTestApp(routes, person);
-  });
-
-  afterAll(async () => {
-    await disconnectDatabase();
-  });
-
-  // Test cases...
-});
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**Dependencies Not Installing**
-```bash
-# Clear caches and reinstall
-rm -rf node_modules backend/node_modules frontend/node_modules
-rm package-lock.json backend/package-lock.json frontend/package-lock.json
 npm install
+cp .env.example .env
 ```
 
-**Prisma Client Not Generated**
+Edit `.env` with local database, session, frontend, CORS, and Google OAuth values. For the full environment reference, see [Deployment and operations](./DEPLOYMENT.md).
+
+Generate Prisma client if needed:
+
 ```bash
 cd backend
 npm run prisma:generate
 ```
 
-**Database Connection Failed**
-- Ensure PostgreSQL is running (Docker or local)
-- Check `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` in `.env`
-- If using an explicit `DATABASE_URL` override, verify it matches the intended database or remove it
-- Verify the configured Postgres port is not in use
+## Running the app locally
 
-**TypeScript Errors**
-- Run `npm install` in both backend and frontend
-- Ensure dependencies are installed
-- Check tsconfig.json configurations
+### Docker stack
 
-**Docker Issues**
 ```bash
-# Rebuild containers
-docker-compose down
-docker-compose build --no-cache
-docker-compose up
+docker compose up -d --build
 ```
 
-## Resources
+Default URLs:
 
-- [Prisma Documentation](https://www.prisma.io/docs)
-- [React Query Documentation](https://tanstack.com/query/latest)
-- [Vite Documentation](https://vitejs.dev/)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
-- [Express.js Documentation](https://expressjs.com/)
+- Frontend: `http://localhost:3002`
+- Backend: `http://localhost:3001`
 
-## Contributing
+### Hot-reload development
 
-1. Follow the task breakdown in `specs/001-cockpit-core/tasks.md`
-2. Write tests first (TDD)
-3. Ensure all tests pass before committing
-4. Follow ESLint and Prettier configurations
-5. Update documentation as needed
+The Compose database is private to the Compose network by default. For the simplest local development loop, run the full Docker stack:
 
-## Support
+```bash
+docker compose up -d --build
+```
 
-For questions or issues:
-- Check this guide first
-- Review the spec in `specs/001-cockpit-core/spec.md`
-- Check the plan in `specs/001-cockpit-core/plan.md`
-- Review task breakdown in `specs/001-cockpit-core/tasks.md`
+If you want to run the backend and frontend directly on the host with hot reload, use a host-reachable PostgreSQL instance and override the backend database host/port accordingly:
+
+```bash
+# example only: use values that point at your local database
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=5432
+npm run dev:backend
+npm run dev:frontend
+```
+
+Or run both dev scripts through the root command after the database variables point at a reachable database:
+
+```bash
+npm run dev
+```
+
+## Common commands
+
+```bash
+npm run build          # build backend and frontend workspaces
+npm test               # run all workspace tests
+npm run test:backend   # backend tests
+npm run test:frontend  # frontend tests
+npm run lint           # workspace linting
+npm run format         # workspace formatting
+```
+
+Backend-specific commands:
+
+```bash
+cd backend
+npm run dev
+npm test
+npm run test:coverage
+npm run prisma:generate
+npm run migrate
+npm run prisma:studio
+```
+
+Frontend-specific commands:
+
+```bash
+cd frontend
+npm run dev
+npm test
+npm run build
+```
+
+## Testing
+
+Backend integration tests use a separate PostgreSQL test database. The repeatable sidecar setup is documented in [Backend test database](./testing/backend-test-database.md), with a broader index in [Testing](./testing/README.md).
+
+Short version:
+
+```bash
+docker rm -f workstream-cockpit-test-postgres 2>/dev/null || true
+
+docker run -d \
+  --name workstream-cockpit-test-postgres \
+  --restart unless-stopped \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=postgres \
+  -p 35268:5432 \
+  postgres:15-alpine
+```
+
+`backend/.env.test` should point at that sidecar. In containerized agent environments, use `POSTGRES_HOST=host.docker.internal`; when running directly on a host where that name is unavailable, use `POSTGRES_HOST=localhost`.
+
+## Domain model
+
+Core data concepts:
+
+- `Person` — authenticated user account
+- `Project` — workspace boundary for a user's data
+- `Category` — stream type, such as project, process, watching, maybe later, or uncategorized
+- `Tag` — reusable context dimension, such as team, person, domain, system, or meeting context
+- `Workstream` — tracked thread of operational attention
+- `StatusUpdate` — narrative progress/history note for a workstream
+- `View` — saved meeting or checklist angle over streams
+
+## API reference map
+
+Important backend route areas live under `backend/src/routes/`:
+
+- Auth: Google OAuth login/logout/session handling
+- Workstreams: create, list, update, archive, reopen, and details
+- Status updates: add and edit narrative history
+- Categories: stream type management
+- Tags: tag management and filtering
+- Timeline: cross-stream history retrieval
+- Views: saved cockpit angles
+- Health: service readiness
+
+## Frontend route map
+
+Common app routes include:
+
+- `/` — cockpit dashboard
+- `/workstreams/:id` — workstream detail and history
+- `/timeline` — cross-stream timeline
+- `/archive` — archived streams
+- `/settings` or related settings routes — category and tag management, depending on current UI routing
+
+## Troubleshooting
+
+### Database connection failures
+
+- Confirm the database service is running: `docker compose ps`.
+- Check `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`.
+- Remove an accidental `DATABASE_URL` override unless you intentionally need it.
+- Check whether the host port is already in use.
+
+### Prisma client errors
+
+```bash
+cd backend
+npm run prisma:generate
+```
+
+### Dependency issues
+
+```bash
+rm -rf node_modules backend/node_modules frontend/node_modules
+rm -f package-lock.json backend/package-lock.json frontend/package-lock.json
+npm install
+```
+
+### Docker rebuild
+
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
+
+## Related docs
+
+- [Deployment and operations](./DEPLOYMENT.md)
+- [Testing](./testing/README.md)
+- [Security specs](./security/README.md)
+- [Requirements document](./Workstream%20Cockpit%20-%20Requirements%20Document.md)
