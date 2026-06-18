@@ -19,6 +19,10 @@ Start here when you need setup details, implementation references, testing instr
 - [Integration specs](./integrations/README.md) — external automation and protocol integrations.
 - [MCP server and personal access tokens](./integrations/mcp-server.md) — read/write MCP tools for streams, updates, and settings.
 
+## Implementation plans
+
+- [MCP PAT PR1 scope](./plans/mcp-pat-pr1-scope.md) — first implementation PR for PAT model, API, and Settings UI before MCP transport work.
+
 ## Security
 
 Security docs are organized by concern, not by implementation batch:
