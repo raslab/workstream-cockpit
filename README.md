@@ -6,7 +6,7 @@
 
 **A beautiful, self-hosted productivity tool for engineering managers tracking 15-20 active workstreams**
 
-[Quick Start](#-quick-start) • [Features](#-features) • [Demo](#-screenshots) • [Documentation](#-documentation)
+[Quick Start](#-quick-start) • [Features](#-features) • [Demo](#-screenshots) • [Docs](docs/README.md)
 
 ---
 
@@ -364,7 +364,9 @@ For detailed testing documentation, see [DEVELOPMENT.md](docs/DEVELOPMENT.md).
 - `GET /api/workstreams` - List active workstreams
 - `POST /api/status-updates` - Add status
 - `GET /api/timeline` - Timeline view
-- [Full API docs](docs/DEVELOPMENT.md)
+- [Documentation index](docs/README.md)
+- [Development/API notes](docs/DEVELOPMENT.md)
+- [Security specs](docs/security/README.md)
 
 ### Frontend Routes
 - `/` - Cockpit dashboard
