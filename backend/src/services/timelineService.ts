@@ -198,7 +198,8 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
 
     // Remove temporary workstreamContext field before returning
     const cleanedTimeline = filteredTimeline.map((entry: any) => {
-      const { workstreamContext, ...rest } = entry;
+      const rest = { ...entry };
+      delete rest.workstreamContext;
       return rest as TimelineEntry;
     });
 

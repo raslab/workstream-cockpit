@@ -1,8 +1,21 @@
 import { Router } from 'express';
 import passport from '../config/passport';
+import { getSessionCookieClearOptions, getSessionCookieName } from '../config/sessionSecurity';
 import { logger } from '../utils/logger';
 
 const router = Router();
+
+function isAuthDebugEnabled(): boolean {
+  return process.env.AUTH_DEBUG_ENABLED === 'true';
+}
+
+function redactSessionId(sessionID: string | undefined): string | null {
+  if (!sessionID) {
+    return null;
+  }
+
+  return `...${sessionID.slice(-6)}`;
+}
 
 /**
  * GET /auth/google
@@ -74,28 +87,52 @@ router.post('/logout', (req, res): void => {
     }
 
     logger.info(`User ${user?.email} logged out`);
-    res.json({ message: 'Logged out successfully' });
+    req.session.destroy((destroyErr) => {
+      if (destroyErr) {
+        logger.error('Error destroying session during logout:', destroyErr);
+        res.status(500).json({ error: 'Logout failed' });
+        return;
+      }
+
+      res.clearCookie(getSessionCookieName(), getSessionCookieClearOptions());
+      res.json({ message: 'Logged out successfully' });
+    });
   });
 });
 
 /**
  * GET /auth/debug
- * Debug endpoint to check session status (development only)
+ * Debug endpoint to check session status (disabled unless AUTH_DEBUG_ENABLED=true)
  */
 router.get('/debug', (req, res): void => {
-  if (process.env.NODE_ENV === 'production') {
+  if (!isAuthDebugEnabled()) {
     res.status(404).json({ error: 'Not found' });
     return;
   }
 
+  const user = req.user as any;
+
   res.json({
-    sessionID: req.sessionID,
+    sessionID: redactSessionId(req.sessionID),
     isAuthenticated: req.isAuthenticated(),
-    session: req.session,
-    user: req.user,
-    cookies: req.cookies,
+    session: {
+      exists: Boolean(req.session),
+      cookie: {
+        secure: req.session?.cookie?.secure,
+        httpOnly: req.session?.cookie?.httpOnly,
+        sameSite: req.session?.cookie?.sameSite,
+        maxAge: req.session?.cookie?.maxAge,
+      },
+    },
+    user: user
+      ? {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        }
+      : null,
     headers: {
-      cookie: req.headers.cookie,
+      cookiePresent: Boolean(req.headers.cookie),
       origin: req.headers.origin,
       referer: req.headers.referer,
     },

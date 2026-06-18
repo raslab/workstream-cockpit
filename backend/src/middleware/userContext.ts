@@ -3,6 +3,8 @@ import { Person } from '@prisma/client';
 
 // Extend Express Request to include user context
 declare global {
+  // Express request augmentation requires namespace merging.
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       userContext?: {

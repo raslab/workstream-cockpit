@@ -150,6 +150,10 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     res.status(201).json(workstream);
   } catch (error) {
+    if (error instanceof Error && error.message === 'Category not found') {
+      res.status(404).json({ error: 'Category not found' });
+      return;
+    }
     logger.error('Error creating workstream:', error);
     res.status(500).json({ error: 'Failed to create workstream' });
   }
@@ -204,6 +208,10 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   } catch (error: any) {
     if (error.message === 'Workstream not found or access denied') {
       res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    if (error.message === 'Category not found') {
+      res.status(404).json({ error: 'Category not found' });
       return;
     }
     logger.error('Error updating workstream:', error);

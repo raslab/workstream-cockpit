@@ -8,6 +8,7 @@ import {
   createTestCategory,
   createTestWorkstream,
   createTestStatusUpdate,
+  prisma,
 } from '../helpers/testDb';
 import { createTestApp } from '../helpers/testApp';
 import workstreamsRoutes from '../../src/routes/workstreams';
@@ -151,6 +152,25 @@ describe('Workstreams API Integration Tests', () => {
       expect(response.body.context).toBe('Background context');
     });
 
+    it('should return 404 and not create when categoryId belongs to another project', async () => {
+      const otherPerson = await createTestPerson({ email: 'other@example.com', name: 'Other User' });
+      const otherProject = await createTestProject(otherPerson.id, { name: 'Other Project' });
+      const otherCategory = await createTestCategory(otherProject.id, { name: 'other-category' });
+
+      const response = await request(app).post('/').send({
+        name: 'Cross Project Category',
+        categoryId: otherCategory.id,
+      });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toBe('Category not found');
+
+      const workstreamCount = await prisma.workstream.count({
+        where: { projectId: project.id, name: 'Cross Project Category' },
+      });
+      expect(workstreamCount).toBe(0);
+    });
+
     it('should return 400 when name is missing', async () => {
       const response = await request(app).post('/').send({});
 
@@ -265,6 +285,26 @@ describe('Workstreams API Integration Tests', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.categoryId).toBeNull();
+    });
+
+    it('should return 404 and not update when categoryId belongs to another project', async () => {
+      const category = await createTestCategory(project.id, { name: 'current-category' });
+      const workstream = await createTestWorkstream(project.id, { categoryId: category.id });
+      const otherPerson = await createTestPerson({ email: 'other@example.com', name: 'Other User' });
+      const otherProject = await createTestProject(otherPerson.id, { name: 'Other Project' });
+      const otherCategory = await createTestCategory(otherProject.id, { name: 'other-category' });
+
+      const response = await request(app).put(`/${workstream.id}`).send({
+        categoryId: otherCategory.id,
+      });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toBe('Category not found');
+
+      const unchangedWorkstream = await prisma.workstream.findUnique({
+        where: { id: workstream.id },
+      });
+      expect(unchangedWorkstream?.categoryId).toBe(category.id);
     });
 
     it('should return 404 when workstream does not exist', async () => {
