@@ -5,6 +5,7 @@ Start here when you need the project map, behavioral specs, or implementation re
 ## Core project docs
 
 - [Development guide](./DEVELOPMENT.md) — local setup, API notes, testing, and development workflow.
+- [Testing](./testing/README.md) — repeatable test setup, including the backend Postgres sidecar.
 - [Requirements document](./Workstream%20Cockpit%20-%20Requirements%20Document.md) — product requirements and user stories.
 - [Security specs](./security/README.md) — authentication, authorization, session, OAuth, and backup hardening behavior.
 - [Changelog 002](./CHANGELOG-002.md) — timeline export feature notes.
