@@ -1,510 +1,166 @@
-<div align="center">
+# Workstream Cockpit
 
-# 🚀 Workstream Cockpit
+Workstream Cockpit is a self-hosted operational context tool for people managing many parallel workstreams.
 
-### *Never lose context across your parallel initiatives*
+It keeps current context, narrative progress notes, and long-running history in one place so you can walk into a meeting, planning session, or weekly review with the right context already organized.
 
-**A beautiful, self-hosted productivity tool for engineering managers tracking 15-20 active workstreams**
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Screenshots](#screenshots) · [Documentation](docs/README.md)
 
-[Quick Start](#-quick-start) • [Features](#-features) • [Demo](#-screenshots) • [Docs](docs/README.md)
+![Cockpit view showing grouped active workstreams](docs/screenshots/cockpit_view.png)
 
----
+## Why it exists
 
-</div>
+When you are carrying a dozen or more concurrent efforts, the hard part is not only knowing whether something is “green” or “red.” It is remembering what changed, what is waiting on whom, which streams belong together, and what history matters when the topic comes back up.
 
-## 🎯 Why Workstream Cockpit?
+Workstream Cockpit is designed for that operating mode:
 
-You're juggling 20 parallel initiatives. Your daily standup is in 5 minutes. You need to know the status of everything, **right now**.
+- **Meeting-ready context:** open the cockpit or a saved view before a sync and quickly see the streams relevant to that conversation.
+- **Durable stream history:** capture narrative updates over time instead of losing context in chat threads, docs, or memory.
+- **Many parallel tracks:** keep projects, recurring processes, watched items, and “maybe later” ideas visible without mixing them together.
+- **Flexible retrieval:** use categories, tags, and views to slice the same underlying work by meeting, team, person, topic, or checklist.
+- **Self-hosted by default:** run it with Docker Compose and keep the operational record under your control.
 
-Workstream Cockpit gives you:
-- 🔍 **10-second status overview** of all active work
-- ⚡ **One-click updates** with visual traffic lights (🟢 🟡 🔴)
-- 📊 **Cross-team timeline** for management reporting
-- 🎨 **Emoji-tagged categories** for instant visual scanning
-- 🔐 **Self-hosted** - your data stays yours
+## How it works
 
-Perfect for engineering managers, team leads, and anyone managing multiple parallel workstreams.
+### Workstreams
 
----
+A workstream is any ongoing thread of work or attention: a project, process, risk, customer issue, dependency, operational watch item, or idea that may become active later.
 
-## ✨ Features
+Each stream has a detail page with its context and history.
 
-| Feature | Description |
-|---------|-------------|
-| 🎯 **Glanceable Cockpit** | See all active workstreams at a glance with visual status indicators |
-| ⚡ **Quick Status Updates** | One-click status changes (green/yellow/red) with optional notes |
-| 📊 **Timeline View** | Cross-workstream reporting with lifecycle events for meetings |
-| 🏷️ **Smart Categories** | Organize with custom colors and emojis (🔥 🎯 🚀 💡) |
-| #️⃣ **Hashtag Tags** | Use #hashtags in updates, filter by tags, auto-colored pills |
-| 📜 **Full History** | Complete chronological status history with inline editing |
-| 📦 **Archive** | Close completed work, reopen when needed |
-| 🔐 **Google OAuth** | Secure single sign-on, automatic setup |
-| ⌨️ **Keyboard Shortcuts** | Fast workflows with Cmd/Ctrl+Enter |
-| 🎨 **Grouping & Sorting** | Organize by categories, sort by name/date/updates |
-| 🔍 **Tag Filtering** | Filter Cockpit and Timeline by hashtags |
-| ⚡ **Optimistic UI** | Instant feedback, automatic error recovery |
-| 💾 **Automated Backups** | Daily database backups to GCP Cloud Storage with 30-day retention |
+![Workstream detail view with history](docs/screenshots/stream_detailed_view.png)
 
----
+### Status updates are narrative history
 
-## 💾 Database Backups
+Updates are progress notes, not just traffic lights. They are meant to answer: what changed, what matters now, what should be remembered later?
 
-Workstream Cockpit includes automated database backups to Google Cloud Platform (GCP) Cloud Storage.
+![Adding a narrative stream update](docs/screenshots/stream_add_update.png)
 
-### Features
-- ✅ **Automated Daily Backups** - Scheduled at 2:00 AM UTC
-- ✅ **30-Day Retention** - Old backups automatically cleaned up
-- ✅ **Compressed Archives** - gzip compression for efficient storage
-- ✅ **Manual Backup Trigger** - On-demand backups when needed
-- ✅ **Retry Logic** - Automatic retries with exponential backoff
+### Categories describe stream type
 
-### Setup
+Categories are the primary kind of workstream, such as:
 
-1. **Create GCP Service Account:**
-   - Go to [GCP Console > IAM & Admin > Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
-   - Create a new service account with "Storage Object Admin" role
-   - Create and download a JSON key file
+- Project
+- Process
+- Watching
+- Maybe later
+- Uncategorized / untagged
 
-2. **Create Cloud Storage Bucket:**
-   ```bash
-   gsutil mb gs://workstream-cockpit-backups
-   ```
+They help separate fundamentally different kinds of operational attention without forcing everything into one project list.
 
-3. **Configure Backend Environment:**
-   Add to `.env`:
-   ```bash
-   # Backup Configuration
-   BACKUP_ENABLED=true
-   GCP_PROJECT_ID=your-project-id
-   GCP_BUCKET_NAME=workstream-cockpit-backups
-   GCP_SERVICE_ACCOUNT_KEY_PATH=/app/config/gcp-service-account.json # Path inside container
-   BACKUP_SCHEDULE="0 2 * * *"  # 2 AM UTC daily
-   BACKUP_RETENTION_DAYS=30
-   ```
+### Tags describe dimensions
 
-4. **Mount Service Account Key:**
-   - Place your `gcp-service-account.json` in `backend/config/`
-   - Docker Compose will automatically mount it
+Tags are reusable context dimensions: teams, people, systems, domains, customers, themes, or meeting contexts. A stream can have multiple tags, making it easier to find the same work from different angles.
 
-5. **Restart Backend:**
-   ```bash
-   docker compose up -d --build backend
-   ```
+![Creating a stream with tags](docs/screenshots/stream_create_new_with_tags.png)
 
-### Manual Backup
+### Views are meeting and checklist angles
 
-Trigger a backup manually:
-```bash
-# From host
-docker compose exec backend npm run backup:manual
+Views let you arrange the cockpit around how you actually review work: a staff meeting, launch checklist, platform watch list, customer review, or weekly planning pass.
 
-# From inside container
-cd backend && npm run backup:manual
-```
+The timeline view gives a cross-stream history when you need to reconstruct what happened across a date range or tag set.
 
-### Restore from Backup
+![Timeline filtered by tags](docs/screenshots/timeline_view_tags.png)
 
-1. **Download backup from GCP:**
-   ```bash
-   gsutil cp gs://workstream-cockpit-backups/2026/01/workstream-cockpit-2026-01-01-184200.sql.gz .
-   ```
+## Features
 
-2. **Decompress:**
-   ```bash
-   gunzip workstream-cockpit-2026-01-01-184200.sql.gz
-   ```
+- Cockpit view for scanning active workstreams
+- Workstream detail pages with chronological update history
+- Narrative status updates with optional status markers
+- Categories for stream types
+- Tags for teams, people, domains, and other dimensions
+- Timeline view across streams, dates, and tags
+- Archive and reopen flow for inactive work
+- Google OAuth sign-in
+- Self-hosted Docker Compose deployment
+- Optional automated PostgreSQL backups to Google Cloud Storage
 
-3. **Restore to database:**
-   ```bash
-   docker compose exec -T db psql -U postgres -d workstream_cockpit < workstream-cockpit-2026-01-01-184200.sql
-   ```
+## Quick start
 
-### Monitoring
-
-Check backup logs:
-```bash
-docker compose logs backend | grep -i backup
-```
-
----
-
-## 🚀 Quick Start
-
-Get up and running in 60 seconds:
+Prerequisites: Docker, Docker Compose, and Google OAuth credentials.
 
 ```bash
-# 1. Clone the repo
 git clone https://github.com/raslab/workstream-cockpit.git
 cd workstream-cockpit
-
-# 2. Set up Google OAuth (see below for 2-minute setup)
 cp .env.example .env
-# Edit .env with your Google credentials and correct URLs
-
-# 3. Launch with Docker
-docker compose up -d
-
-# 4. Open and sign in
-open http://localhost:3000
 ```
 
-**That's it!** 🎉 Sign in with Google and start tracking your workstreams.
-
-### 🔑 Quick Google OAuth Setup (2 minutes)
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create project → Enable "Google+ API" 
-3. Create OAuth credentials (Web application)
-4. Add redirect: `http://localhost:3001/api/auth/google/callback`
-5. Copy Client ID & Secret to `.env`
-
-<details>
-<summary>📋 Full environment setup</summary>
-
-**Backend** (`.env`):
-```bash
-POSTGRES_HOST="postgres"
-POSTGRES_PORT="5432"
-POSTGRES_USER="workstream"
-POSTGRES_PASSWORD="change-me"
-POSTGRES_DB="workstream_cockpit"
-SESSION_SECRET="your-secure-random-secret"
-GOOGLE_CLIENT_ID="your-id.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET="your-secret"
-GOOGLE_CALLBACK_URL="http://localhost:3001/api/auth/google/callback"
-```
-
-`DATABASE_URL` is composed internally from `POSTGRES_*` for Prisma. Set it only as an advanced override.
-
-**Frontend** (`frontend/.env`):
-```bash
-VITE_API_URL="http://localhost:3001"
-```
-</details>
-
----
-
-## 📸 Screenshots
-
-> *Coming soon - screenshots of the cockpit view, timeline, and tag management*
-
----
-
----
-
-## 🎮 Usage
-
-### First Login
-1. Click "Sign in with Google" 
-2. ✨ Auto-magic setup creates your workspace with starter tags
-
-### Managing Workstreams
-
-**Create a new workstream:**
-```
-Cockpit → "New Workstream" → Add name, tag, context → Done!
-```
-
-**Quick status update:**
-```
-Click status circle → Pick 🟢/🟡/🔴 → Add note → Cmd+Enter
-```
-
-**View history:**
-```
-Click workstream name → See full timeline → Edit any update
-```
-
-### Tag Organization
-
-Navigate to **Tags** page:
-- Create tags with colors and emojis (📊 Engineering, 🎯 Product, 🚀 Launch)
-- Tags auto-appear in grouping and filtering
-- Can't delete tags still in use (prevents accidents)
-
-### Timeline Reports
-
-Perfect for daily standups and weekly reports:
-- Filter by date range
-- Filter by specific tags
-- Shows workstream lifecycle (created → updates → closed)
-- Click any workstream to jump to details
-
-### Keyboard Shortcuts
-
-- `Cmd/Ctrl + Enter` - Save anywhere
-- `Esc` - Close dialogs
-
----
-
-## 🛠️ Tech Stack
-
-**Built with modern, battle-tested tools:**
-
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | React 18, TypeScript, TailwindCSS, Vite |
-| **State** | React Query v4, React Router v6 |
-| **Backend** | Node.js 20, Express, TypeScript |
-| **Database** | PostgreSQL 15, Prisma ORM |
-| **Auth** | Google OAuth 2.0, Passport.js |
-| **Testing** | Jest (126 tests), Vitest (21 tests) |
-| **Deploy** | Docker Compose, Nginx |
-
-**Test Coverage:** Backend 80%+ | Frontend 70%+
-
----
-
-## 🚢 Deployment
-
-### Production Docker Deploy
+Edit `.env` with at least:
 
 ```bash
-# Pull latest
-git pull origin main
+POSTGRES_PASSWORD=change-this
+SESSION_SECRET=replace-with-a-random-32-plus-character-value
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_CALLBACK_URL=http://localhost:3001/auth/google/callback
+FRONTEND_URL=http://localhost:3002
+CORS_ORIGIN=http://localhost:3002
+```
 
-# Build and start
+Then start the app:
+
+```bash
 docker compose up -d --build
-
-# Verify
-docker compose ps
-docker compose logs -f
 ```
 
-**Data persistence:** PostgreSQL data stored in named volume `workstream-cockpit_postgres-data`
+Open `http://localhost:3002` and sign in with Google.
 
-### Development Mode
+For production notes, environment details, backup setup, and restore commands, see [Deployment and operations](docs/DEPLOYMENT.md).
 
-```bash
-# Start database only
-docker compose up -d db
+## Google OAuth setup
 
-# Terminal 1: Backend with hot-reload
-cd backend && npm run dev
+In Google Cloud Console:
 
-# Terminal 2: Frontend with hot-reload  
-cd frontend && npm run dev
-```
+1. Create or select a project.
+2. Configure the OAuth consent screen.
+3. Create OAuth credentials for a web application.
+4. Add the authorized redirect URI: `http://localhost:3001/auth/google/callback`.
+5. Copy the client ID and client secret into `.env`.
 
-Access dev servers:
-- Frontend: http://localhost:5173 (Vite)
-- Backend: http://localhost:3001
-- Database: localhost:5433
+For a deployed instance, use your real backend URL in `GOOGLE_CALLBACK_URL` and in the Google redirect URI.
 
-### Running Tests
+## Screenshots
 
-```bash
-npm test              # All tests (backend + frontend)
-npm run test:backend  # Backend only
-npm run test:frontend # Frontend only
-npm run test:coverage # With coverage report
-```
+### Cockpit
 
-#### Test Prerequisites
+![Cockpit view](docs/screenshots/cockpit_view.png)
 
-Before running tests, ensure the following prerequisites are met:
+### Workstream detail
 
-**1. Permanent test database sidecar:**
-Backend integration tests use a host-side Postgres container on port `35268`. This works for normal local development and for Hermes/subagent containers that cannot run Docker-in-Docker.
+![Workstream detail view](docs/screenshots/stream_detailed_view.png)
 
-Start it once on the host machine:
-```bash
-docker rm -f workstream-cockpit-test-postgres 2>/dev/null || true
+### Timeline
 
-docker run -d \
-  --name workstream-cockpit-test-postgres \
-  --restart unless-stopped \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=postgres \
-  -p 35268:5432 \
-  postgres:15-alpine
-```
+![Timeline view filtered by tags](docs/screenshots/timeline_view_tags.png)
 
-**2. Test Environment Configuration:**
-The test environment uses a separate database (`workstream_cockpit_test`) configured in `backend/.env.test`:
-```bash
-POSTGRES_HOST="host.docker.internal"
-POSTGRES_PORT="35268"
-POSTGRES_USER="postgres"
-POSTGRES_PASSWORD="postgres"
-POSTGRES_DB="workstream_cockpit_test"
-GOOGLE_CLIENT_ID="test-client-id"
-GOOGLE_CLIENT_SECRET="test-client-secret"
-GOOGLE_CALLBACK_URL="http://localhost:3001/auth/google/callback"
-SESSION_SECRET="test-session-secret"
-```
+### Settings
 
-Tests compose Prisma's `DATABASE_URL` from those `POSTGRES_*` values at runtime.
+![Tag settings](docs/screenshots/settings_view_tags.png)
 
-If you run tests directly on the host and `host.docker.internal` does not resolve, set `POSTGRES_HOST=localhost` locally.
+The current screenshots cover the core product shape. A few additional screenshots would improve presentation later: a saved/custom view example, an archive/reopen example, and a meeting-prep workflow showing filtered streams plus recent updates.
 
-**3. Automatic Test Database Setup:**
-The test database is automatically created and migrations are run when you first execute tests. No manual database setup required!
+## Documentation
 
-Detailed setup: [Backend test database](docs/testing/backend-test-database.md).
-
-#### Test Coverage
-
-**Backend Integration Tests** (210 tests):
-- ✅ Workstreams API (8 endpoints, 34 tests)
-- ✅ Tags API (5 endpoints, 36 tests)
-- ✅ Status Updates API (4 endpoints, 32 tests)
-- ✅ Timeline API (1 endpoint, 13 tests)
-- ✅ Health API (1 endpoint, 3 tests)
-- ✅ Auth/OAuth (4 endpoints, 44 tests)
-- ✅ Unit tests for services (48 tests)
-
-**Frontend Tests** (21 tests):
-- ✅ API client & error handling (12 tests)
-- ✅ OAuth callback component (9 tests)
-
-**Total: 231 tests with 100% endpoint coverage**
-
-For detailed testing documentation, see [DEVELOPMENT.md](docs/DEVELOPMENT.md).
-
----
-
-## 📚 Documentation
-
-<details>
-<summary>🏗️ Architecture Overview</summary>
-
-### Database Schema
-- **Person** - User accounts (Google OAuth)
-- **Project** - Workspace container (1 per user)
-- **Tag** - Categories with colors & emojis
-- **Workstream** - Tracked initiatives
-- **StatusUpdate** - Historical snapshots
-
-### API Endpoints
-- `GET /api/auth/google` - OAuth login
-- `GET /api/workstreams` - List active workstreams
-- `POST /api/status-updates` - Add status
-- `GET /api/timeline` - Timeline view
 - [Documentation index](docs/README.md)
-- [Development/API notes](docs/DEVELOPMENT.md)
-- [Security specs](docs/security/README.md)
+- [Deployment and operations](docs/DEPLOYMENT.md)
+- [Development guide](docs/DEVELOPMENT.md)
+- [Testing guide](docs/testing/README.md)
+- [Security notes](docs/security/README.md)
 
-### Frontend Routes
-- `/` - Cockpit dashboard
-- `/workstreams/:id` - Detail view
-- `/timeline` - Timeline report
-- `/archive` - Closed workstreams
-- `/tags` - Tag management
+## Tech stack
 
-</details>
+- Frontend: React, TypeScript, Vite, Tailwind CSS
+- Backend: Node.js, Express, TypeScript
+- Database: PostgreSQL with Prisma
+- Auth: Google OAuth with server-side sessions
+- Deployment: Docker Compose and Nginx
 
-<details>
-<summary>🐳 Docker Configuration</summary>
+## Contributing
 
-**Services:**
-- **db** - PostgreSQL 15 (port 5433)
-- **backend** - Express API (port 3001)
-- **frontend** - React + Nginx (port 3000)
+Contributions are welcome. Keep changes focused, update tests where behavior changes, and update docs when operational or product behavior changes.
 
-**Volumes:**
-- `workstream-cockpit_postgres-data` - Database persistence
+Useful commands are documented in [Development guide](docs/DEVELOPMENT.md).
 
-**Networks:**
-- `workstream-network` - Internal communication
+## License
 
-</details>
-
-<details>
-<summary>🔧 Environment Variables</summary>
-
-**Backend (.env):**
-```bash
-POSTGRES_HOST="postgres"
-POSTGRES_PORT="5432"
-POSTGRES_USER="workstream"
-POSTGRES_PASSWORD="change-me"
-POSTGRES_DB="workstream_cockpit"
-SESSION_SECRET="generate-secure-random-string"
-GOOGLE_CLIENT_ID="<from-google-cloud-console>"
-GOOGLE_CLIENT_SECRET="<from-google-cloud-console>"
-GOOGLE_CALLBACK_URL="http://localhost:3001/api/auth/google/callback"
-```
-
-`DATABASE_URL` is normally derived at runtime. Use explicit `DATABASE_URL` only for custom deployments that need a full connection string override.
-
-**Frontend (.env):**
-```bash
-VITE_API_URL="http://localhost:3001"
-```
-
-</details>
-
----
-
-## 🗺️ Roadmap
-
-**✅ Phase 1 Complete** - MVP Core Features
-- All 8 user stories shipped
-- Production ready
-- Full test coverage
-
-**🔮 Future Ideas** (PRs welcome!)
-- [ ] Multi-project support
-- [ ] Team collaboration & permissions
-- [ ] Slack/Discord notifications
-- [ ] Mobile apps (iOS/Android)
-- [ ] Advanced search & filtering
-- [ ] Custom fields
-- [ ] Export reports (PDF/CSV)
-- [ ] Webhooks & integrations
-- [ ] Dark mode 🌙
-
----
-
-## 🤝 Contributing
-
-We love contributions! Here's how:
-
-1. Fork the repo
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Write tests first (we use TDD)
-4. Make your changes
-5. Ensure tests pass: `npm test`
-6. Commit: `git commit -m 'Add amazing feature'`
-7. Push: `git push origin feature/amazing-feature`
-8. Open a Pull Request
-
-**Development Philosophy:**
-- Test-driven development (TDD)
-- TypeScript strict mode
-- Descriptive commit messages
-- Small, focused PRs
-
----
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-Free to use for personal and commercial projects.
-
----
-
-## ⭐ Star History
-
-If this project helps you stay organized, give it a star! ⭐
-
----
-
-## 💬 Support
-
-- 🐛 **Bug reports:** [GitHub Issues](https://github.com/raslab/workstream-cockpit/issues)
-- 💡 **Feature requests:** [GitHub Discussions](https://github.com/raslab/workstream-cockpit/discussions)
-- 📧 **Email:** [Your contact if you want]
-
----
-
-<div align="center">
-
-**Built with ❤️ for engineering managers who need to stay on top of everything**
-
-[⬆ Back to Top](#-workstream-cockpit)
-
-</div>
+MIT. See the package metadata for project license information.
