@@ -7,42 +7,75 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env.test') });
 
 const prisma = new PrismaClient();
 
+function getTestDatabaseConfig() {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL is required for integration tests');
+  }
+
+  const parsedUrl = new URL(databaseUrl);
+  const databaseName = decodeURIComponent(parsedUrl.pathname.replace(/^\//, ''));
+
+  if (!databaseName) {
+    throw new Error('DATABASE_URL must include a test database name');
+  }
+
+  return {
+    host: parsedUrl.hostname,
+    port: Number(parsedUrl.port || 5432),
+    user: decodeURIComponent(parsedUrl.username),
+    password: decodeURIComponent(parsedUrl.password),
+    databaseName,
+  };
+}
+
+function quotePostgresIdentifier(identifier: string): string {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(identifier)) {
+    throw new Error(`Unsafe test database name: ${identifier}`);
+  }
+
+  return `"${identifier}"`;
+}
+
 /**
  * Setup test database before all tests
- * 
+ *
  * Prerequisites:
- * 1. Docker Compose must be running: docker-compose up -d
- * 2. docker-compose.override.yml must expose postgres on port 5454
- * 3. .env.test must be configured with test database URL
- * 
+ * 1. A PostgreSQL test sidecar is reachable at the DATABASE_URL host/port
+ * 2. .env.test is configured with the test database URL
+ *
  * This will:
  * - Create the test database if it doesn't exist
  * - Run all migrations on the test database
  */
 export async function setupTestDatabase(): Promise<void> {
   try {
-    // Create test database if it doesn't exist
-    // Use postgres database to create the test database
+    // Create test database if it doesn't exist.
+    // Use the same host/user/password as DATABASE_URL, but connect to the
+    // default postgres database first so we can create the target test DB.
     const { Client } = require('pg');
+    const testDbConfig = getTestDatabaseConfig();
     const adminClient = new Client({
-      host: 'localhost',
-      port: 5454,
-      user: 'postgres',
-      password: 'postgres',
-      database: 'postgres', // Connect to default postgres DB to create test DB
+      host: testDbConfig.host,
+      port: testDbConfig.port,
+      user: testDbConfig.user,
+      password: testDbConfig.password,
+      database: 'postgres',
     });
 
     try {
       await adminClient.connect();
-      // Check if test database exists
       const result = await adminClient.query(
-        "SELECT 1 FROM pg_database WHERE datname = 'workstream_cockpit_test'"
+        'SELECT 1 FROM pg_database WHERE datname = $1',
+        [testDbConfig.databaseName]
       );
-      
+
       if (result.rows.length === 0) {
-        // Create test database
-        await adminClient.query('CREATE DATABASE workstream_cockpit_test');
-        console.log('Created test database: workstream_cockpit_test');
+        await adminClient.query(
+          `CREATE DATABASE ${quotePostgresIdentifier(testDbConfig.databaseName)}`
+        );
+        console.log(`Created test database: ${testDbConfig.databaseName}`);
       }
     } catch (error) {
       console.error('Error creating test database:', error);
@@ -51,7 +84,7 @@ export async function setupTestDatabase(): Promise<void> {
     }
 
     // Run migrations on test database
-    execSync('npx prisma migrate deploy', { 
+    execSync('npx prisma migrate deploy', {
       env: { ...process.env },
       stdio: 'inherit'
     });

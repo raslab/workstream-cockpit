@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 export interface CreateWorkstreamInput {
   projectId: string;
   name: string;
-  categoryId?: string;
+  categoryId?: string | null;
   context?: string;
   initialStatus?: string;
   initialNote?: string;
@@ -27,6 +27,27 @@ export interface WorkstreamWithLatestStatus extends Workstream {
     color: string;
     emoji?: string | null;
   } | null;
+}
+
+async function assertCategoryBelongsToProject(
+  categoryId: string | null | undefined,
+  projectId: string
+): Promise<void> {
+  if (categoryId === undefined || categoryId === null) {
+    return;
+  }
+
+  const category = await prisma.category.findFirst({
+    where: {
+      id: categoryId,
+      projectId,
+    },
+    select: { id: true },
+  });
+
+  if (!category) {
+    throw new Error('Category not found');
+  }
 }
 
 /**
@@ -177,6 +198,8 @@ export async function createWorkstream(input: CreateWorkstreamInput): Promise<Wo
   try {
     logger.info(`Creating new workstream: ${input.name} for project ${input.projectId}`);
 
+    await assertCategoryBelongsToProject(input.categoryId, input.projectId);
+
     // Create workstream and optionally initial status update in a transaction
     const result = await prisma.$transaction(async (tx) => {
       const workstream = await tx.workstream.create({
@@ -225,6 +248,8 @@ export async function updateWorkstream(
     if (!workstream) {
       throw new Error('Workstream not found or access denied');
     }
+
+    await assertCategoryBelongsToProject(updates.categoryId, projectId);
 
     return await prisma.workstream.update({
       where: { id: workstreamId },

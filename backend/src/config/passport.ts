@@ -4,6 +4,7 @@ import { getOrCreatePerson } from '../services/personService';
 import { createDefaultProject } from '../services/projectService';
 import { createDefaultCategories } from '../services/categoryService';
 import { logger } from '../utils/logger';
+import { describeGoogleOAuthAllowlist, isGoogleEmailAllowed } from './oauthAllowlist';
 
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   throw new Error('Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET environment variables');
@@ -26,6 +27,14 @@ passport.use(
 
         if (!email) {
           return done(new Error('No email found in Google profile'));
+        }
+
+        if (!isGoogleEmailAllowed(email)) {
+          const allowlist = describeGoogleOAuthAllowlist();
+          logger.warn(
+            `Rejected Google OAuth login for email outside allowlist (emailCount=${allowlist.emailCount}, domainCount=${allowlist.domainCount})`
+          );
+          return done(null, false);
         }
 
         // Get or create person

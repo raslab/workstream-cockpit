@@ -6,7 +6,7 @@
 
 **A beautiful, self-hosted productivity tool for engineering managers tracking 15-20 active workstreams**
 
-[Quick Start](#-quick-start) • [Features](#-features) • [Demo](#-screenshots) • [Documentation](#-documentation)
+[Quick Start](#-quick-start) • [Features](#-features) • [Demo](#-screenshots) • [Docs](docs/README.md)
 
 ---
 
@@ -298,33 +298,39 @@ npm run test:coverage # With coverage report
 
 Before running tests, ensure the following prerequisites are met:
 
-**1. Docker Compose Running:**
+**1. Permanent test database sidecar:**
+Backend integration tests use a host-side Postgres container on port `35268`. This works for normal local development and for Hermes/subagent containers that cannot run Docker-in-Docker.
+
+Start it once on the host machine:
 ```bash
-# Start the database service
-docker compose up -d
+docker rm -f workstream-cockpit-test-postgres 2>/dev/null || true
+
+docker run -d \
+  --name workstream-cockpit-test-postgres \
+  --restart unless-stopped \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=postgres \
+  -p 35268:5432 \
+  postgres:15-alpine
 ```
 
-**2. Test Database Exposed:**
-Create `docker-compose.override.yml` in the project root:
-```yaml
-services:
-  postgres:
-    ports:
-      - "5454:5432"  # Expose test database on port 5454
-```
-
-**3. Test Environment Configuration:**
-The test environment uses a separate database (`workstream_cockpit_test`) on port 5454, configured in `backend/.env.test`:
+**2. Test Environment Configuration:**
+The test environment uses a separate database (`workstream_cockpit_test`) configured in `backend/.env.test`:
 ```bash
-DATABASE_URL="postgresql://postgres:postgres@localhost:5454/workstream_cockpit_test?schema=public"
+DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:35268/workstream_cockpit_test?schema=public"
 GOOGLE_CLIENT_ID="test-client-id"
 GOOGLE_CLIENT_SECRET="test-client-secret"
 GOOGLE_CALLBACK_URL="http://localhost:3001/auth/google/callback"
 SESSION_SECRET="test-session-secret"
 ```
 
-**4. Automatic Test Database Setup:**
+If you run tests directly on the host and `host.docker.internal` does not resolve, use `localhost` instead.
+
+**3. Automatic Test Database Setup:**
 The test database is automatically created and migrations are run when you first execute tests. No manual database setup required!
+
+Detailed setup: [Backend test database](docs/testing/backend-test-database.md).
 
 #### Test Coverage
 
@@ -364,7 +370,9 @@ For detailed testing documentation, see [DEVELOPMENT.md](docs/DEVELOPMENT.md).
 - `GET /api/workstreams` - List active workstreams
 - `POST /api/status-updates` - Add status
 - `GET /api/timeline` - Timeline view
-- [Full API docs](docs/DEVELOPMENT.md)
+- [Documentation index](docs/README.md)
+- [Development/API notes](docs/DEVELOPMENT.md)
+- [Security specs](docs/security/README.md)
 
 ### Frontend Routes
 - `/` - Cockpit dashboard

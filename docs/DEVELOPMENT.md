@@ -233,25 +233,32 @@ npm run prisma:studio
 ### Running Backend Integration Tests
 
 **Prerequisites**:
-1. Docker Compose must be running with the database:
+1. Start the permanent host-side test database sidecar:
    ```bash
-   docker compose up -d
+   docker rm -f workstream-cockpit-test-postgres 2>/dev/null || true
+
+   docker run -d \
+     --name workstream-cockpit-test-postgres \
+     --restart unless-stopped \
+     -e POSTGRES_USER=postgres \
+     -e POSTGRES_PASSWORD=postgres \
+     -e POSTGRES_DB=postgres \
+     -p 35268:5432 \
+     postgres:15-alpine
    ```
 
-2. Create `docker-compose.override.yml` in the project root to expose the database for tests:
-   ```yaml
-   services:
-     postgres:
-       ports:
-         - "5454:5432"
-   ```
-   **Note**: This file is git-ignored and must be created locally on each development machine.
+2. Ensure `backend/.env.test` points at the sidecar.
 
-3. Ensure `backend/.env.test` exists with the test database configuration:
+   For Hermes/subagent containers:
    ```bash
-   DATABASE_URL="postgresql://postgres:postgres@localhost:5454/workstream_cockpit_test?schema=public"
+   DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:35268/workstream_cockpit_test?schema=public"
    ```
+
+   For tests run directly on a host where `host.docker.internal` is unavailable, use `localhost` instead.
+
    **Note**: This uses a separate database (`workstream_cockpit_test`) from the main development database.
+
+Detailed setup: [Backend test database](./testing/backend-test-database.md).
 
 **Running Tests**:
 ```bash

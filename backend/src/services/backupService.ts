@@ -1,12 +1,12 @@
 import { Storage } from '@google-cloud/storage';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { createReadStream, createWriteStream, unlinkSync, existsSync } from 'fs';
 import { createGzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import { logger } from '../utils/logger';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 interface BackupConfig {
   gcpProjectId: string;
@@ -80,12 +80,23 @@ export class BackupService {
   private async createPgDump(outputFile: string): Promise<void> {
     const { dbHost, dbPort, dbUser, dbPassword, dbName } = this.config;
     
-    const pgDumpCommand = `PGPASSWORD="${dbPassword}" pg_dump -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -f ${outputFile}`;
+    const pgDumpArgs = [
+      '-h', dbHost,
+      '-p', dbPort,
+      '-U', dbUser,
+      '-d', dbName,
+      '-f', outputFile,
+    ];
     
     logger.info(`Creating database dump: ${outputFile}`);
     
     try {
-      await execAsync(pgDumpCommand);
+      await execFileAsync('pg_dump', pgDumpArgs, {
+        env: {
+          ...process.env,
+          PGPASSWORD: dbPassword,
+        },
+      });
       logger.info('Database dump created successfully');
     } catch (error: any) {
       throw new Error(`pg_dump failed: ${error.message}`);
