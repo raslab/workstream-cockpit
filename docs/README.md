@@ -14,6 +14,11 @@ Start here when you need setup details, implementation references, testing instr
 - [Changelog 002](./CHANGELOG-002.md) — timeline export feature notes.
 - [Screenshots](./screenshots/) — current UI captures used by the README and docs.
 
+## Integrations
+
+- [Integration specs](./integrations/README.md) — external automation and protocol integrations.
+- [MCP server and personal access tokens](./integrations/mcp-server.md) — read/write MCP tools for streams, updates, and settings.
+
 ## Security
 
 Security docs are organized by concern, not by implementation batch:
