@@ -4,7 +4,7 @@
 
 Add a Workstream Cockpit MCP server so AI clients can safely read and write the same operational context that the web UI manages: workstreams, narrative updates, and settings. The server must be authenticated with user-generated personal access tokens (PATs), not browser sessions.
 
-This is a design/specification document only. Implementation starts after review approval.
+This document is the reviewed design contract for the implemented MCP/PAT feature. Keep it aligned with the production behavior as the integration evolves.
 
 ## Research summary
 
@@ -42,7 +42,7 @@ The Model Context Protocol (MCP) exposes server capabilities through discoverabl
 Implement the MCP server inside the backend Express service as a new authenticated HTTP endpoint:
 
 - Endpoint: `POST /mcp`
-- Transport: MCP Streamable HTTP where supported by the chosen TypeScript SDK.
+- Transport: authenticated HTTP JSON-RPC implementing the MCP initialization and tool discovery/call flow, including notifications and batch requests. This keeps the first production release simple while preserving the public MCP tool contract; a future SDK-backed Streamable HTTP transport can replace the router without changing tool names or schemas.
 - Auth: PAT bearer middleware before MCP request handling.
 - Runtime identity: PAT resolves to `personId`, then existing project lookup chooses the user's default project, matching current API behavior.
 - Tool handlers call existing service-layer functions where possible instead of HTTP-calling the app's own REST API.

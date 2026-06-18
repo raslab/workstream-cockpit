@@ -63,6 +63,7 @@ describe('exportTimeline', () => {
       
       // Verify link was created and clicked
       expect(createElementSpy).toHaveBeenCalledWith('a');
+      expect(appendChildSpy).toHaveBeenCalledWith(expect.anything());
       expect(clickSpy).toHaveBeenCalled();
       
       // Verify cleanup

@@ -80,6 +80,11 @@ export function useViewManager() {
     async (name: string) => {
       if (!currentConfig) return;
 
+      if (views.length >= 50) {
+        console.warn('Maximum number of views (50) reached');
+        return;
+      }
+
       const result = await createViewMutation.mutateAsync({
         name,
         isDefault: false,
@@ -88,7 +93,7 @@ export function useViewManager() {
 
       return result.id;
     },
-    [currentConfig, createViewMutation]
+    [currentConfig, createViewMutation, views.length]
   );
 
   /**

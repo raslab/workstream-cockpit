@@ -16,6 +16,8 @@ import categoriesRoutes from './routes/categories';
 import tagsRoutes from './routes/tags';
 import timelineRoutes from './routes/timeline';
 import viewsRoutes from './routes/views';
+import personalAccessTokenRoutes from './routes/personalAccessTokens';
+import { createMcpRouter } from './mcp/server';
 import { errorHandler } from './middleware/errorHandler';
 import { logger } from './utils/logger';
 import { executeBackup } from './services/backupService';
@@ -61,6 +63,8 @@ app.use('/api/categories', categoriesRoutes);
 app.use('/api/tags', tagsRoutes); // Backward compatibility alias
 app.use('/api/timeline', timelineRoutes);
 app.use('/api/views', viewsRoutes);
+app.use('/api/personal-access-tokens', personalAccessTokenRoutes);
+app.use('/mcp', createMcpRouter());
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

@@ -151,7 +151,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
     ),
     
     // Code: Inline and block styles (with hashtag rendering for inline code)
-    code: ({ inline, className, children, ...props }: any) => {
+    code: ({ inline, className: _className, children, ...props }: any) => {
       return inline ? (
         <code
           {...props}

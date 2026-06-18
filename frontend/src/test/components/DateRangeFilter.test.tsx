@@ -94,7 +94,7 @@ describe('DateRangeFilter', () => {
     const button = screen.getByText('Date Range');
     fireEvent.click(button);
 
-    const startInput = screen.getAllByRole('textbox')[0] as HTMLInputElement;
+    const startInput = screen.getByLabelText('Start Date') as HTMLInputElement;
     fireEvent.change(startInput, { target: { value: '2024-01-01' } });
 
     expect(onStartDateChange).toHaveBeenCalled();
@@ -116,7 +116,7 @@ describe('DateRangeFilter', () => {
     const button = screen.getByText('Date Range');
     fireEvent.click(button);
 
-    const endInput = screen.getAllByRole('textbox')[1] as HTMLInputElement;
+    const endInput = screen.getByLabelText('End Date') as HTMLInputElement;
     fireEvent.change(endInput, { target: { value: '2024-01-31' } });
 
     expect(onEndDateChange).toHaveBeenCalled();
