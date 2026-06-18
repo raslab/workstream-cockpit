@@ -247,16 +247,20 @@ npm run prisma:studio
      postgres:15-alpine
    ```
 
-2. Ensure `backend/.env.test` points at the sidecar.
+2. Ensure `backend/.env.test` points at the sidecar via component settings.
 
    For Hermes/subagent containers:
    ```bash
-   DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:35268/workstream_cockpit_test?schema=public"
+   POSTGRES_HOST="host.docker.internal"
+   POSTGRES_PORT="35268"
+   POSTGRES_USER="postgres"
+   POSTGRES_PASSWORD="postgres"
+   POSTGRES_DB="workstream_cockpit_test"
    ```
 
-   For tests run directly on a host where `host.docker.internal` is unavailable, use `localhost` instead.
+   For tests run directly on a host where `host.docker.internal` is unavailable, use `POSTGRES_HOST=localhost` instead.
 
-   **Note**: This uses a separate database (`workstream_cockpit_test`) from the main development database.
+   **Note**: This uses a separate database (`workstream_cockpit_test`) from the main development database. Prisma's required `DATABASE_URL` is composed at runtime from `POSTGRES_*`.
 
 Detailed setup: [Backend test database](./testing/backend-test-database.md).
 
@@ -332,8 +336,9 @@ npm run prisma:generate
 
 **Database Connection Failed**
 - Ensure PostgreSQL is running (Docker or local)
-- Check `DATABASE_URL` in `.env`
-- Verify port 5433 is not in use
+- Check `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` in `.env`
+- If using an explicit `DATABASE_URL` override, verify it matches the intended database or remove it
+- Verify the configured Postgres port is not in use
 
 **TypeScript Errors**
 - Run `npm install` in both backend and frontend
