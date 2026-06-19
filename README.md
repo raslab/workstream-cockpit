@@ -1,3 +1,5 @@
+<img src="docs/screenshots/workstream-cockpit-icon.svg" alt="Workstream Cockpit icon" width="96" height="96">
+
 # Workstream Cockpit
 
 Workstream Cockpit is a self-hosted operational context tool for people managing many parallel workstreams.
