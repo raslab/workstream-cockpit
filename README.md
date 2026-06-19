@@ -163,6 +163,9 @@ For a deployed instance, use your real backend URL in `GOOGLE_CALLBACK_URL` and 
 
 ![Cockpit view](docs/screenshots/cockpit_view.png)
 
+<details>
+<summary>Additional screenshots</summary>
+
 ### Workstream detail
 
 ![Workstream detail view](docs/screenshots/stream_detailed_view.png)
@@ -174,6 +177,8 @@ For a deployed instance, use your real backend URL in `GOOGLE_CALLBACK_URL` and 
 ### Settings
 
 ![Tag settings](docs/screenshots/settings_view_tags.png)
+
+</details>
 
 The current screenshots cover the core product shape. A few additional screenshots would improve presentation later: a saved/custom view example, an archive/reopen example, and a meeting-prep workflow showing filtered streams plus recent updates.
 
