@@ -259,5 +259,11 @@ describe('Personal access token API', () => {
 
     expect(ownedPersisted.revokedAt).toBeInstanceOf(Date);
     expect(otherPersisted.revokedAt).toBeNull();
+
+    const listResponse = await request(app).get('/api/personal-access-tokens').expect(200);
+    expect(listResponse.body.personalAccessTokens.map((token: any) => token.id)).not.toContain(
+      createResponse.body.personalAccessToken.id
+    );
+    expect(listResponse.body.personalAccessTokens.map((token: any) => token.id)).not.toContain(otherToken.id);
   });
 });

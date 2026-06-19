@@ -140,6 +140,84 @@ describe('MCP endpoint', () => {
     });
   });
 
+  it('supports a Codex-like modern MCP startup sequence and exposes tools', async () => {
+    const person = await createTestPerson();
+    await createTestProject(person.id);
+    const token = await pat(person.id, ['mcp:read']);
+
+    const initialize = await request(app)
+      .post('/mcp')
+      .set('Authorization', `Bearer ${token}`)
+      .set('Accept', 'application/json, text/event-stream')
+      .send(rpc('initialize', {
+        protocolVersion: '2025-06-18',
+        capabilities: {},
+        clientInfo: { name: 'codex', version: 'test' },
+      }, 'init-codex'))
+      .expect(200);
+
+    expect(initialize.body).toMatchObject({
+      jsonrpc: '2.0',
+      id: 'init-codex',
+      result: {
+        protocolVersion: '2025-06-18',
+        capabilities: { tools: {} },
+        serverInfo: { name: 'workstream-cockpit' },
+      },
+    });
+
+    await request(app)
+      .post('/mcp')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ jsonrpc: '2.0', method: 'notifications/initialized' })
+      .expect(202);
+
+    const ping = await request(app)
+      .post('/mcp')
+      .set('Authorization', `Bearer ${token}`)
+      .send(rpc('ping', undefined, 'ping-1'))
+      .expect(200);
+    expect(ping.body).toEqual({ jsonrpc: '2.0', id: 'ping-1', result: {} });
+
+    const tools = await request(app)
+      .post('/mcp')
+      .set('Authorization', `Bearer ${token}`)
+      .send(rpc('tools/list'))
+      .expect(200);
+    expect(tools.body.result.tools.map((tool: any) => tool.name)).toEqual(
+      expect.arrayContaining(['workstreams_list', 'updates_create', 'timeline_query'])
+    );
+
+    const resources = await request(app)
+      .post('/mcp')
+      .set('Authorization', `Bearer ${token}`)
+      .send(rpc('resources/list', undefined, 'resources-1'))
+      .expect(200);
+    expect(resources.body).toEqual({ jsonrpc: '2.0', id: 'resources-1', result: { resources: [] } });
+
+    const templates = await request(app)
+      .post('/mcp')
+      .set('Authorization', `Bearer ${token}`)
+      .send(rpc('resources/templates/list', undefined, 'templates-1'))
+      .expect(200);
+    expect(templates.body).toEqual({ jsonrpc: '2.0', id: 'templates-1', result: { resourceTemplates: [] } });
+
+    const prompts = await request(app)
+      .post('/mcp')
+      .set('Authorization', `Bearer ${token}`)
+      .send(rpc('prompts/list', undefined, 'prompts-1'))
+      .expect(200);
+    expect(prompts.body).toEqual({ jsonrpc: '2.0', id: 'prompts-1', result: { prompts: [] } });
+  });
+
+  it('returns an explicit method-not-allowed response for unsupported MCP GET streams', async () => {
+    await request(app)
+      .get('/mcp')
+      .set('Accept', 'text/event-stream')
+      .expect('Allow', 'POST')
+      .expect(405);
+  });
+
   it('enforces read/write scopes and project isolation for tools', async () => {
     const owner = await createTestPerson({ email: 'owner@example.com' });
     const other = await createTestPerson({ email: 'other@example.com' });
@@ -418,7 +496,7 @@ describe('MCP endpoint', () => {
       .post('/mcp')
       .set('Authorization', `Bearer ${token}`)
       .send({ jsonrpc: '2.0', method: 'notifications/initialized' })
-      .expect(204);
+      .expect(202);
 
     const batch = await request(app)
       .post('/mcp')

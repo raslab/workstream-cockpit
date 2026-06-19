@@ -22,6 +22,7 @@ const UUID_PATTERN = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB
 const ISO_DATE_OR_TIMESTAMP_PATTERN = '^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?(?:Z|[+-]\\d{2}:\\d{2})?)?$';
 const DEFAULT_RATE_LIMIT_PER_MINUTE = 120;
 const DEFAULT_AUTH_FAILURE_LIMIT_PER_MINUTE = 20;
+const SUPPORTED_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
 const text = (value: unknown) => JSON.stringify(value, (_k, v) => v instanceof Date ? v.toISOString() : v);
 
@@ -379,13 +380,22 @@ const byName = new Map(tools.map(t => [t.name, t]));
 function result(id: any, value: any) { return { jsonrpc: '2.0', id, result: value }; }
 function error(id: any, code: number, message: string) { return { jsonrpc: '2.0', id, error: { code, message } }; }
 function hasJsonRpcId(body: any): boolean { return Object.prototype.hasOwnProperty.call(body ?? {}, 'id'); }
+function negotiateProtocolVersion(requested: unknown): string {
+  return typeof requested === 'string' && SUPPORTED_PROTOCOL_VERSIONS.includes(requested)
+    ? requested
+    : SUPPORTED_PROTOCOL_VERSIONS[0];
+}
 
 async function handleRpc(body: any, ctx: McpContext) {
   const isNotification = !hasJsonRpcId(body);
   const id = hasJsonRpcId(body) ? body.id : null;
   if (body?.jsonrpc !== '2.0' || typeof body?.method !== 'string') return isNotification ? undefined : error(id, -32600, 'Invalid JSON-RPC request');
   if (body.method === 'notifications/initialized' || body.method === 'initialized') return undefined;
-  if (body.method === 'initialize') return isNotification ? undefined : result(id, { protocolVersion: '2024-11-05', capabilities: { tools: {} }, serverInfo: { name: 'workstream-cockpit', version: '1.0.0' } });
+  if (body.method === 'ping') return isNotification ? undefined : result(id, {});
+  if (body.method === 'resources/list') return isNotification ? undefined : result(id, { resources: [] });
+  if (body.method === 'resources/templates/list') return isNotification ? undefined : result(id, { resourceTemplates: [] });
+  if (body.method === 'prompts/list') return isNotification ? undefined : result(id, { prompts: [] });
+  if (body.method === 'initialize') return isNotification ? undefined : result(id, { protocolVersion: negotiateProtocolVersion(body.params?.protocolVersion), capabilities: { tools: {}, resources: {}, prompts: {} }, serverInfo: { name: 'workstream-cockpit', version: '1.0.0' } });
   if (body.method === 'tools/list') return isNotification ? undefined : result(id, { tools: Array.from(byName.values()).map(({ handler: _handler, scope: _scope, ...tool }) => ({ ...tool })) });
   if (body.method === 'tools/call') {
     const name = body.params?.name;
@@ -417,6 +427,10 @@ async function handleBody(body: any, ctx: McpContext): Promise<any | undefined> 
 
 export function createMcpRouter(): Router {
   const router = Router();
+  router.get('/', (_req: Request, res: Response) => {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ error: 'MCP streaming over GET is not supported; use POST /mcp' });
+  });
   router.post('/', async (req: Request, res: Response) => {
     if (isAuthFailureRateLimited(req)) return res.status(429).json({ error: 'Authentication rate limit exceeded' });
     const ctx = await authenticate(req);
@@ -426,7 +440,7 @@ export function createMcpRouter(): Router {
     }
     if (!checkRateLimit(ctx)) return res.status(429).json({ error: 'Rate limit exceeded' });
     const response = await handleBody(req.body, ctx);
-    if (response === undefined) return res.status(204).end();
+    if (response === undefined) return res.status(202).end();
     return res.status(200).json(response);
   });
   return router;
