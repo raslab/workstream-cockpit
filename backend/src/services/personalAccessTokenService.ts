@@ -131,7 +131,7 @@ export async function createPersonalAccessToken(
 
 export async function listPersonalAccessTokens(personId: string): Promise<SafePersonalAccessToken[]> {
   const tokens = await prisma.personalAccessToken.findMany({
-    where: { personId },
+    where: { personId, revokedAt: null },
     orderBy: { createdAt: 'desc' },
   });
 

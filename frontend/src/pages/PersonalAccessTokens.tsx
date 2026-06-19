@@ -51,6 +51,22 @@ function OneTimeTokenNotice({ token, onDismiss }: OneTimeTokenNoticeProps) {
       <div className="mt-3 rounded-md border border-amber-200 bg-white p-3 font-mono text-sm text-gray-900 break-all">
         {token}
       </div>
+      <div className="mt-3 rounded-md border border-amber-200 bg-white p-3 text-sm text-amber-950">
+        <p className="font-medium">Codex setup tip</p>
+        <p className="mt-1">
+          In Codex, add an <code>Authorization</code> entry in the Headers section and use this token
+          as a bearer token.
+        </p>
+        <p className="mt-1 font-mono text-xs text-amber-900">
+          Authorization: Bearer &lt;paste-this-token&gt;
+        </p>
+        <p className="mt-1 text-xs text-amber-800">
+          Do not paste the raw token into Codex's bearer-token environment-variable field unless
+          you have separately exported an environment variable that contains the token.
+          For Docker Compose, the MCP URL is usually <code>http://localhost:3002/mcp</code> through
+          the frontend proxy, or <code>http://localhost:3001/mcp</code> if the backend port is exposed.
+        </p>
+      </div>
       <div className="mt-4 flex gap-2">
         <button
           type="button"

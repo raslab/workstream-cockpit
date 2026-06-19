@@ -47,7 +47,7 @@ Implement the MCP server inside the backend Express service as a new authenticat
 - Runtime identity: PAT resolves to `personId`, then existing project lookup chooses the user's default project, matching current API behavior.
 - Tool handlers call existing service-layer functions where possible instead of HTTP-calling the app's own REST API.
 
-This keeps deployment simple: existing Docker Compose users expose the backend as they do today and configure MCP clients with the backend URL plus PAT.
+This keeps deployment simple: existing Docker Compose users expose the backend as they do today and configure MCP clients with the backend URL plus PAT. For practical AI-client operating guidance after setup, see the [Workstream Cockpit MCP skill](../skills/workstream-cockpit-mcp.md).
 
 ## PAT model
 
@@ -105,6 +105,8 @@ UI behavior:
 
 ## MCP client configuration example
 
+Create a PAT in **Settings → Personal access tokens**, then configure the MCP client with the `/mcp` endpoint and an `Authorization` bearer header. The server exposes MCP **tools** only; MCP resources, prompts, and resource templates are intentionally empty in v1.
+
 ```yaml
 mcp_servers:
   cockpit:
@@ -113,15 +115,31 @@ mcp_servers:
       Authorization: "Bearer wsc_pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
-Local development example:
+Local Docker Compose example using the frontend/Nginx proxy:
 
 ```yaml
 mcp_servers:
   cockpit_dev:
-    url: "http://localhost:3001/mcp"
+    url: "http://localhost:3002/mcp"
     headers:
       Authorization: "Bearer wsc_pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
+
+If your backend port is exposed directly, `http://localhost:3001/mcp` also works.
+
+### Codex UI configuration
+
+In Codex's MCP setup screen, configure the token in the **Headers** section:
+
+- URL: `http://localhost:3002/mcp` for Docker Compose, or `http://localhost:3001/mcp` if the backend port is exposed directly.
+- Header name: `Authorization`
+- Header value: `Bearer wsc_pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+
+Do **not** paste the raw `wsc_pat_...` value into the **Bearer token env var** field unless you have separately exported an environment variable containing the token. If Codex says `Environment variable wsc_pat_... is not set`, the PAT was entered as an environment-variable name instead of as an `Authorization` header.
+
+If a client reports that startup is incomplete or no tools are visible, verify that it is using a reachable `/mcp` URL and that the bearer token is present on initialize, ping, and tools/list requests. The endpoint supports modern MCP startup negotiation for `2025-06-18`, `2025-03-26`, and the earlier `2024-11-05` protocol version.
+
+For workflow guidance once the client is connected, use the [Workstream Cockpit MCP skill](../skills/workstream-cockpit-mcp.md).
 
 ## Tool naming convention
 

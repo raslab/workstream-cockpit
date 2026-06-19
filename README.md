@@ -4,7 +4,7 @@ Workstream Cockpit is a self-hosted operational context tool for people managing
 
 It keeps current context, narrative progress notes, and long-running history in one place so you can walk into a meeting, planning session, or weekly review with the right context already organized.
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [Screenshots](#screenshots) · [Documentation](docs/README.md)
+[Quick start](#quick-start) · [MCP setup](#mcp-setup) · [How it works](#how-it-works) · [Screenshots](#screenshots) · [Documentation](docs/README.md)
 
 ![Cockpit view showing grouped active workstreams](docs/screenshots/cockpit_view.png)
 
@@ -72,6 +72,7 @@ The timeline view gives a cross-stream history when you need to reconstruct what
 - Timeline view across streams, dates, and tags
 - Archive and reopen flow for inactive work
 - Google OAuth sign-in
+- MCP server for AI clients to read and update workstreams through scoped personal access tokens
 - Self-hosted Docker Compose deployment
 - Optional automated PostgreSQL backups to Google Cloud Storage
 
@@ -106,6 +107,41 @@ docker compose up -d --build
 Open `http://localhost:3002` and sign in with Google.
 
 For production notes, environment details, backup setup, and restore commands, see [Deployment and operations](docs/DEPLOYMENT.md).
+
+## MCP setup
+
+Workstream Cockpit includes an MCP endpoint so AI clients can read and update operational context: workstreams, narrative updates, categories, tags, saved views, and timeline history.
+
+1. Start Workstream Cockpit and sign in through the web UI.
+2. Open **Settings → Personal access tokens**.
+3. Create a read-only token for review workflows or a read-write token when the client should update Cockpit.
+4. Configure your MCP client with the MCP endpoint and bearer token.
+
+Local Docker Compose endpoint:
+
+```yaml
+mcp_servers:
+  cockpit_dev:
+    url: "http://localhost:3002/mcp"
+    headers:
+      Authorization: "Bearer wsc_pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+If your backend port is exposed directly, `http://localhost:3001/mcp` also works.
+
+Production endpoint:
+
+```yaml
+mcp_servers:
+  cockpit:
+    url: "https://cockpit.example.com/mcp"
+    headers:
+      Authorization: "Bearer wsc_pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+Codex UI note: add an `Authorization` header in the **Headers** section, with value `Bearer wsc_pat_xxx...`. Do not paste the raw token into the **Bearer token env var** field unless you have separately exported an environment variable containing the token.
+
+The MCP server exposes tools, not resources or prompts. For the full tool contract and troubleshooting, see [MCP server and personal access tokens](docs/integrations/mcp-server.md). For practical AI-client operating guidance, use the [Workstream Cockpit MCP skill](docs/skills/workstream-cockpit-mcp.md).
 
 ## Google OAuth setup
 
@@ -146,6 +182,8 @@ The current screenshots cover the core product shape. A few additional screensho
 - [Development guide](docs/DEVELOPMENT.md)
 - [Testing guide](docs/testing/README.md)
 - [Security notes](docs/security/README.md)
+- [MCP server and personal access tokens](docs/integrations/mcp-server.md)
+- [Workstream Cockpit MCP skill](docs/skills/workstream-cockpit-mcp.md)
 
 ## Tech stack
 

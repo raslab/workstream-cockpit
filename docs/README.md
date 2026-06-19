@@ -19,6 +19,11 @@ Start here when you need setup details, implementation references, testing instr
 - [Integration specs](./integrations/README.md) — external automation and protocol integrations.
 - [MCP server and personal access tokens](./integrations/mcp-server.md) — read/write MCP tools for streams, updates, and settings.
 
+## Skills
+
+- [Skills index](./skills/README.md) — AI-client operating guides.
+- [Workstream Cockpit MCP skill](./skills/workstream-cockpit-mcp.md) — practical guide for using Cockpit through MCP.
+
 ## Security
 
 Security docs are organized by concern, not by implementation batch:

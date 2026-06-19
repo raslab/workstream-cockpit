@@ -17,6 +17,7 @@ Personal access tokens (PATs) let non-browser clients authenticate to Workstream
 ## Related implementation spec
 
 - [MCP server and personal access tokens](../../integrations/mcp-server.md)
+- [Workstream Cockpit MCP skill](../../skills/workstream-cockpit-mcp.md)
 
 ## Regression tests
 
