@@ -72,13 +72,13 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900">Create New Workstream</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Create New Workstream</h2>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label htmlFor="name" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="name" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Name <span className="text-red-500">*</span>
             </label>
             <input
@@ -86,23 +86,23 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               maxLength={200}
               placeholder="Enter workstream name"
               autoFocus
             />
-            <div className="mt-1 text-xs text-gray-500">{name.length}/200 characters</div>
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{name.length}/200 characters</div>
           </div>
 
           <div className="mb-4">
-            <label htmlFor="categoryId" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="categoryId" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Tag (optional)
             </label>
             <select
               id="categoryId"
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
             >
               <option value="">No category</option>
               {categories?.map((category) => (
@@ -119,7 +119,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
                     backgroundColor: categories.find((c) => c.id === categoryId)?.color,
                   }}
                 />
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
                   {categories.find((c) => c.id === categoryId)?.name}
                 </span>
               </div>
@@ -127,7 +127,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
           </div>
 
           <div className="mb-4">
-            <label htmlFor="context" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="context" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Context (optional)
             </label>
             <div className="relative">
@@ -136,7 +136,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
                 id="context"
                 value={context}
                 onChange={(e) => setContext(e.target.value)}
-                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={3}
                 maxLength={2000}
                 placeholder="Add background information or description"
@@ -147,11 +147,11 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
                 onChange={setContext}
               />
             </div>
-            <div className="mt-1 text-xs text-gray-500">{context.length}/2000 characters</div>
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{context.length}/2000 characters</div>
           </div>
 
           <div className="mb-4">
-            <label htmlFor="initialStatus" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="initialStatus" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Initial Status (optional)
             </label>
             <div className="relative">
@@ -160,7 +160,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
                 id="initialStatus"
                 value={initialStatus}
                 onChange={(e) => setInitialStatus(e.target.value)}
-                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={2}
                 maxLength={500}
                 placeholder="What's the current status?"
@@ -171,13 +171,13 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
                 onChange={setInitialStatus}
               />
             </div>
-            <div className="mt-1 text-xs text-gray-500">
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {initialStatus.length}/500 characters
             </div>
           </div>
 
           <div className="mb-4">
-            <label htmlFor="initialNote" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="initialNote" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Initial Note (optional)
             </label>
             <div className="relative">
@@ -186,7 +186,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
                 id="initialNote"
                 value={initialNote}
                 onChange={(e) => setInitialNote(e.target.value)}
-                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={2}
                 maxLength={2000}
                 placeholder="Add details about the initial status"
@@ -197,13 +197,13 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
                 onChange={setInitialNote}
               />
             </div>
-            <div className="mt-1 text-xs text-gray-500">
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {initialNote.length}/2000 characters
             </div>
           </div>
 
           {createWorkstreamMutation.isError && (
-            <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800">
+            <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
               Failed to create workstream. Please try again.
             </div>
           )}
@@ -212,7 +212,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               disabled={createWorkstreamMutation.isPending}
             >
               Cancel

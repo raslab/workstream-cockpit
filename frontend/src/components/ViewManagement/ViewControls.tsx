@@ -44,12 +44,12 @@ export function ViewControls({
   };
 
   return (
-    <div className="flex items-center justify-end gap-3 bg-white px-4 py-2">
+    <div className="flex items-center justify-end gap-3 bg-white px-4 py-2 dark:bg-gray-800">
       {/* Group Control */}
       <div className="relative">
         <button
           onClick={() => setShowGroupMenu(!showGroupMenu)}
-          className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
         >
           <span>Group: {getGroupLabel()}</span>
           <span className="text-xs">▼</span>
@@ -71,7 +71,7 @@ export function ViewControls({
       <div className="relative">
         <button
           onClick={() => setShowSortMenu(!showSortMenu)}
-          className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
         >
           <span>Sort: {getSortLabel()}</span>
           <span className="text-xs">▼</span>
@@ -93,7 +93,7 @@ export function ViewControls({
       <div className="relative">
         <button
           onClick={() => setShowFilterPanel(!showFilterPanel)}
-          className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
         >
           <span>Filter</span>
           {activeFilterCount > 0 && (
@@ -117,7 +117,7 @@ export function ViewControls({
 
       {/* Save Controls (conditional) */}
       {hasUnsavedChanges && (
-        <div className="flex items-center gap-2 border-l border-gray-300 pl-3">
+        <div className="flex items-center gap-2 border-l border-gray-300 pl-3 dark:border-gray-600">
           <button
             onClick={onSave}
             className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
@@ -127,14 +127,14 @@ export function ViewControls({
           </button>
           <button
             onClick={onSaveAs}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             title="Save as new view"
           >
             Save As
           </button>
           <button
             onClick={onDiscard}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             title="Discard unsaved changes"
           >
             Discard

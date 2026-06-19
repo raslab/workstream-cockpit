@@ -149,8 +149,8 @@ export default function Cockpit() {
         {/* Content */}
         <div className="py-6">
           {error && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
-              <p className="text-sm text-red-800">
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
+              <p className="text-sm text-red-800 dark:text-red-200">
                 Failed to load workstreams. Please try again.
               </p>
             </div>
@@ -166,8 +166,8 @@ export default function Cockpit() {
           )}
 
           {!isLoading && workstreams && workstreams.length === 0 && (
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="text-sm text-gray-500">No workstreams yet. Create your first one!</p>
+            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <p className="text-sm text-gray-500 dark:text-gray-400">No workstreams yet. Create your first one!</p>
             </div>
           )}
 
@@ -185,10 +185,10 @@ export default function Cockpit() {
                           {group.emoji}
                         </div>
                       )}
-                      <h3 className="text-base font-semibold text-gray-900">
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
                         {group.name || 'Untagged'}
                       </h3>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
                         ({group.workstreams.length})
                       </span>
                     </div>

@@ -15,3 +15,30 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+.dark {
+  color-scheme: dark;
+}
+
+.dark .dark-scrollbar {
+  scrollbar-color: #4b5563 #111827;
+}
+
+.dark .dark-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.dark .dark-scrollbar::-webkit-scrollbar-track {
+  background: #111827;
+}
+
+.dark .dark-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
+  border: 2px solid #111827;
+  border-radius: 9999px;
+}
+
+.dark .dark-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #6b7280;
+}

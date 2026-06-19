@@ -55,13 +55,13 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900">Edit Workstream</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70">
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Edit Workstream</h2>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label htmlFor="name" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="name" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Name <span className="text-red-500">*</span>
             </label>
             <input
@@ -69,22 +69,22 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               maxLength={200}
               autoFocus
             />
-            <div className="mt-1 text-xs text-gray-500">{name.length}/200 characters</div>
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{name.length}/200 characters</div>
           </div>
 
           <div className="mb-4">
-            <label htmlFor="category" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="category" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Category
             </label>
             <select
               id="category"
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
             >
               <option value="">No category</option>
               {categories.map((category) => (
@@ -96,7 +96,7 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
           </div>
 
           <div className="mb-4">
-            <label htmlFor="context" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="context" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Context
             </label>
             <div className="relative">
@@ -105,7 +105,7 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
                 id="context"
                 value={context}
                 onChange={(e) => setContext(e.target.value)}
-                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={4}
                 maxLength={2000}
               />
@@ -115,11 +115,11 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
                 onChange={setContext}
               />
             </div>
-            <div className="mt-1 text-xs text-gray-500">{context.length}/2000 characters</div>
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{context.length}/2000 characters</div>
           </div>
 
           {updateMutation.isError && (
-            <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800">
+            <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
               Failed to update workstream. Please try again.
             </div>
           )}
@@ -128,7 +128,7 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               disabled={updateMutation.isPending}
             >
               Cancel

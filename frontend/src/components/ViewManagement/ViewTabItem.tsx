@@ -49,7 +49,7 @@ export function ViewTabItem({
           onChange={(e) => setEditName(e.target.value)}
           onBlur={() => onEditComplete(editName)}
           onKeyDown={handleKeyDown}
-          className="w-32 border-b border-primary-600 bg-transparent text-sm outline-none"
+          className="w-32 border-b border-primary-600 bg-transparent text-sm outline-none dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
         />
       </div>
     );
@@ -59,8 +59,8 @@ export function ViewTabItem({
     <div
       className={`group relative flex items-center gap-2 rounded-t-md px-3 py-1.5 transition-colors ${
         isActive
-          ? 'border-x border-t border-gray-200 bg-white text-gray-900'
-          : 'cursor-pointer bg-transparent text-gray-600 hover:bg-gray-100'
+          ? 'border-x border-t border-gray-200 bg-white text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100'
+          : 'cursor-pointer bg-transparent text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
       }`}
     >
       <button onClick={onClick} className="text-sm font-medium">
@@ -74,7 +74,7 @@ export function ViewTabItem({
               e.stopPropagation();
               onEdit();
             }}
-            className="rounded p-0.5 hover:bg-gray-200"
+            className="rounded p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
             title="Rename view"
             aria-label="Rename view"
           >
@@ -87,7 +87,7 @@ export function ViewTabItem({
               e.stopPropagation();
               onDelete();
             }}
-            className="rounded p-0.5 hover:bg-gray-200"
+            className="rounded p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
             title="Delete view"
             aria-label="Delete view"
           >

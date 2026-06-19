@@ -38,8 +38,8 @@ export function ExportButton({ entries }: ExportButtonProps) {
         flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium
         ${
           disabled
-            ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
-            : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+            ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500'
+            : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
         }
       `}
     >

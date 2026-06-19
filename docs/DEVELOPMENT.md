@@ -156,7 +156,7 @@ Common app routes include:
 - `/workstreams/:id` — workstream detail and history
 - `/timeline` — cross-stream timeline
 - `/archive` — archived streams
-- `/settings` or related settings routes — category and tag management, depending on current UI routing
+- `/settings` or related settings routes — category, tag, personal access token, and appearance management
 
 ## Troubleshooting
 

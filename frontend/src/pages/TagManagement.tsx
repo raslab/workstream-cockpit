@@ -36,28 +36,28 @@ function TagItem({
 
   if (isEditing) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Edit Tag</h3>
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Edit Tag</h3>
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Tag Display Name <span className="text-red-500">*</span>
           </label>
           <div className="flex items-center gap-2">
-            <span className="text-gray-500">#</span>
+            <span className="text-gray-500 dark:text-gray-400">#</span>
             <input
               type="text"
               value={editDisplayName}
               onChange={(e) => setEditDisplayName(e.target.value)}
-              className="flex-1 rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="flex-1 rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               maxLength={50}
               placeholder="Backend Team, Alan Awake, API v2"
             />
           </div>
-          <div className="mt-1 text-xs text-gray-500">
+          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Alphanumeric, hyphens, underscores, and spaces allowed • {editDisplayName.length}/50 characters
           </div>
           {editDisplayName.trim() && (
-            <div className="mt-2 rounded-md bg-blue-50 p-2 text-xs text-blue-800">
+            <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-blue-800 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100">
               <strong>Tag ID:</strong> #{tagIdPreview}
               {editDisplayName !== tagIdPreview && (
                 <span className="ml-1">(Use this ID in text: #{tagIdPreview})</span>
@@ -66,7 +66,7 @@ function TagItem({
           )}
         </div>
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Color <span className="text-red-500">*</span>
           </label>
           <ColorPicker value={editColor} onChange={setEditColor} />
@@ -74,7 +74,7 @@ function TagItem({
         <div className="flex justify-end gap-2">
           <button
             onClick={onCancelEdit}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
           >
             Cancel
           </button>
@@ -91,7 +91,7 @@ function TagItem({
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
       <div
         className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium text-white"
         style={{ backgroundColor: tag.color }}
@@ -100,8 +100,8 @@ function TagItem({
       </div>
 
       <div className="flex-1">
-        <h3 className="font-medium text-gray-900">#{tag.displayName}</h3>
-        <p className="text-xs text-gray-500">
+        <h3 className="font-medium text-gray-900 dark:text-gray-100">#{tag.displayName}</h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           ID: #{tag.name} • {tag.color}
         </p>
       </div>
@@ -109,7 +109,7 @@ function TagItem({
       <div className="flex gap-2">
         <button
           onClick={() => onEdit(tag)}
-          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
         >
           Edit
         </button>
@@ -118,7 +118,7 @@ function TagItem({
           <>
             <button
               onClick={() => setDeleteConfirm(null)}
-              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               Cancel
             </button>
@@ -132,7 +132,7 @@ function TagItem({
         ) : (
           <button
             onClick={() => setDeleteConfirm(tag.id)}
-            className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+            className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-gray-800 dark:text-red-300 dark:hover:bg-red-900/40"
           >
             Delete
           </button>
@@ -208,66 +208,66 @@ export default function TagManagement() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Tags</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Tags</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Create tags to reference people, teams, projects, or any other entity across your workstreams. 
           Use #tagname in any text field.
         </p>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
-          <p className="text-sm text-red-800">Failed to load tags. Please try again.</p>
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
+          <p className="text-sm text-red-800 dark:text-red-200">Failed to load tags. Please try again.</p>
         </div>
       )}
 
       {/* Create New Tag */}
       {isCreating ? (
-        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h3 className="mb-4 text-lg font-semibold text-gray-900">Create New Tag</h3>
+        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Create New Tag</h3>
           <form onSubmit={handleCreate}>
             <div className="mb-4">
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Tag Display Name <span className="text-red-500">*</span>
               </label>
               <div className="flex items-center gap-2">
-                <span className="text-gray-500 text-lg">#</span>
+                <span className="text-gray-500 text-lg dark:text-gray-400">#</span>
                 <input
                   type="text"
                   value={newTagDisplayName}
                   onChange={(e) => setNewTagDisplayName(e.target.value)}
-                  className="flex-1 rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  className="flex-1 rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                   maxLength={50}
                   placeholder="e.g., Backend Team, Alan Awake, API v2"
                   autoFocus
                 />
               </div>
-              <div className="mt-1 text-xs text-gray-500">
+              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Alphanumeric, hyphens, underscores, and spaces allowed • {newTagDisplayName.length}/50 characters
               </div>
               {newTagDisplayName.trim() && (
-                <div className="mt-2 rounded-md bg-blue-50 p-2 text-sm text-blue-800">
+                <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 p-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100">
                   <strong>Tag ID:</strong> #{newTagIdPreview}
                   <br />
                   <span className="text-xs">
-                    Use <code className="bg-blue-100 px-1 rounded">#{newTagIdPreview}</code> in text for autocompletion and matching
+                    Use <code className="rounded bg-blue-100 px-1 dark:bg-blue-900 dark:text-blue-100">#{newTagIdPreview}</code> in text for autocompletion and matching
                   </span>
                 </div>
               )}
             </div>
 
             <div className="mb-4">
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Color <span className="text-red-500">*</span>
               </label>
               <ColorPicker value={newTagColor} onChange={setNewTagColor} />
-              <div className="mt-1 text-xs text-gray-500">
+              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Default: #1DA1F2 (Twitter blue)
               </div>
             </div>
 
             {createMutation.isError && (
-              <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800">
+              <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
                 Failed to create tag. Please check the name format and try again.
               </div>
             )}
@@ -280,7 +280,7 @@ export default function TagManagement() {
                   setNewTagDisplayName('');
                   setNewTagColor('#1DA1F2');
                 }}
-                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                 disabled={createMutation.isPending}
               >
                 Cancel
@@ -308,17 +308,17 @@ export default function TagManagement() {
       {isLoading && (
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="animate-pulse rounded-lg border border-gray-200 bg-white p-4">
-              <div className="h-4 w-32 rounded bg-gray-200" />
+            <div key={i} className="animate-pulse rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+              <div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700" />
             </div>
           ))}
         </div>
       )}
 
       {!isLoading && tags && tags.length === 0 && !isCreating && (
-        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-gray-500 mb-2">No tags yet. Create your first tag!</p>
-          <p className="text-xs text-gray-400">
+        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-gray-500 mb-2 dark:text-gray-400">No tags yet. Create your first tag!</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
             Tags let you reference entities like #backend, #frontend, #team-alpha across workstreams
           </p>
         </div>
@@ -326,11 +326,11 @@ export default function TagManagement() {
 
       {!isLoading && tags && tags.length > 0 && (
         <div className="space-y-3">
-          <div className="mb-4 rounded-md bg-blue-50 p-3 text-sm text-blue-800">
+          <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100">
             <strong>💡 How to use tags:</strong>
             <ul className="mt-2 space-y-1 list-disc pl-5">
               <li>Type the <strong>tag ID</strong> (shown below each tag) in workstream context or status updates</li>
-              <li>Example: For "Alan Awake", type <code className="bg-blue-100 px-1 rounded">#alan_awake</code></li>
+              <li>Example: For "Alan Awake", type <code className="rounded bg-blue-100 px-1 dark:bg-blue-900 dark:text-blue-100">#alan_awake</code></li>
               <li>The autocomplete will help you select the right tag</li>
               <li>Tags display with their friendly names everywhere in the UI</li>
             </ul>

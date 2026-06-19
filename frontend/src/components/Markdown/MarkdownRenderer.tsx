@@ -127,7 +127,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
         {...props}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-primary-600 underline hover:text-primary-800"
+        className="text-primary-600 underline hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
       >
         {renderTextWithHashtags(children)}
       </a>
@@ -135,17 +135,17 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
     
     // Headings: Styled hierarchy + hashtag rendering
     h1: ({ children, ...props }) => (
-      <h1 {...props} className="mb-2 mt-4 text-xl font-bold text-gray-900">
+      <h1 {...props} className="mb-2 mt-4 text-xl font-bold text-gray-900 dark:text-gray-100">
         {renderTextWithHashtags(children)}
       </h1>
     ),
     h2: ({ children, ...props }) => (
-      <h2 {...props} className="mb-2 mt-3 text-lg font-semibold text-gray-900">
+      <h2 {...props} className="mb-2 mt-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
         {renderTextWithHashtags(children)}
       </h2>
     ),
     h3: ({ children, ...props }) => (
-      <h3 {...props} className="mb-1 mt-2 text-base font-semibold text-gray-900">
+      <h3 {...props} className="mb-1 mt-2 text-base font-semibold text-gray-900 dark:text-gray-100">
         {renderTextWithHashtags(children)}
       </h3>
     ),
@@ -155,14 +155,14 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
       return inline ? (
         <code
           {...props}
-          className="rounded bg-gray-100 px-1.5 py-0.5 text-sm font-mono text-gray-800"
+          className="rounded bg-gray-100 px-1.5 py-0.5 text-sm font-mono text-gray-800 dark:bg-gray-800 dark:text-gray-200"
         >
           {renderTextWithHashtags(children)}
         </code>
       ) : (
         <code
           {...props}
-          className="block my-2 rounded bg-gray-100 p-3 text-sm font-mono text-gray-800 overflow-x-auto"
+          className="block my-2 rounded bg-gray-100 p-3 text-sm font-mono text-gray-800 overflow-x-auto dark:bg-gray-800 dark:text-gray-200"
         >
           {children}
         </code>
@@ -188,7 +188,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
     blockquote: ({ children, ...props }) => (
       <blockquote
         {...props}
-        className="my-2 border-l-4 border-gray-300 pl-4 italic text-gray-600"
+        className="my-2 border-l-4 border-gray-300 pl-4 italic text-gray-600 dark:border-gray-600 dark:text-gray-400"
       >
         {renderTextWithHashtags(children)}
       </blockquote>
@@ -196,13 +196,13 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
     
     // Tables: Basic styling (GFM feature)
     table: ({ ...props }) => (
-      <table {...props} className="my-2 min-w-full border border-gray-300" />
+      <table {...props} className="my-2 min-w-full border border-gray-300 dark:border-gray-600" />
     ),
     th: ({ ...props }) => (
-      <th {...props} className="border border-gray-300 bg-gray-50 px-3 py-2 text-left font-semibold" />
+      <th {...props} className="border border-gray-300 bg-gray-50 px-3 py-2 text-left font-semibold dark:border-gray-600 dark:bg-gray-900" />
     ),
     td: ({ children, ...props }) => (
-      <td {...props} className="border border-gray-300 px-3 py-2">
+      <td {...props} className="border border-gray-300 px-3 py-2 dark:border-gray-600">
         {renderTextWithHashtags(children)}
       </td>
     ),
