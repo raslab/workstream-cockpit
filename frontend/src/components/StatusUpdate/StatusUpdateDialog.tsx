@@ -66,15 +66,15 @@ export function StatusUpdateDialog({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70">
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
           Update Status: {workstreamName}
         </h2>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label htmlFor="status" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="status" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Status <span className="text-red-500">*</span>
             </label>
             <textarea
@@ -83,7 +83,7 @@ export function StatusUpdateDialog({
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               rows={3}
               maxLength={500}
               placeholder="What's the current status? Use #tags for categorization"
@@ -94,13 +94,13 @@ export function StatusUpdateDialog({
               onChange={setStatus} 
               textareaRef={statusRef}
             />
-            <div className="mt-1 text-xs text-gray-500">
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {status.length}/500 characters • Type # for tag suggestions
             </div>
           </div>
 
           <div className="mb-4">
-            <label htmlFor="note" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="note" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Note (optional)
             </label>
             <textarea
@@ -109,7 +109,7 @@ export function StatusUpdateDialog({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               rows={3}
               maxLength={2000}
               placeholder="Add any additional details... Use #tags here too!"
@@ -119,13 +119,13 @@ export function StatusUpdateDialog({
               onChange={setNote} 
               textareaRef={noteRef}
             />
-            <div className="mt-1 text-xs text-gray-500">
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {note.length}/2000 characters
             </div>
           </div>
 
           {createStatusMutation.isError && (
-            <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800">
+            <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
               Failed to create status update. Please try again.
             </div>
           )}
@@ -134,7 +134,7 @@ export function StatusUpdateDialog({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               disabled={createStatusMutation.isPending}
             >
               Cancel
@@ -170,7 +170,7 @@ export function StatusUpdateDialog({
             </button>
           </div>
 
-          <div className="mt-2 text-xs text-gray-500">
+          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             Tip: Press Cmd/Ctrl+Enter to save quickly
           </div>
         </form>

@@ -39,8 +39,8 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
             onClick={() => onChange(color)}
             className={`h-10 w-10 rounded-md border-2 transition-all ${
               value.toUpperCase() === color.toUpperCase()
-                ? 'border-gray-900 ring-2 ring-gray-900 ring-offset-2'
-                : 'border-gray-200 hover:border-gray-400'
+                ? 'border-gray-900 ring-2 ring-gray-900 ring-offset-2 dark:border-gray-100 dark:ring-gray-100 dark:ring-offset-gray-800'
+                : 'border-gray-200 hover:border-gray-400 dark:border-gray-700 dark:hover:border-gray-500'
             }`}
             style={{ backgroundColor: color }}
             title={color}
@@ -49,12 +49,12 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
       </div>
       
       <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-gray-700">Custom:</label>
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Custom:</label>
         <input
           type="color"
           value={customColor}
           onChange={handleCustomColorChange}
-          className="h-10 w-20 cursor-pointer rounded border border-gray-300"
+          className="h-10 w-20 cursor-pointer rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
         />
         <input
           type="text"
@@ -62,7 +62,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
           onChange={(e) => onChange(e.target.value.toUpperCase())}
           placeholder="#000000"
           maxLength={7}
-          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
         />
       </div>
     </div>

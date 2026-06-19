@@ -40,29 +40,29 @@ export default function Timeline() {
       case 'workstream_created':
         return (
           <div className="flex items-center gap-2">
-            <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+            <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-200">
               Created
             </span>
-            <span className="text-sm text-gray-700">Workstream created</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">Workstream created</span>
           </div>
         );
       case 'workstream_closed':
         return (
           <div className="flex items-center gap-2">
-            <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
+            <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-800 dark:text-gray-200">
               Closed
             </span>
-            <span className="text-sm text-gray-700">Workstream closed</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">Workstream closed</span>
           </div>
         );
       case 'status_update':
       default:
         return (
           <div>
-            <MarkdownRenderer content={entry.status!} className="text-sm text-gray-700" />
+            <MarkdownRenderer content={entry.status!} className="text-sm text-gray-700 dark:text-gray-300" />
             {entry.note && (
-              <div className="mt-3 border-t border-gray-900 pt-2">
-                <MarkdownRenderer content={entry.note} className="text-sm text-gray-600" />
+              <div className="mt-3 border-t border-gray-900 pt-2 dark:border-gray-700">
+                <MarkdownRenderer content={entry.note} className="text-sm text-gray-600 dark:text-gray-400" />
               </div>
             )}
           </div>
@@ -73,8 +73,8 @@ export default function Timeline() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Timeline</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Timeline</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Review recent activity across all workstreams
         </p>
       </div>
@@ -92,8 +92,8 @@ export default function Timeline() {
       />
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
-          <p className="text-sm text-red-800">
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
+          <p className="text-sm text-red-800 dark:text-red-200">
             Failed to load timeline. Please try again.
           </p>
         </div>
@@ -102,17 +102,17 @@ export default function Timeline() {
       {isLoading && (
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="animate-pulse rounded-lg border border-gray-200 bg-white p-4">
-              <div className="h-4 w-32 rounded bg-gray-200" />
-              <div className="mt-2 h-3 w-full rounded bg-gray-200" />
+            <div key={i} className="animate-pulse rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+              <div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700" />
+              <div className="mt-2 h-3 w-full rounded bg-gray-200 dark:bg-gray-700" />
             </div>
           ))}
         </div>
       )}
 
       {!isLoading && timeline && timeline.length === 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm text-gray-500">
+        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             No activity found for the selected filters.
           </p>
         </div>
@@ -122,14 +122,14 @@ export default function Timeline() {
         <div className="space-y-8">
           {Object.entries(groupedEntries).map(([date, entries]) => (
             <div key={date}>
-              <h3 className="mb-3 text-lg font-semibold text-gray-900">
+              <h3 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {formatDateHeader(date)}
               </h3>
               <div className="space-y-3">
                 {entries.map((entry) => (
                   <div
                     key={entry.id}
-                    className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                    className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
                   >
                     <div className="flex items-start gap-3">
                       {entry.category && (
@@ -145,11 +145,11 @@ export default function Timeline() {
                         <div className="flex items-baseline justify-between gap-2">
                           <Link
                             to={`/workstreams/${entry.workstreamId}`}
-                            className="font-medium text-gray-900 hover:text-primary-600"
+                            className="font-medium text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400"
                           >
                             {entry.workstreamName}
                           </Link>
-                          <time className="text-xs text-gray-500">
+                          <time className="text-xs text-gray-500 dark:text-gray-400">
                             {format(parseISO(entry.createdAt), 'h:mm a')}
                           </time>
                         </div>

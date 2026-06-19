@@ -21,8 +21,8 @@ export function EmojiPicker({ value, onChange }: EmojiPickerProps) {
             onClick={() => onChange(emoji)}
             className={`flex h-10 w-10 items-center justify-center rounded border text-xl transition-colors ${
               value === emoji
-                ? 'border-primary-500 bg-primary-50'
-                : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                ? 'border-primary-500 bg-primary-50 dark:bg-primary-950'
+                : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-700'
             }`}
           >
             {emoji}
@@ -31,7 +31,7 @@ export function EmojiPicker({ value, onChange }: EmojiPickerProps) {
       </div>
       
       <div className="mt-3">
-        <label htmlFor="custom-emoji" className="mb-1 block text-xs font-medium text-gray-700">
+        <label htmlFor="custom-emoji" className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
           Or enter custom emoji:
         </label>
         <input
@@ -39,7 +39,7 @@ export function EmojiPicker({ value, onChange }: EmojiPickerProps) {
           id="custom-emoji"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-md border border-gray-300 p-2 text-center text-xl focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="w-full rounded-md border border-gray-300 p-2 text-center text-xl focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
           placeholder="🎯"
           maxLength={10}
         />
@@ -49,7 +49,7 @@ export function EmojiPicker({ value, onChange }: EmojiPickerProps) {
         <button
           type="button"
           onClick={() => onChange('')}
-          className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+          className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
         >
           Clear emoji
         </button>

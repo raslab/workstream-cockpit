@@ -72,7 +72,7 @@ export function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
             return !open;
           });
         }}
-        className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
       >
         <span>Tags</span>
         {selectedTags.length > 0 && (
@@ -84,23 +84,23 @@ export function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full z-10 mt-1 w-64 rounded-md border border-gray-200 bg-white shadow-lg">
+        <div className="absolute right-0 top-full z-10 mt-1 w-64 rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
           {/* Search input */}
-          <div className="border-b border-gray-200 p-2">
+          <div className="border-b border-gray-200 p-2 dark:border-gray-700">
             <input
               ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search tags..."
-              className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
             />
           </div>
 
           {/* Tag list */}
           <div className="max-h-64 overflow-y-auto p-2">
             {filteredTags.length === 0 ? (
-              <div className="px-3 py-6 text-center text-sm text-gray-500">
+              <div className="px-3 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
                 No tags found
               </div>
             ) : (
@@ -110,13 +110,13 @@ export function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
                   <button
                     key={tag.id}
                     onClick={() => toggleTag(tag.name)}
-                    className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-gray-50"
+                    className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => {}}
-                      className="h-4 w-4 rounded border-gray-300 text-primary-600"
+                      className="h-4 w-4 rounded border-gray-300 text-primary-600 dark:border-gray-600 dark:bg-gray-900 dark:text-primary-400"
                     />
                     <span
                       className="inline-block h-3 w-3 rounded-full"
@@ -131,10 +131,10 @@ export function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
 
           {/* Clear button */}
           {selectedTags.length > 0 && (
-            <div className="border-t border-gray-200 p-2">
+            <div className="border-t border-gray-200 p-2 dark:border-gray-700">
               <button
                 onClick={clearAllTags}
-                className="w-full rounded px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                className="w-full rounded px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700"
               >
                 Clear all
               </button>

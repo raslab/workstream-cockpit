@@ -21,15 +21,15 @@ export default function Archive() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Closed Workstreams</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Closed Workstreams</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           View and manage your archived workstreams
         </p>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
-          <p className="text-sm text-red-800">
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
+          <p className="text-sm text-red-800 dark:text-red-200">
             Failed to load archived workstreams. Please try again.
           </p>
         </div>
@@ -45,8 +45,8 @@ export default function Archive() {
         )}
 
         {!isLoading && workstreams && workstreams.length === 0 && (
-          <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
-            <p className="text-sm text-gray-500">No archived workstreams.</p>
+          <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <p className="text-sm text-gray-500 dark:text-gray-400">No archived workstreams.</p>
           </div>
         )}
 
@@ -55,7 +55,7 @@ export default function Archive() {
           workstreams.map((workstream) => (
             <div
               key={workstream.id}
-              className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+              className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -69,21 +69,21 @@ export default function Archive() {
                         {workstream.category.emoji}
                       </div>
                     )}
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                       {workstream.name}
                     </h3>
                   </div>
 
                   {workstream.latestStatus && (
                     <div className="mt-2">
-                      <p className="text-sm text-gray-700">
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
                         {workstream.latestStatus.status}
                       </p>
                     </div>
                   )}
 
                   {workstream.closedAt && (
-                    <p className="mt-2 text-xs text-gray-500">
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                       Closed on {format(parseISO(workstream.closedAt), 'MMM d, yyyy')}
                     </p>
                   )}
@@ -93,7 +93,7 @@ export default function Archive() {
                   <button
                     onClick={() => reopenMutation.mutate(workstream.id)}
                     disabled={reopenMutation.isPending}
-                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
                     {reopenMutation.isPending ? 'Reopening...' : 'Reopen'}
                   </button>

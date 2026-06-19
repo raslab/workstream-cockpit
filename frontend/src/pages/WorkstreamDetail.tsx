@@ -54,13 +54,13 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900">Edit Status Update</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70">
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Edit Status Update</h2>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label htmlFor="status" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="status" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Status <span className="text-red-500">*</span>
             </label>
             <div className="relative">
@@ -69,7 +69,7 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
                 id="status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={3}
                 maxLength={500}
                 autoFocus
@@ -80,11 +80,11 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
                 onChange={setStatus}
               />
             </div>
-            <div className="mt-1 text-xs text-gray-500">{status.length}/500 characters</div>
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{status.length}/500 characters</div>
           </div>
 
           <div className="mb-4">
-            <label htmlFor="note" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="note" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Note (optional)
             </label>
             <div className="relative">
@@ -93,7 +93,7 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
                 id="note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={3}
                 maxLength={2000}
               />
@@ -103,11 +103,11 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
                 onChange={setNote}
               />
             </div>
-            <div className="mt-1 text-xs text-gray-500">{note.length}/2000 characters</div>
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{note.length}/2000 characters</div>
           </div>
 
           {updateMutation.isError && (
-            <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800">
+            <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
               Failed to update status. Please try again.
             </div>
           )}
@@ -116,7 +116,7 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               disabled={updateMutation.isPending}
             >
               Cancel
@@ -176,10 +176,10 @@ export default function WorkstreamDetail() {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="animate-pulse">
-          <div className="mb-6 h-8 w-64 rounded bg-gray-200" />
+          <div className="mb-6 h-8 w-64 rounded bg-gray-200 dark:bg-gray-700" />
           <div className="space-y-4">
-            <div className="h-32 rounded-lg bg-gray-200" />
-            <div className="h-32 rounded-lg bg-gray-200" />
+            <div className="h-32 rounded-lg bg-gray-200 dark:bg-gray-700" />
+            <div className="h-32 rounded-lg bg-gray-200 dark:bg-gray-700" />
           </div>
         </div>
       </div>
@@ -189,9 +189,9 @@ export default function WorkstreamDetail() {
   if (!workstream) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-          <p className="text-sm text-red-800">Workstream not found.</p>
-          <Link to="/" className="mt-2 inline-block text-sm text-red-700 underline">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
+          <p className="text-sm text-red-800 dark:text-red-200">Workstream not found.</p>
+          <Link to="/" className="mt-2 inline-block text-sm text-red-700 underline dark:text-red-300">
             Go back to Cockpit
           </Link>
         </div>
@@ -206,7 +206,7 @@ export default function WorkstreamDetail() {
         <div className="mb-6">
           <button
             onClick={() => navigate('/')}
-            className="mb-3 text-sm text-gray-600 hover:text-gray-900"
+            className="mb-3 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           >
             ← Back to Cockpit
           </button>
@@ -222,7 +222,7 @@ export default function WorkstreamDetail() {
                   {workstream.category.emoji}
                 </div>
               )}
-              <h1 className="text-3xl font-bold text-gray-900">{workstream.name}</h1>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{workstream.name}</h1>
 
               <div className="flex-1"></div>
 
@@ -230,7 +230,7 @@ export default function WorkstreamDetail() {
               <div className="flex flex-shrink-0 items-center gap-2">
                 <button
                   onClick={() => setShowEditDialog(true)}
-                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   Edit
                 </button>
@@ -245,35 +245,35 @@ export default function WorkstreamDetail() {
           
           {/* Context */}
           {workstream.context && (
-            <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3">
-              <MarkdownRenderer content={workstream.context} className="text-sm text-gray-700" />
+            <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
+              <MarkdownRenderer content={workstream.context} className="text-sm text-gray-700 dark:text-gray-300" />
             </div>
           )}
         </div>
 
         {/* Status History */}
         <div>
-          <h2 className="mb-4 text-xl font-semibold text-gray-900">Status History</h2>
+          <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Status History</h2>
 
           {statusUpdates && statusUpdates.length === 0 && (
-            <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
-              <p className="text-sm text-gray-500">No status updates yet. Add the first one!</p>
+            <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <p className="text-sm text-gray-500 dark:text-gray-400">No status updates yet. Add the first one!</p>
             </div>
           )}
 
           <div className="space-y-4">
             {statusUpdates?.map((update) => (
-              <div key={update.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+              <div key={update.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 
                 {/* Timestamp */}
                 <div className="flex items-baseline gap-2">
-                  <time className="text-sm font-medium text-gray-900">
+                  <time className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     {format(parseISO(update.createdAt), 'MMM d, yyyy • h:mm a')}
                   </time>
                   {update.createdAt !== update.updatedAt && (
-                    <span className="text-xs text-gray-500">(edited)</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">(edited)</span>
                   )}
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     • {formatDistanceToNow(parseISO(update.createdAt), { addSuffix: true })}
                   </span>
 
@@ -283,7 +283,7 @@ export default function WorkstreamDetail() {
                   <div className="flex justify-end gap-2 mb-3">
                     <button
                       onClick={() => setEditingStatus(update)}
-                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                     >
                       Edit
                     </button>
@@ -292,7 +292,7 @@ export default function WorkstreamDetail() {
                       <>
                         <button
                           onClick={() => setDeleteConfirm(null)}
-                          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                           disabled={deleteMutation.isPending}
                         >
                           Cancel
@@ -308,7 +308,7 @@ export default function WorkstreamDetail() {
                     ) : (
                       <button
                         onClick={() => setDeleteConfirm(update.id)}
-                        className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+                        className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-gray-800 dark:text-red-300 dark:hover:bg-red-900/40"
                       >
                         Delete
                       </button>
@@ -318,13 +318,13 @@ export default function WorkstreamDetail() {
                 
                 {/* Status */}
                 <div className="mt-2">
-                  <MarkdownRenderer content={update.status} className="text-sm text-gray-700" />
+                  <MarkdownRenderer content={update.status} className="text-sm text-gray-700 dark:text-gray-300" />
                 </div>
                 
                 {/* Note (if exists) */}
                 {update.note && (
                   <div className="mt-3 border-t border-gray-900 pt-3">
-                    <MarkdownRenderer content={update.note} className="text-sm text-gray-600" />
+                    <MarkdownRenderer content={update.note} className="text-sm text-gray-600 dark:text-gray-400" />
                   </div>
                 )}
               </div>

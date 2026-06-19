@@ -60,7 +60,7 @@ export function FilterBar({
         <div className="relative">
           <button
             onClick={() => setShowCategoryMenu(!showCategoryMenu)}
-            className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
           >
             <span>Categories</span>
             {selectedCategoryIds.length > 0 && (
@@ -72,34 +72,34 @@ export function FilterBar({
           </button>
 
           {showCategoryMenu && (
-            <div className="absolute left-0 top-full z-10 mt-1 w-64 rounded-md border border-gray-200 bg-white shadow-lg">
+            <div className="absolute left-0 top-full z-10 mt-1 w-64 rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
               <div className="p-2">
                 {categories.map((category) => (
                   <label
                     key={category.id}
-                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-gray-50"
+                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     <input
                       type="checkbox"
                       checked={selectedCategoryIds.includes(category.id)}
                       onChange={() => toggleCategory(category.id)}
-                      className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-primary-400"
                     />
                     <div
                       className="h-3 w-3 rounded-full"
                       style={{ backgroundColor: category.color }}
                     />
-                    <span className="text-sm text-gray-700">{category.name}</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{category.name}</span>
                   </label>
                 ))}
               </div>
-              <div className="border-t border-gray-200 p-2">
+              <div className="border-t border-gray-200 p-2 dark:border-gray-700">
                 <button
                   onClick={() => {
                     onCategoryIdsChange([]);
                     setShowCategoryMenu(false);
                   }}
-                  className="w-full rounded px-2 py-1 text-sm text-gray-600 hover:bg-gray-50"
+                  className="w-full rounded px-2 py-1 text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700"
                 >
                   Clear all
                 </button>

@@ -79,7 +79,7 @@ export function DateRangeFilter({
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
       >
         <span>{getButtonLabel()}</span>
         {hasSelection && (
@@ -91,11 +91,11 @@ export function DateRangeFilter({
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 top-full z-10 mt-1 w-80 rounded-md border border-gray-200 bg-white shadow-lg">
+        <div className="absolute left-0 top-full z-10 mt-1 w-80 rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
           <div className="p-4 space-y-4">
             {/* Start Date */}
             <div>
-              <label htmlFor="timeline-start-date" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="timeline-start-date" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
                 Start Date
               </label>
               <input
@@ -104,13 +104,13 @@ export function DateRangeFilter({
                 value={startDateStr}
                 onChange={handleStartChange}
                 max={endDateStr || undefined}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               />
             </div>
 
             {/* End Date */}
             <div>
-              <label htmlFor="timeline-end-date" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="timeline-end-date" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
                 End Date
               </label>
               <input
@@ -119,13 +119,13 @@ export function DateRangeFilter({
                 value={endDateStr}
                 onChange={handleEndChange}
                 min={startDateStr || undefined}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               />
             </div>
 
             {/* Quick Presets */}
             <div>
-              <div className="text-sm font-medium text-gray-700 mb-2">Quick Select</div>
+              <div className="text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Quick Select</div>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => {
@@ -134,7 +134,7 @@ export function DateRangeFilter({
                     onStartDateChange(today);
                     onEndDateChange(new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1));
                   }}
-                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200"
+                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
                 >
                   Today
                 </button>
@@ -146,7 +146,7 @@ export function DateRangeFilter({
                     onStartDateChange(weekAgo);
                     onEndDateChange(today);
                   }}
-                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200"
+                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
                 >
                   Last 7 Days
                 </button>
@@ -158,7 +158,7 @@ export function DateRangeFilter({
                     onStartDateChange(monthAgo);
                     onEndDateChange(today);
                   }}
-                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200"
+                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
                 >
                   Last 30 Days
                 </button>
@@ -169,7 +169,7 @@ export function DateRangeFilter({
                     onStartDateChange(start);
                     onEndDateChange(today);
                   }}
-                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200"
+                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
                 >
                   This Month
                 </button>
@@ -177,11 +177,11 @@ export function DateRangeFilter({
             </div>
 
             {/* Actions */}
-            <div className="flex justify-between border-t border-gray-200 pt-3">
+            <div className="flex justify-between border-t border-gray-200 pt-3 dark:border-gray-700">
               {hasSelection && (
                 <button
                   onClick={handleClear}
-                  className="rounded px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                  className="rounded px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700"
                 >
                   Clear
                 </button>

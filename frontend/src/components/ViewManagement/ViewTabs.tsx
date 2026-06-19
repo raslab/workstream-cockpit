@@ -33,7 +33,7 @@ export function ViewTabs({
 
   return (
     <>
-      <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4">
+      <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 dark:border-gray-700 dark:bg-gray-900">
         <div className="flex gap-1 overflow-x-auto pt-2">
           {views.map((view) => (
             <ViewTabItem
@@ -55,7 +55,7 @@ export function ViewTabs({
 
           <button
             onClick={() => setIsCreating(true)}
-            className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
+            className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
             title="Create new view"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
