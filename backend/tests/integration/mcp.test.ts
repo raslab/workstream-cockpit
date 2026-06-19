@@ -37,6 +37,18 @@ function callTool(app: express.Express, token: string, name: string, args: any =
     .send(rpc('tools/call', { name, arguments: args }));
 }
 
+function expectToolFailure(response: any, code = -32000) {
+  expect(response.body.result).toBeUndefined();
+  expect(response.body.error.code).toBe(code);
+  return response.body.error.message as string;
+}
+
+const viewConfig = {
+  filters: { categoryIds: [], tags: [], temporal: { notUpdatedToday: false } },
+  sort: { field: 'updatedAt', direction: 'desc' },
+  group: { by: 'none' },
+};
+
 let app: express.Express;
 
 beforeAll(async () => {
@@ -55,7 +67,9 @@ afterAll(async () => {
 describe('MCP endpoint', () => {
   it('requires valid bearer PAT authentication', async () => {
     await request(app).post('/mcp').send(rpc('tools/list')).expect(401);
-    await request(app).post('/mcp').set('Authorization', 'Bearer wsc_pat_bad').send(rpc('tools/list')).expect(401);
+    const badToken = 'wsc_pat_bad_secret_should_not_leak';
+    const badAuth = await request(app).post('/mcp').set('Authorization', `Bearer ${badToken}`).send(rpc('tools/list')).expect(401);
+    expect(JSON.stringify(badAuth.body)).not.toContain(badToken);
 
     const person = await createTestPerson();
     await createTestProject(person.id);
@@ -86,8 +100,7 @@ describe('MCP endpoint', () => {
       .send(rpc('tools/list'))
       .expect(200);
 
-    const toolNames = response.body.result.tools.map((tool: any) => tool.name);
-    expect(toolNames).toEqual(expect.arrayContaining([
+    const expectedToolNames = [
       'workstreams_list', 'workstreams_get', 'workstreams_create', 'workstreams_update', 'workstreams_close', 'workstreams_reopen',
       'updates_list', 'updates_get', 'updates_create', 'updates_update', 'updates_delete',
       'settings_get',
@@ -95,10 +108,36 @@ describe('MCP endpoint', () => {
       'settings_tag_create', 'settings_tag_update', 'settings_tag_delete',
       'settings_views_list', 'settings_view_get', 'settings_view_create', 'settings_view_update', 'settings_view_delete',
       'timeline_query',
-    ]));
+    ];
+    const toolNames = response.body.result.tools.map((tool: any) => tool.name);
+    expect(toolNames).toEqual(expect.arrayContaining(expectedToolNames));
+    expect(new Set(toolNames).size).toBe(toolNames.length);
+    expect(toolNames).toHaveLength(expectedToolNames.length);
     expect(toolNames).not.toContain('workstreams_delete');
     expect(toolNames).not.toContain('settings_categories_create');
     expect(toolNames).not.toContain('settings_tags_create');
+  });
+
+  it('supports initialize handshake metadata', async () => {
+    const person = await createTestPerson();
+    await createTestProject(person.id);
+    const token = await pat(person.id, ['mcp:read']);
+
+    const response = await request(app)
+      .post('/mcp')
+      .set('Authorization', `Bearer ${token}`)
+      .send(rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'jest', version: '1.0.0' } }, 'init-1'))
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      jsonrpc: '2.0',
+      id: 'init-1',
+      result: {
+        protocolVersion: '2024-11-05',
+        capabilities: { tools: {} },
+        serverInfo: { name: 'workstream-cockpit', version: '1.0.0' },
+      },
+    });
   });
 
   it('enforces read/write scopes and project isolation for tools', async () => {
@@ -112,16 +151,26 @@ describe('MCP endpoint', () => {
     const readWrite = await pat(owner.id, ['mcp:read', 'mcp:write']);
 
     const deniedWrite = await callTool(app, readOnly, 'workstreams_create', { name: 'Nope' }).expect(200);
-    expect(deniedWrite.body.error.message).toMatch(/mcp:write/);
+    expect(expectToolFailure(deniedWrite, -32001)).toMatch(/mcp:write/);
 
     const list = await callTool(app, readOnly, 'workstreams_list').expect(200);
     expect(list.body.result.structuredContent.workstreams.map((w: any) => w.id)).toEqual([ownerWorkstream.id]);
 
     const crossGet = await callTool(app, readWrite, 'workstreams_get', { id: otherWorkstream.id }).expect(200);
-    expect(crossGet.body.error.message).toMatch(/not found/i);
+    expect(expectToolFailure(crossGet)).toMatch(/not found/i);
 
     const crossUpdate = await callTool(app, readWrite, 'workstreams_update', { id: otherWorkstream.id, name: 'Hack' }).expect(200);
-    expect(crossUpdate.body.error.message).toMatch(/not found/i);
+    expect(expectToolFailure(crossUpdate)).toMatch(/not found/i);
+
+    const crossClose = await callTool(app, readWrite, 'workstreams_close', { id: otherWorkstream.id }).expect(200);
+    expect(expectToolFailure(crossClose)).toBe('Not found');
+    expect(await prisma.workstream.findUnique({ where: { id: otherWorkstream.id } })).toMatchObject({ state: 'active', closedAt: null });
+
+    const foreignClosedAt = new Date('2024-04-01T00:00:00.000Z');
+    await prisma.workstream.update({ where: { id: otherWorkstream.id }, data: { state: 'closed', closedAt: foreignClosedAt } });
+    const crossReopen = await callTool(app, readWrite, 'workstreams_reopen', { id: otherWorkstream.id }).expect(200);
+    expect(expectToolFailure(crossReopen)).toBe('Not found');
+    expect(await prisma.workstream.findUnique({ where: { id: otherWorkstream.id } })).toMatchObject({ state: 'closed', closedAt: foreignClosedAt });
   });
 
   it('supports writes, destructive confirmation, date filters, and timeline filters', async () => {
@@ -153,6 +202,71 @@ describe('MCP endpoint', () => {
     expect(rejectDelete.body.error.message).toMatch(/confirm/);
     const deleteOk = await callTool(app, token, 'updates_delete', { workstreamId, id: newUpdateId, confirm: true }).expect(200);
     expect(deleteOk.body.result.structuredContent.deletedId).toBe(newUpdateId);
+  });
+
+  it('covers workstream get/update and update get/update positive paths plus cross-workstream safety', async () => {
+    const owner = await createTestPerson({ email: 'mcp-owner@example.com' });
+    const other = await createTestPerson({ email: 'mcp-other@example.com' });
+    const ownerProject = await createTestProject(owner.id);
+    const otherProject = await createTestProject(other.id);
+    const category = await createTestCategory(ownerProject.id, { name: 'Focus' });
+    const foreignCategory = await createTestCategory(otherProject.id, { name: 'Foreign Focus' });
+    const token = await pat(owner.id, ['mcp:read', 'mcp:write']);
+
+    const workstream = await createTestWorkstream(ownerProject.id, { name: 'Original', categoryId: category.id, context: 'old context' });
+    const otherOwnerWorkstream = await createTestWorkstream(ownerProject.id, { name: 'Other Owner Stream' });
+    const foreignWorkstream = await createTestWorkstream(otherProject.id, { name: 'Foreign Stream' });
+    const firstUpdate = await createTestStatusUpdate(workstream.id, { status: 'First status', note: 'first note' });
+    const secondUpdate = await createTestStatusUpdate(workstream.id, { status: 'Second status', note: 'second note' });
+    const otherOwnerUpdate = await createTestStatusUpdate(otherOwnerWorkstream.id, { status: 'Sibling status', note: 'sibling note' });
+    const foreignUpdate = await createTestStatusUpdate(foreignWorkstream.id, { status: 'Foreign status', note: 'foreign note' });
+
+    await prisma.statusUpdate.update({ where: { id: firstUpdate.id }, data: { createdAt: new Date('2024-03-01T00:00:00.000Z') } });
+    await prisma.statusUpdate.update({ where: { id: secondUpdate.id }, data: { createdAt: new Date('2024-03-02T00:00:00.000Z') } });
+
+    const getWithUpdates = await callTool(app, token, 'workstreams_get', { id: workstream.id, includeUpdates: true, updatesLimit: 1 }).expect(200);
+    expect(getWithUpdates.body.result.structuredContent.workstream).toMatchObject({ id: workstream.id, name: 'Original' });
+    expect(getWithUpdates.body.result.structuredContent.updates.map((u: any) => u.id)).toEqual([secondUpdate.id]);
+
+    const updatedWorkstream = await callTool(app, token, 'workstreams_update', { id: workstream.id, name: 'Renamed', context: null, categoryId: null }).expect(200);
+    expect(updatedWorkstream.body.result.structuredContent.workstream).toMatchObject({ id: workstream.id, name: 'Renamed', context: null, categoryId: null });
+
+    const beforeForeignCategoryCreateCount = await prisma.workstream.count({ where: { projectId: ownerProject.id } });
+    const foreignCategoryCreate = await callTool(app, token, 'workstreams_create', { name: 'Cross Project Category', categoryId: foreignCategory.id }).expect(200);
+    expect(expectToolFailure(foreignCategoryCreate)).toBe('Not found');
+    expect(await prisma.workstream.count({ where: { projectId: ownerProject.id } })).toBe(beforeForeignCategoryCreateCount);
+
+    const foreignCategoryUpdate = await callTool(app, token, 'workstreams_update', { id: workstream.id, name: 'Should Not Rename', categoryId: foreignCategory.id }).expect(200);
+    expect(expectToolFailure(foreignCategoryUpdate)).toBe('Not found');
+    expect(await prisma.workstream.findUnique({ where: { id: workstream.id } })).toMatchObject({ name: 'Renamed', categoryId: null });
+
+    const gotUpdate = await callTool(app, token, 'updates_get', { workstreamId: workstream.id, id: secondUpdate.id }).expect(200);
+    expect(gotUpdate.body.result.structuredContent.update).toMatchObject({ id: secondUpdate.id, workstreamId: workstream.id, status: 'Second status' });
+
+    const updatedUpdate = await callTool(app, token, 'updates_update', { workstreamId: workstream.id, id: secondUpdate.id, status: 'Updated status', note: null }).expect(200);
+    expect(updatedUpdate.body.result.structuredContent.update).toMatchObject({ id: secondUpdate.id, workstreamId: workstream.id, status: 'Updated status', note: null });
+
+    const wrongWorkstreamGet = await callTool(app, token, 'updates_get', { workstreamId: workstream.id, id: otherOwnerUpdate.id }).expect(200);
+    expect(wrongWorkstreamGet.body.error.message).toMatch(/update not found/i);
+
+    const wrongWorkstreamUpdate = await callTool(app, token, 'updates_update', { workstreamId: workstream.id, id: otherOwnerUpdate.id, status: 'Should not apply' }).expect(200);
+    expect(wrongWorkstreamUpdate.body.error.message).toBe('Not found');
+    expect((await prisma.statusUpdate.findUniqueOrThrow({ where: { id: otherOwnerUpdate.id } })).status).toBe('Sibling status');
+
+    const wrongWorkstreamDelete = await callTool(app, token, 'updates_delete', { workstreamId: workstream.id, id: otherOwnerUpdate.id, confirm: true }).expect(200);
+    expect(wrongWorkstreamDelete.body.error.message).toBe('Not found');
+    expect(await prisma.statusUpdate.findUnique({ where: { id: otherOwnerUpdate.id } })).not.toBeNull();
+
+    const foreignUpdateAttempt = await callTool(app, token, 'updates_update', { workstreamId: foreignWorkstream.id, id: foreignUpdate.id, status: 'Stolen' }).expect(200);
+    expect(expectToolFailure(foreignUpdateAttempt)).toMatch(/workstream not found/i);
+    expect((await prisma.statusUpdate.findUniqueOrThrow({ where: { id: foreignUpdate.id } })).status).toBe('Foreign status');
+
+    const foreignUpdateGet = await callTool(app, token, 'updates_get', { workstreamId: foreignWorkstream.id, id: foreignUpdate.id }).expect(200);
+    expect(expectToolFailure(foreignUpdateGet)).toMatch(/workstream not found/i);
+
+    const foreignUpdateDelete = await callTool(app, token, 'updates_delete', { workstreamId: foreignWorkstream.id, id: foreignUpdate.id, confirm: true }).expect(200);
+    expect(expectToolFailure(foreignUpdateDelete)).toMatch(/workstream not found/i);
+    expect(await prisma.statusUpdate.findUnique({ where: { id: foreignUpdate.id } })).not.toBeNull();
   });
 
   it('uses opaque stable cursors for workstreams, updates, and timeline pages', async () => {
@@ -207,13 +321,15 @@ describe('MCP endpoint', () => {
       data: {
         projectId: otherProject.id,
         name: 'Other View',
-        config: { filters: { categoryIds: [], tags: [], temporal: { notUpdatedToday: false } }, sort: { field: 'updatedAt', direction: 'desc' }, group: { by: 'none' } },
+        config: viewConfig,
       },
     });
 
     const createdCategory = await callTool(app, token, 'settings_category_create', { name: 'MCP Ops', color: '#abc123', emoji: '🧪' }).expect(200);
     const categoryId = createdCategory.body.result.structuredContent.category.id;
     expect(createdCategory.body.result.structuredContent.category.color).toBe('#ABC123');
+    const updatedCategory = await callTool(app, token, 'settings_category_update', { id: categoryId, name: 'MCP Platform', color: '#123abc', emoji: null }).expect(200);
+    expect(updatedCategory.body.result.structuredContent.category).toMatchObject({ id: categoryId, name: 'MCP Platform', color: '#123ABC', emoji: null });
     const categorizedWorkstream = await createTestWorkstream(ownerProject.id, { name: 'Uses MCP Ops', categoryId });
 
     const crossCategoryUpdate = await callTool(app, token, 'settings_category_update', { id: otherCategory.id, name: 'Stolen' }).expect(200);
@@ -249,7 +365,7 @@ describe('MCP endpoint', () => {
     expect(tagDeleteOk.body.result.structuredContent.deletedId).toBe(tagId);
     expect(await prisma.tag.findUnique({ where: { id: tagId } })).toBeNull();
 
-    const baseConfig = { filters: { categoryIds: [], tags: ['reviewed_done'], temporal: { notUpdatedToday: false } }, sort: { field: 'updatedAt', direction: 'desc' }, group: { by: 'none' } };
+    const baseConfig = { ...viewConfig, filters: { ...viewConfig.filters, tags: ['reviewed_done'] } };
     const defaultView = await callTool(app, token, 'settings_view_create', { name: 'Default MCP View', isDefault: true, config: baseConfig }).expect(200);
     const defaultViewId = defaultView.body.result.structuredContent.view.id;
     expect(defaultView.body.result.structuredContent.view.isDefault).toBe(true);
@@ -322,9 +438,12 @@ describe('MCP endpoint', () => {
 
   it('supports settings include, close/reopen, validation, sanitized errors, and rate limiting', async () => {
     const person = await createTestPerson();
+    const other = await createTestPerson({ email: 'settings-reorder-other@example.com' });
     const project = await createTestProject(person.id);
+    const otherProject = await createTestProject(other.id);
     const categoryA = await createTestCategory(project.id, { name: 'A', sortOrder: 0 });
     const categoryB = await createTestCategory(project.id, { name: 'B', sortOrder: 1 });
+    const foreignCategory = await createTestCategory(otherProject.id, { name: 'Foreign Reorder', sortOrder: 7 });
     const workstream = await createTestWorkstream(project.id, { name: 'Closable' });
     const token = await pat(person.id, ['mcp:read', 'mcp:write']);
 
@@ -340,6 +459,12 @@ describe('MCP endpoint', () => {
 
     const reordered = await callTool(app, token, 'settings_category_reorder', { categoryIds: [categoryB.id, categoryA.id] }).expect(200);
     expect(reordered.body.result.structuredContent.categories.map((c: any) => c.id)).toEqual([categoryB.id, categoryA.id]);
+
+    const mixedReorder = await callTool(app, token, 'settings_category_reorder', { categoryIds: [categoryA.id, foreignCategory.id] }).expect(200);
+    expect(expectToolFailure(mixedReorder)).toBe('Not found');
+    expect(await prisma.category.findUnique({ where: { id: categoryA.id } })).toMatchObject({ sortOrder: 1 });
+    expect(await prisma.category.findUnique({ where: { id: categoryB.id } })).toMatchObject({ sortOrder: 0 });
+    expect(await prisma.category.findUnique({ where: { id: foreignCategory.id } })).toMatchObject({ sortOrder: 7 });
 
     const tag = await callTool(app, token, 'settings_tag_create', { displayName: 'MCP', color: '#abcdef' }).expect(200);
     expect(tag.body.result.structuredContent.tag.color).toBe('#ABCDEF');
