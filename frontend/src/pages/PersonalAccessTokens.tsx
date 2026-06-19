@@ -51,6 +51,19 @@ function OneTimeTokenNotice({ token, onDismiss }: OneTimeTokenNoticeProps) {
       <div className="mt-3 rounded-md border border-amber-200 bg-white p-3 font-mono text-sm text-gray-900 break-all">
         {token}
       </div>
+      <div className="mt-3 rounded-md border border-amber-200 bg-white p-3 text-sm text-amber-950">
+        <p className="font-medium">Codex setup tip</p>
+        <p className="mt-1">
+          Codex's “Bearer token env var” field expects an environment variable name, not the raw
+          PAT. Set an environment variable such as <code>WSC_PAT</code> to this token, then enter
+          <code>WSC_PAT</code> in Codex.
+        </p>
+        <p className="mt-1 font-mono text-xs text-amber-900">export WSC_PAT=&lt;paste-this-token&gt;</p>
+        <p className="mt-1 text-xs text-amber-800">
+          For Docker Compose, the MCP URL is usually <code>http://localhost:3002/mcp</code> through
+          the frontend proxy, or <code>http://localhost:3001/mcp</code> if the backend port is exposed.
+        </p>
+      </div>
       <div className="mt-4 flex gap-2">
         <button
           type="button"

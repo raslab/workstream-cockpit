@@ -115,17 +115,19 @@ Workstream Cockpit includes an MCP endpoint so AI clients can read and update op
 1. Start Workstream Cockpit and sign in through the web UI.
 2. Open **Settings → Personal access tokens**.
 3. Create a read-only token for review workflows or a read-write token when the client should update Cockpit.
-4. Configure your MCP client with the backend MCP endpoint and bearer token.
+4. Configure your MCP client with the MCP endpoint and bearer token.
 
-Local development endpoint:
+Local Docker Compose endpoint:
 
 ```yaml
 mcp_servers:
   cockpit_dev:
-    url: "http://localhost:3001/mcp"
+    url: "http://localhost:3002/mcp"
     headers:
       Authorization: "Bearer wsc_pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
+
+If your backend port is exposed directly, `http://localhost:3001/mcp` also works.
 
 Production endpoint:
 
@@ -136,6 +138,8 @@ mcp_servers:
     headers:
       Authorization: "Bearer wsc_pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
+
+Codex UI note: the **Bearer token env var** field expects an environment variable name, not the token itself. For example, set `WSC_PAT=wsc_pat_xxx...` in the shell that starts Codex, then enter `WSC_PAT` in that field. Do not paste the raw `wsc_pat_...` value into the env-var-name field.
 
 The MCP server exposes tools, not resources or prompts. For the full tool contract and troubleshooting, see [MCP server and personal access tokens](docs/integrations/mcp-server.md). For practical AI-client operating guidance, use the [Workstream Cockpit MCP skill](docs/skills/workstream-cockpit-mcp.md).
 

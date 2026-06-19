@@ -19,9 +19,9 @@ Use this skill for requests such as:
 ## Prerequisites
 
 - Workstream Cockpit is running and reachable.
-- The MCP endpoint is configured as the backend `/mcp` URL.
+- The MCP endpoint is configured as a reachable `/mcp` URL. For local Docker Compose this is usually `http://localhost:3002/mcp` through the frontend proxy; `http://localhost:3001/mcp` also works if the backend port is exposed directly.
 - The user created a personal access token in Settings → Personal access tokens.
-- The MCP client sends an `Authorization` bearer header on MCP requests.
+- The MCP client sends an `Authorization` bearer header on MCP requests. In Codex, put the environment variable name (for example `WSC_PAT`) in **Bearer token env var** after exporting that variable to the raw `wsc_pat_...` token; do not paste the raw token into that env-var-name field.
 - Use a read-only PAT for review workflows. Use a read-write PAT only when write actions are expected.
 
 See the full setup and tool contract in [MCP server and personal access tokens](../integrations/mcp-server.md).
