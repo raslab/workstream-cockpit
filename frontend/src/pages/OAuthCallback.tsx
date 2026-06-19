@@ -8,26 +8,41 @@ export default function OAuthCallback() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+    let redirectTimeout: ReturnType<typeof setTimeout> | undefined;
+
     // After OAuth redirect, refetch user and navigate to cockpit
     const handleCallback = async () => {
       try {
         // Small delay to ensure session cookie is set
         await new Promise((resolve) => setTimeout(resolve, 100));
+        if (!isMounted) return;
         
         await refetchUser();
+        if (!isMounted) return;
         navigate('/', { replace: true });
       } catch (error) {
+        if (!isMounted) return;
         console.error('OAuth callback error:', error);
         setError('Authentication failed. Please try again.');
         
         // Redirect to login after showing error briefly
-        setTimeout(() => {
-          navigate('/login', { replace: true });
+        redirectTimeout = setTimeout(() => {
+          if (isMounted) {
+            navigate('/login', { replace: true });
+          }
         }, 2000);
       }
     };
 
     handleCallback();
+
+    return () => {
+      isMounted = false;
+      if (redirectTimeout) {
+        clearTimeout(redirectTimeout);
+      }
+    };
   }, [navigate, refetchUser]);
 
   if (error) {

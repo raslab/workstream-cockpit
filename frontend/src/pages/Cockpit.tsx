@@ -44,7 +44,6 @@ export default function Cockpit() {
       // Clear the state so it doesn't persist on page reload
       window.history.replaceState({}, document.title);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location]);
 
   // Fetch workstreams with current filter config
@@ -67,7 +66,7 @@ export default function Cockpit() {
           comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
         case 'updatedAt':
-        default:
+        default: {
           // Sort by latest status update time, fallback to createdAt if no status
           const aTime = a.latestStatus
             ? new Date(a.latestStatus.updatedAt).getTime()
@@ -77,6 +76,7 @@ export default function Cockpit() {
             : new Date(b.createdAt).getTime();
           comparison = aTime - bTime;
           break;
+        }
       }
       return sortDir === 'asc' ? comparison : -comparison;
     };

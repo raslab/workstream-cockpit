@@ -95,10 +95,11 @@ export function DateRangeFilter({
           <div className="p-4 space-y-4">
             {/* Start Date */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="timeline-start-date" className="block text-sm font-medium text-gray-700 mb-1">
                 Start Date
               </label>
               <input
+                id="timeline-start-date"
                 type="date"
                 value={startDateStr}
                 onChange={handleStartChange}
@@ -109,10 +110,11 @@ export function DateRangeFilter({
 
             {/* End Date */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="timeline-end-date" className="block text-sm font-medium text-gray-700 mb-1">
                 End Date
               </label>
               <input
+                id="timeline-end-date"
                 type="date"
                 value={endDateStr}
                 onChange={handleEndChange}

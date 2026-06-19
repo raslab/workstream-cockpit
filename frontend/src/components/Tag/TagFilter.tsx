@@ -64,7 +64,14 @@ export function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen((open) => {
+            if (open) {
+              setSearchQuery('');
+            }
+            return !open;
+          });
+        }}
         className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
       >
         <span>Tags</span>

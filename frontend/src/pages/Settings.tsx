@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { SettingsSidebar } from '../components/Settings/SettingsSidebar';
 import CategoryManagement from './CategoryManagement';
+import PersonalAccessTokens from './PersonalAccessTokens';
 import TagManagement from './TagManagement';
 
 export default function Settings() {
@@ -17,6 +18,7 @@ export default function Settings() {
           <Routes>
             <Route path="categories" element={<CategoryManagement />} />
             <Route path="tags" element={<TagManagement />} />
+            <Route path="personal-access-tokens" element={<PersonalAccessTokens />} />
             <Route path="*" element={<Navigate to="categories" replace />} />
           </Routes>
         </main>

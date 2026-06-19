@@ -9,6 +9,7 @@ interface SettingsTab {
 const settingsTabs: SettingsTab[] = [
   { name: 'Categories', href: '/settings/categories', icon: '🏷️' },
   { name: 'Tags', href: '/settings/tags', icon: '#️⃣' },
+  { name: 'Personal access tokens', href: '/settings/personal-access-tokens', icon: '🔑' },
   // Future tabs can be added here:
   // { name: 'Preferences', href: '/settings/preferences', icon: '⚙️' },
   // { name: 'Integrations', href: '/settings/integrations', icon: '🔌' },

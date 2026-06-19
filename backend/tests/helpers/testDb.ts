@@ -77,7 +77,16 @@ export async function setupTestDatabase(): Promise<void> {
  * Clean database before each test
  */
 export async function cleanDatabase(): Promise<void> {
-  const tables = ['status_updates', 'workstreams', 'tags', 'categories', 'projects', 'persons'];
+  const tables = [
+    'personal_access_tokens',
+    'views',
+    'status_updates',
+    'workstreams',
+    'tags',
+    'categories',
+    'projects',
+    'persons',
+  ];
   
   for (const table of tables) {
     await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${table} CASCADE;`);
