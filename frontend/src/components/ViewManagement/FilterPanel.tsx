@@ -78,7 +78,7 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
       ref={panelRef}
       className="absolute right-0 top-full z-20 mt-1 w-80 rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800"
     >
-      <div className="max-h-96 overflow-y-auto">
+      <div className="max-h-96 overflow-y-auto dark-scrollbar">
         {/* Categories Section */}
         <div className="border-b border-gray-200 p-3 dark:border-gray-700">
           <h4 className="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">Categories</h4>
@@ -92,7 +92,7 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
                   type="checkbox"
                   checked={localFilters.categoryIds.includes(category.id)}
                   onChange={() => toggleCategory(category.id)}
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-primary-400"
+                  className="h-4 w-4 rounded border-gray-300 text-primary-600 accent-primary-600 focus:ring-primary-500 dark:border-gray-500 dark:bg-gray-900 dark:text-primary-400 dark:accent-primary-400"
                 />
                 <div
                   className="flex h-5 w-5 items-center justify-center rounded text-sm"
@@ -122,7 +122,7 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
               />
               
               {/* Tag list */}
-              <div className="max-h-40 space-y-1 overflow-y-auto">
+              <div className="max-h-40 space-y-1 overflow-y-auto dark-scrollbar">
                 {filteredTags.length === 0 ? (
                   <p className="py-2 text-center text-sm text-gray-500 dark:text-gray-400">No tags found</p>
                 ) : (
@@ -135,7 +135,7 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
                         type="checkbox"
                         checked={localFilters.tags.includes(tag.name)}
                         onChange={() => toggleTag(tag.name)}
-                        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-primary-400"
+                        className="h-4 w-4 rounded border-gray-300 text-primary-600 accent-primary-600 focus:ring-primary-500 dark:border-gray-500 dark:bg-gray-900 dark:text-primary-400 dark:accent-primary-400"
                       />
                       <span
                         className="inline-block h-3 w-3 rounded-full"
@@ -165,7 +165,7 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
                   temporal: { notUpdatedToday: e.target.checked },
                 })
               }
-              className="h-4 w-4 rounded border-gray-300 text-primary-600 dark:border-gray-600 dark:bg-gray-900 dark:text-primary-400"
+              className="h-4 w-4 rounded border-gray-300 text-primary-600 accent-primary-600 dark:border-gray-500 dark:bg-gray-900 dark:text-primary-400 dark:accent-primary-400"
             />
             <span className="text-sm text-gray-700 dark:text-gray-300">Not updated today</span>
           </label>
@@ -251,8 +251,8 @@ export function SortMenu({ currentSort, onSortChange, onClose }: SortMenuProps) 
             <button
               key={option.field}
               onClick={() => handleSelect(option.field)}
-              className={`flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                isActive ? 'bg-gray-50 font-medium text-primary-600 dark:bg-gray-900' : 'text-gray-700 dark:text-gray-300'
+              className={`flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                isActive ? 'bg-gray-50 font-medium text-primary-600 dark:bg-gray-900 dark:text-primary-300' : 'text-gray-700 dark:text-gray-300'
               }`}
             >
               <span>{option.label}</span>
@@ -310,8 +310,8 @@ export function GroupMenu({ currentGroup, onGroupChange, onClose }: GroupMenuPro
             <button
               key={option.by}
               onClick={() => handleSelect(option.by)}
-              className={`w-full rounded px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                isActive ? 'bg-gray-50 font-medium text-primary-600 dark:bg-gray-900' : 'text-gray-700 dark:text-gray-300'
+              className={`w-full rounded px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                isActive ? 'bg-gray-50 font-medium text-primary-600 dark:bg-gray-900 dark:text-primary-300' : 'text-gray-700 dark:text-gray-300'
               }`}
             >
               {option.label}

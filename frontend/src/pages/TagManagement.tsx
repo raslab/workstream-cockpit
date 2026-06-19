@@ -57,7 +57,7 @@ function TagItem({
             Alphanumeric, hyphens, underscores, and spaces allowed • {editDisplayName.length}/50 characters
           </div>
           {editDisplayName.trim() && (
-            <div className="mt-2 rounded-md bg-blue-50 p-2 text-xs text-blue-800">
+            <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-blue-800 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100">
               <strong>Tag ID:</strong> #{tagIdPreview}
               {editDisplayName !== tagIdPreview && (
                 <span className="ml-1">(Use this ID in text: #{tagIdPreview})</span>
@@ -246,11 +246,11 @@ export default function TagManagement() {
                 Alphanumeric, hyphens, underscores, and spaces allowed • {newTagDisplayName.length}/50 characters
               </div>
               {newTagDisplayName.trim() && (
-                <div className="mt-2 rounded-md bg-blue-50 p-2 text-sm text-blue-800">
+                <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 p-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100">
                   <strong>Tag ID:</strong> #{newTagIdPreview}
                   <br />
                   <span className="text-xs">
-                    Use <code className="bg-blue-100 px-1 rounded">#{newTagIdPreview}</code> in text for autocompletion and matching
+                    Use <code className="rounded bg-blue-100 px-1 dark:bg-blue-900 dark:text-blue-100">#{newTagIdPreview}</code> in text for autocompletion and matching
                   </span>
                 </div>
               )}
@@ -326,11 +326,11 @@ export default function TagManagement() {
 
       {!isLoading && tags && tags.length > 0 && (
         <div className="space-y-3">
-          <div className="mb-4 rounded-md bg-blue-50 p-3 text-sm text-blue-800">
+          <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100">
             <strong>💡 How to use tags:</strong>
             <ul className="mt-2 space-y-1 list-disc pl-5">
               <li>Type the <strong>tag ID</strong> (shown below each tag) in workstream context or status updates</li>
-              <li>Example: For "Alan Awake", type <code className="bg-blue-100 px-1 rounded">#alan_awake</code></li>
+              <li>Example: For "Alan Awake", type <code className="rounded bg-blue-100 px-1 dark:bg-blue-900 dark:text-blue-100">#alan_awake</code></li>
               <li>The autocomplete will help you select the right tag</li>
               <li>Tags display with their friendly names everywhere in the UI</li>
             </ul>

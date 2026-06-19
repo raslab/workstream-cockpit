@@ -73,7 +73,7 @@ export function FilterBar({
 
           {showCategoryMenu && (
             <div className="absolute left-0 top-full z-10 mt-1 w-64 rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
-              <div className="p-2">
+              <div className="p-2 dark-scrollbar">
                 {categories.map((category) => (
                   <label
                     key={category.id}
@@ -83,7 +83,7 @@ export function FilterBar({
                       type="checkbox"
                       checked={selectedCategoryIds.includes(category.id)}
                       onChange={() => toggleCategory(category.id)}
-                      className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-primary-400"
+                      className="h-4 w-4 rounded border-gray-300 text-primary-600 accent-primary-600 focus:ring-primary-500 dark:border-gray-500 dark:bg-gray-900 dark:text-primary-400 dark:accent-primary-400"
                     />
                     <div
                       className="h-3 w-3 rounded-full"

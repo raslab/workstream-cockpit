@@ -98,7 +98,7 @@ export function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
           </div>
 
           {/* Tag list */}
-          <div className="max-h-64 overflow-y-auto p-2">
+          <div className="max-h-64 overflow-y-auto p-2 dark-scrollbar">
             {filteredTags.length === 0 ? (
               <div className="px-3 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
                 No tags found
@@ -110,13 +110,13 @@ export function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
                   <button
                     key={tag.id}
                     onClick={() => toggleTag(tag.name)}
-                    className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+                    className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => {}}
-                      className="h-4 w-4 rounded border-gray-300 text-primary-600 dark:border-gray-600 dark:bg-gray-900 dark:text-primary-400"
+                      className="h-4 w-4 rounded border-gray-300 text-primary-600 accent-primary-600 dark:border-gray-500 dark:bg-gray-900 dark:text-primary-400 dark:accent-primary-400"
                     />
                     <span
                       className="inline-block h-3 w-3 rounded-full"

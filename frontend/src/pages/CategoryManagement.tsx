@@ -388,7 +388,7 @@ export default function CategoryManagement() {
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={categories.map((category) => category.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-3">
-              <div className="mb-2 rounded-md bg-blue-50 p-3 text-sm text-blue-800">
+              <div className="mb-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100">
                 <strong>💡 Tip:</strong> Drag and drop categories to reorder them. The order here affects how groups appear in the Cockpit view.
               </div>
               {categories.map((category) => (
