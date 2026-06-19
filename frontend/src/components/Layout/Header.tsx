@@ -17,6 +17,12 @@ export default function Header() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
+            <img
+              src="/workstream-cockpit-icon.svg"
+              alt=""
+              aria-hidden="true"
+              className="mr-3 h-8 w-8 rounded-lg"
+            />
             <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Workstream Cockpit</h1>
             
             {user && (
