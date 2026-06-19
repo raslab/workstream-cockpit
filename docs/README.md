@@ -14,6 +14,11 @@ Start here when you need setup details, implementation references, testing instr
 - [Changelog 002](./CHANGELOG-002.md) — timeline export feature notes.
 - [Screenshots](./screenshots/) — current UI captures used by the README and docs.
 
+## Frontend behavior
+
+- [Frontend specs](./frontend/README.md) — browser-side behavior, UI routes, and client-only preferences.
+- [Appearance and theme preferences](./frontend/appearance-theme.md) — System/Light/Dark theme behavior and tests.
+
 ## Integrations
 
 - [Integration specs](./integrations/README.md) — external automation and protocol integrations.
