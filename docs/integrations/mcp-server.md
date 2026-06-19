@@ -129,19 +129,13 @@ If your backend port is exposed directly, `http://localhost:3001/mcp` also works
 
 ### Codex UI configuration
 
-In Codex's MCP setup screen, **Bearer token env var** means “the name of the environment variable that contains the token.” It is not the token value field.
+In Codex's MCP setup screen, configure the token in the **Headers** section:
 
-1. Export the token in the shell that starts Codex:
+- URL: `http://localhost:3002/mcp` for Docker Compose, or `http://localhost:3001/mcp` if the backend port is exposed directly.
+- Header name: `Authorization`
+- Header value: `Bearer wsc_pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
 
-   ```bash
-   export WSC_PAT='wsc_pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-   ```
-
-2. In Codex, set:
-   - URL: `http://localhost:3002/mcp` for Docker Compose, or `http://localhost:3001/mcp` if the backend port is exposed directly.
-   - Bearer token env var: `WSC_PAT`
-
-Do **not** paste the raw `wsc_pat_...` value into the **Bearer token env var** field. If Codex says `Environment variable wsc_pat_... is not set`, the raw PAT was entered as the variable name.
+Do **not** paste the raw `wsc_pat_...` value into the **Bearer token env var** field unless you have separately exported an environment variable containing the token. If Codex says `Environment variable wsc_pat_... is not set`, the PAT was entered as an environment-variable name instead of as an `Authorization` header.
 
 If a client reports that startup is incomplete or no tools are visible, verify that it is using a reachable `/mcp` URL and that the bearer token is present on initialize, ping, and tools/list requests. The endpoint supports modern MCP startup negotiation for `2025-06-18`, `2025-03-26`, and the earlier `2024-11-05` protocol version.
 

@@ -123,8 +123,9 @@ describe('Personal access tokens settings', () => {
     expect(rawToken).toBeInTheDocument();
     expect(screen.getByText(/copy it now/i)).toBeInTheDocument();
     expect(screen.getByText(/codex setup tip/i)).toBeInTheDocument();
-    expect(screen.getByText(/expects an environment variable name/i)).toBeInTheDocument();
-    expect(screen.getByText(/export WSC_PAT=<paste-this-token>/i)).toBeInTheDocument();
+    expect(screen.getByText(/Headers section/i)).toBeInTheDocument();
+    expect(screen.getByText(/Authorization: Bearer <paste-this-token>/i)).toBeInTheDocument();
+    expect(screen.getByText(/environment-variable field/i)).toBeInTheDocument();
     expect(screen.getByText(/http:\/\/localhost:3002\/mcp/i)).toBeInTheDocument();
 
     await performUserAction(async () => {

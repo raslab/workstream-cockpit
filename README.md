@@ -139,7 +139,7 @@ mcp_servers:
       Authorization: "Bearer wsc_pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
-Codex UI note: the **Bearer token env var** field expects an environment variable name, not the token itself. For example, set `WSC_PAT=wsc_pat_xxx...` in the shell that starts Codex, then enter `WSC_PAT` in that field. Do not paste the raw `wsc_pat_...` value into the env-var-name field.
+Codex UI note: add an `Authorization` header in the **Headers** section, with value `Bearer wsc_pat_xxx...`. Do not paste the raw token into the **Bearer token env var** field unless you have separately exported an environment variable containing the token.
 
 The MCP server exposes tools, not resources or prompts. For the full tool contract and troubleshooting, see [MCP server and personal access tokens](docs/integrations/mcp-server.md). For practical AI-client operating guidance, use the [Workstream Cockpit MCP skill](docs/skills/workstream-cockpit-mcp.md).
 
