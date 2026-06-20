@@ -64,14 +64,28 @@ describe('WorkstreamCard tile layout', () => {
     renderCard(baseWorkstream());
 
     expect(screen.getByTestId('workstream-category-rail')).toHaveStyle({ backgroundColor: '#74d84f' });
-    expect(screen.getByTestId('workstream-category-icon')).toHaveTextContent('🌟');
-    expect(screen.getByRole('link', { name: /English learning plan/ })).toHaveAttribute('href', '/workstreams/stream-1');
+    expect(screen.getByTestId('workstream-category-column')).toHaveClass('inset-y-0', 'left-[7px]', 'w-[66px]');
+    expect(screen.getByTestId('workstream-category-icon')).toHaveClass('col-start-2');
+    expect(screen.getByTestId('workstream-category-icon').className).not.toContain('mt-4');
+
+    const titleLink = screen.getByRole('link', { name: /English learning plan/ });
+    expect(titleLink).toHaveAttribute('href', '/workstreams/stream-1');
+    expect(titleLink.closest('article')).not.toHaveClass('gap-x-3');
+    expect(screen.getByRole('heading', { name: 'English learning plan' })).toHaveClass('text-base', 'font-semibold');
+    expect(screen.getByText('Latest work happened in child stream: weekly lessons are moving.')).toHaveClass('text-sm');
     expect(screen.getByText('Parent: Goals')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Log status' })).toBeInTheDocument();
     expect(screen.getByText(/Self:/)).toBeInTheDocument();
     expect(screen.getByText(/Child:/)).toBeInTheDocument();
     expect(screen.getByText(/via Schedule 11 English classes/)).toBeInTheDocument();
     expect(screen.getByText('2 active / 1 closed sub-streams')).toBeInTheDocument();
+  });
+
+  it('does not render or reserve a tags region when the workstream has no tags', () => {
+    renderCard(baseWorkstream({ allTags: [] }));
+
+    expect(screen.queryByTestId('workstream-tags')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument();
   });
 
   it('renders every tag and relies on width-based CSS truncation instead of fixed count truncation', () => {
@@ -82,7 +96,8 @@ describe('WorkstreamCard tile layout', () => {
       expect(screen.getByTitle(`Tag ID: #${tag}`)).toBeInTheDocument();
     }
     expect(screen.queryByText(/^\+\d+$/)).not.toBeInTheDocument();
-    expect(screen.getByTestId('workstream-tags')).toHaveClass('overflow-hidden');
+    expect(screen.queryByText(/^\+N$/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId('workstream-tags')).toHaveClass('flex-wrap');
     expect(screen.getByTestId('workstream-tags').className).not.toContain('max-w-[9rem]');
   });
 });
