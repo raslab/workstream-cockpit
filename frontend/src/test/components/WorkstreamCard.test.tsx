@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { calculateVisibleTagCount, WorkstreamCard } from '../../components/Workstream/WorkstreamCard';
 import type { Workstream } from '../../types/workstream';
+import { getCategoryIconBandBackground } from '../../utils/categoryColor';
 
 vi.mock('../../components/Markdown/MarkdownRenderer', () => ({
   MarkdownRenderer: ({ content, className }: { content: string; className?: string }) => <p className={className}>{content}</p>,
@@ -87,10 +88,17 @@ describe('WorkstreamCard tile layout', () => {
 
   it('renders the redesigned category, parent, self and child activity regions', () => {
     renderCard(baseWorkstream());
+    const expectedCategoryBandBackground = getCategoryIconBandBackground('#74d84f', '#5b8ca0');
 
     expect(screen.getByTestId('workstream-category-rail')).toHaveStyle({ backgroundColor: '#74d84f' });
     expect(screen.getByTestId('workstream-category-column')).toHaveClass('inset-y-0', 'left-[7px]', 'w-[66px]');
+    expect(screen.getByRole('heading', { name: 'English learning plan' }).closest('article')).toHaveStyle({
+      '--workstream-category-soft': expectedCategoryBandBackground,
+    });
     expect(screen.getByTestId('workstream-category-icon')).toHaveClass('absolute', 'left-[18px]', 'top-2');
+    expect(screen.getByTestId('workstream-category-icon')).toHaveStyle({
+      backgroundColor: expectedCategoryBandBackground,
+    });
     expect(screen.getByTestId('workstream-category-icon').className).not.toContain('row-start');
     expect(screen.getByTestId('workstream-category-icon').className).not.toContain('mt-4');
 
