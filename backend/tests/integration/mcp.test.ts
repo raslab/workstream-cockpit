@@ -347,56 +347,56 @@ describe('MCP endpoint', () => {
     expect(await prisma.statusUpdate.findUnique({ where: { id: foreignUpdate.id } })).not.toBeNull();
   });
 
-  it('covers MCP hierarchy create/update/list/timeline parity', async () => {
-    const person = await createTestPerson({ email: 'mcp-hierarchy@example.com' });
+  it('covers MCP parent stream create/update/list/timeline parity', async () => {
+    const person = await createTestPerson({ email: 'mcp-parent-path@example.com' });
     const project = await createTestProject(person.id);
     const token = await pat(person.id, ['mcp:read', 'mcp:write']);
 
-    const parentResponse = await callTool(app, token, 'workstreams_create', { name: 'MCP Parent', initialStatus: 'parent #mcp-hierarchy' }).expect(200);
+    const parentResponse = await callTool(app, token, 'workstreams_create', { name: 'MCP Parent', initialStatus: 'parent #mcp-parent-path' }).expect(200);
     const parent = parentResponse.body.result.structuredContent.workstream;
-    const childResponse = await callTool(app, token, 'workstreams_create', { name: 'MCP Child', parentId: parent.id, initialStatus: 'child #mcp-hierarchy' }).expect(200);
-    const child = childResponse.body.result.structuredContent.workstream;
-    expect(child).toMatchObject({ parentId: parent.id, depth: 2 });
-    expect(child.parent).toMatchObject({ id: parent.id, name: 'MCP Parent' });
+    const substreamResponse = await callTool(app, token, 'workstreams_create', { name: 'MCP Sub-stream', parentId: parent.id, initialStatus: 'sub-stream #mcp-parent-path' }).expect(200);
+    const substream = substreamResponse.body.result.structuredContent.workstream;
+    expect(substream).toMatchObject({ parentId: parent.id, depth: 2 });
+    expect(substream.parent).toMatchObject({ id: parent.id, name: 'MCP Parent' });
 
     const parentGet = await callTool(app, token, 'workstreams_get', { id: parent.id }).expect(200);
-    expect(parentGet.body.result.structuredContent.workstream).toMatchObject({ id: parent.id, childCount: 1, directChildCount: 1 });
+    expect(parentGet.body.result.structuredContent.workstream).toMatchObject({ id: parent.id, substreamCount: 1, directSubstreamCount: 1 });
 
     const listed = await callTool(app, token, 'workstreams_list', { state: 'all' }).expect(200);
-    expect(listed.body.result.structuredContent.workstreams.map((w: any) => w.id)).toEqual(expect.arrayContaining([parent.id, child.id]));
+    expect(listed.body.result.structuredContent.workstreams.map((w: any) => w.id)).toEqual(expect.arrayContaining([parent.id, substream.id]));
 
-    const detached = await callTool(app, token, 'workstreams_update', { id: child.id, parentId: null }).expect(200);
+    const detached = await callTool(app, token, 'workstreams_update', { id: substream.id, parentId: null }).expect(200);
     expect(detached.body.result.structuredContent.workstream.parentId).toBeNull();
-    const reattached = await callTool(app, token, 'workstreams_update', { id: child.id, parentId: parent.id }).expect(200);
-    expect(reattached.body.result.structuredContent.workstream.ancestors).toEqual([expect.objectContaining({ id: parent.id })]);
+    const reattached = await callTool(app, token, 'workstreams_update', { id: substream.id, parentId: parent.id }).expect(200);
+    expect(reattached.body.result.structuredContent.workstream.parentStreams).toEqual([expect.objectContaining({ id: parent.id })]);
 
-    const directTimeline = await callTool(app, token, 'timeline_query', { eventTypes: ['status_update'], tagNames: ['mcp-hierarchy'], hierarchyScope: 'under-parent', parentId: parent.id }).expect(200);
+    const directTimeline = await callTool(app, token, 'timeline_query', { eventTypes: ['status_update'], tagNames: ['mcp-parent-path'], streamScope: 'under-parent', parentId: parent.id }).expect(200);
     expect(directTimeline.body.result.structuredContent.events.map((e: any) => e.workstreamId)).toEqual([parent.id]);
 
-    const treeTimeline = await callTool(app, token, 'timeline_query', { eventTypes: ['status_update'], tagNames: ['mcp-hierarchy'], hierarchyScope: 'under-parent', parentId: parent.id, includeSubstreams: true }).expect(200);
-    expect(treeTimeline.body.result.structuredContent.events.map((e: any) => e.workstreamId)).toEqual(expect.arrayContaining([parent.id, child.id]));
+    const treeTimeline = await callTool(app, token, 'timeline_query', { eventTypes: ['status_update'], tagNames: ['mcp-parent-path'], streamScope: 'under-parent', parentId: parent.id, includeSubstreams: true }).expect(200);
+    expect(treeTimeline.body.result.structuredContent.events.map((e: any) => e.workstreamId)).toEqual(expect.arrayContaining([parent.id, substream.id]));
 
     expect(await prisma.workstream.count({ where: { projectId: project.id } })).toBe(2);
   });
 
-  it('returns actionable MCP errors for hierarchy rule violations without mutating rows', async () => {
-    const person = await createTestPerson({ email: 'mcp-hierarchy-negative@example.com' });
+  it('returns actionable MCP errors for parent stream rule violations without mutating rows', async () => {
+    const person = await createTestPerson({ email: 'mcp-parent-path-negative@example.com' });
     const project = await createTestProject(person.id);
     const token = await pat(person.id, ['mcp:read', 'mcp:write']);
     const root = await createTestWorkstream(project.id, { name: 'Root' });
-    const child = await createTestWorkstream(project.id, { name: 'Child', parentId: root.id } as any);
+    const substream = await createTestWorkstream(project.id, { name: 'Sub-stream', parentId: root.id } as any);
     const closedParent = await createTestWorkstream(project.id, { name: 'Closed Parent', state: 'closed' });
 
-    const cycle = await callTool(app, token, 'workstreams_update', { id: root.id, parentId: child.id }).expect(200);
-    expect(expectToolFailure(cycle)).toMatch(/descendant|cycle/i);
+    const cycle = await callTool(app, token, 'workstreams_update', { id: root.id, parentId: substream.id }).expect(200);
+    expect(expectToolFailure(cycle)).toMatch(/sub-stream|cycle/i);
     expect((await prisma.workstream.findUniqueOrThrow({ where: { id: root.id } })).parentId).toBeNull();
 
-    const closed = await callTool(app, token, 'workstreams_update', { id: child.id, parentId: closedParent.id }).expect(200);
+    const closed = await callTool(app, token, 'workstreams_update', { id: substream.id, parentId: closedParent.id }).expect(200);
     expect(expectToolFailure(closed)).toMatch(/closed parent/i);
-    expect((await prisma.workstream.findUniqueOrThrow({ where: { id: child.id } })).parentId).toBe(root.id);
+    expect((await prisma.workstream.findUniqueOrThrow({ where: { id: substream.id } })).parentId).toBe(root.id);
 
     const closeRoot = await callTool(app, token, 'workstreams_close', { id: root.id }).expect(200);
-    expect(expectToolFailure(closeRoot)).toMatch(/active descendants/i);
+    expect(expectToolFailure(closeRoot)).toMatch(/active sub-streams/i);
     expect((await prisma.workstream.findUniqueOrThrow({ where: { id: root.id } })).state).toBe('active');
   });
 

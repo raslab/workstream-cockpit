@@ -173,11 +173,11 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
           </label>
         </div>
 
-        {/* Hierarchy Section */}
+        {/* Parent/sub-stream section */}
         <div className="border-b border-gray-200 p-3 dark:border-gray-700">
-          <h4 className="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">Hierarchy</h4>
+          <h4 className="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">Parent/sub-streams</h4>
           <SelectMenu
-            label="Hierarchy filter"
+            label="Parent/sub-stream filter"
             value={localFilters.hierarchy.mode}
             onChange={(mode) => setLocalFilters({
               ...localFilters,

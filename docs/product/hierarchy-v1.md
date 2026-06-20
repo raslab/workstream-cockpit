@@ -1,17 +1,17 @@
-# Hierarchy V1: sub-streams
+# Parent streams and sub-streams V1
 
 Date: 2026-06-20
 
 ## Purpose
 
-Hierarchy V1 adds optional parent/child structure to Workstream Cockpit so broad streams can contain smaller concrete sub-streams without losing operational clarity.
+Parent streams and sub-streams V1 adds optional parent stream/sub-stream structure to Workstream Cockpit so broad streams can contain smaller concrete sub-streams without losing operational clarity.
 
 The feature answers:
 
 - What larger area does this stream belong to?
 - What moved recently inside this area?
 - Which concrete sub-stream created that movement?
-- What is direct progress vs inherited activity from children?
+- What is direct progress vs inherited activity from sub-streams?
 - How did this stream's parent relationship change over time?
 
 V1 shows structure and recency only. It must not infer health, urgency, priority, or staleness.
@@ -19,24 +19,24 @@ V1 shows structure and recency only. It must not infer health, urgency, priority
 ## Product principles
 
 1. **Show recency, not judgment.** Show elapsed time since direct and sub-stream activity; do not label streams stale, unhealthy, blocked, or needing attention.
-2. **Preserve meaning.** Closing a parent means the whole area is complete or inactive. Closing a parent with active descendants is contradictory and must be blocked.
-3. **Keep history honest.** Ancestors can inherit activity timestamps from descendants, but must not receive fake status updates when children move.
-4. **Use hierarchy for primary belonging.** Each stream has at most one parent. Other relationships remain tags, references, or future features.
+2. **Preserve meaning.** Closing a parent means the whole area is complete or inactive. Closing a parent with active sub-streams is contradictory and must be blocked.
+3. **Keep history honest.** Parent streams can inherit activity timestamps from sub-streams, but must not receive fake status updates when sub-streams move.
+4. **Use parent streams for primary belonging.** Each stream has at most one parent. Other relationships remain tags, references, or future features.
 5. **Avoid file-explorer complexity.** Breadcrumbs can show full path; main view must not render deep recursive trees in V1.
 
 ## V1 model rules
 
 - A stream can have zero or one parent.
-- A stream can have many children.
-- Maximum hierarchy depth is 5 total levels, with a top-level stream at depth 1.
+- A parent stream can have many sub-streams.
+- Maximum parent stream depth is 5 total levels, with a top-level stream at depth 1.
 - Cycles are not allowed.
 - A stream cannot be its own parent.
-- A stream cannot be moved under one of its descendants.
+- A stream cannot be moved under one of its sub-streams.
 - A stream cannot be moved under a closed parent.
 - Closed streams can be reparented under active parents or detached to top level.
-- Categories and tags do not need to match between parent and child.
+- Categories and tags do not need to match between parent stream and sub-stream.
 - Existing streams are treated as top-level streams after migration.
-- Streams cannot currently be deleted by design. If deletion is added later, a parent with children must not be deletable until children are moved, detached, or otherwise resolved.
+- Streams cannot currently be deleted by design. If deletion is added later, a parent stream with sub-streams must not be deletable until sub-streams are moved, detached, or otherwise resolved.
 
 ## Timestamp semantics
 
@@ -44,13 +44,13 @@ Expose distinct timestamps so UI does not blur different kinds of movement:
 
 - `lastDirectUpdateAt`: latest real status update on this stream itself.
 - `lastSubstreamActivityAt`: latest activity anywhere below this stream, up to depth 5.
-- `lastActivityAt`: newest of direct update and descendant activity.
+- `lastActivityAt`: newest of direct update and sub-stream activity.
 
-Only the stream that receives a status update stores the update. Ancestors receive activity propagation only through computed timestamps and source metadata.
+Only the stream that receives a status update stores the update. Parent streams receive activity propagation only through computed timestamps and source metadata.
 
 ## Audit events
 
-Hierarchy changes are structural audit events, not normal status updates.
+Parent stream changes are structural audit events, not normal status updates.
 
 V1 structural event types:
 
@@ -91,13 +91,13 @@ For closed streams, event order is chronological. If a stream was closed and lat
 
 ### Workstream responses
 
-List/detail responses should include hierarchy and activity metadata sufficient for UI rendering without N+1 requests:
+List/detail responses should include parent stream/sub-stream activity metadata sufficient for UI rendering without N+1 requests:
 
 - `parentId`
 - `parent` summary, nullable
-- `ancestors` breadcrumb chain, root to immediate parent
-- `children` direct child summaries on detail responses
-- direct/active/closed child counts
+- `parentStreams` breadcrumb chain, root to immediate parent stream
+- `substreams` direct sub-stream summaries on detail responses
+- direct/active/closed sub-stream counts
 - `depth`
 - `lastDirectUpdateAt`
 - `lastSubstreamActivityAt`
@@ -108,26 +108,26 @@ List/detail responses should include hierarchy and activity metadata sufficient 
 
 - `POST /api/workstreams` accepts optional `parentId`.
 - If `parentId` is provided, the parent must exist, belong to the same project, be active, and not make depth exceed 5.
-- Creating a child records `sub_stream_created`.
+- Creating a sub-stream records `sub_stream_created`.
 - The parent receives inherited activity propagation through computed activity fields.
 
 ### Change parent
 
 - `PUT /api/workstreams/:id` accepts `parentId`, including `null` to detach to top level.
-- Validation rejects self-parent, descendant parent, depth > 5, cross-project parent, and closed parent.
+- Validation rejects self-parent, sub-stream as parent stream, depth > 5, cross-project parent, and closed parent.
 - Closed streams may be moved under active parents or detached.
 - A confirmed change records `parent_changed`.
 
 ### Closing and reopening
 
-- Closing a stream is blocked while it has active descendants.
-- Closing a stream with only closed descendants is allowed.
-- Reopening a parent does not reopen children.
-- Reopening a child under a closed parent is blocked unless the parent is reopened first or the child is moved to an active parent/top level.
+- Closing a stream is blocked while it has active sub-streams.
+- Closing a stream with only closed sub-streams is allowed.
+- Reopening a parent stream does not reopen sub-streams.
+- Reopening a sub-stream under a closed parent stream is blocked unless the parent is reopened first or the sub-stream is moved to an active parent stream/top level.
 
 ### Timeline and export
 
-Timeline entries include breadcrumb context and structural events. Timeline export includes hierarchy columns:
+Timeline entries include breadcrumb context and structural events. Timeline export includes parent stream path columns:
 
 - `stream_id`
 - `stream_name`
@@ -144,10 +144,10 @@ Timeline entries include breadcrumb context and structural events. Timeline expo
 
 ### Breadcrumbs
 
-- Child detail pages show full breadcrumbs near the title/context area.
+- Sub-stream detail pages show full breadcrumbs near the title/context area.
 - Deep streams show a full chain, for example `Job search > JobScan > Dataset publishing > CSV cleanup`.
 - Top-level streams may show no breadcrumb or a subtle `Top-level` marker.
-- Breadcrumb links navigate to ancestors.
+- Breadcrumb links navigate to parent streams.
 - Breadcrumbs update after reparenting.
 - Timeline items include breadcrumb context.
 
@@ -164,7 +164,7 @@ Parent details show:
 
 - last direct update age
 - last sub-stream activity age
-- child counts split by active and closed
+- sub-stream counts split by active and closed
 - latest sub-stream activity source
 - a direct `Sub-streams` section near context/status history
 
@@ -176,7 +176,7 @@ Main view supports:
 - By category
 - By parent
 
-Hierarchy filters:
+Parent/sub-stream filters:
 
 - All streams
 - Top-level only
@@ -201,13 +201,13 @@ Timeline remains a date-based activity log. It gains:
 - activity filter for structural events
 - breadcrumb context on every item
 
-Timeline does not add hierarchy grouping in V1.
+Timeline does not add parent/sub-stream grouping in V1.
 
 ### Saved views
 
 Saved views can store:
 
-- hierarchy filter
+- parent/sub-stream filter
 - view mode/grouping
 - sort mode
 - selected parent scope if any
@@ -219,7 +219,7 @@ Saved views can store:
 Expected backend files:
 
 - `backend/prisma/schema.prisma`
-- `backend/prisma/migrations/*_add_workstream_hierarchy/migration.sql`
+- `backend/prisma/migrations/*_add_workstream_parent stream model/migration.sql`
 - `backend/src/services/workstreamService.ts`
 - `backend/src/services/timelineService.ts`
 - `backend/src/routes/workstreams.ts`
@@ -245,13 +245,13 @@ Expected frontend files:
 
 Backend tests should cover:
 
-- valid child creation
+- valid sub-stream creation
 - blocked create under closed parent
-- blocked self/cycle/descendant parent
+- blocked self/cycle/sub-stream as parent stream
 - blocked depth > 5
 - closed stream reparenting under active parent
-- parent close blocked with active descendants
-- child reopen blocked under closed parent
+- parent close blocked with active sub-streams
+- sub-stream reopen blocked under closed parent
 - structural audit events in timeline
 - breadcrumb/activity fields on list/detail/timeline
 - MCP parity for create/update/list/timeline
@@ -262,19 +262,19 @@ Frontend tests should cover:
 - create sub-stream parent preselection
 - parent change/detach confirmation
 - detail sub-stream section and status history toggle
-- main view hierarchy filters/grouping/sorting
-- timeline hierarchy filters and structural event display
-- saved views preserving hierarchy configuration
-- CSV export hierarchy columns
+- main view parent/sub-stream filters/grouping/sorting
+- timeline parent/sub-stream filters and structural event display
+- saved views preserving parent/sub-stream configuration
+- CSV export parent stream path columns
 
 ## Out of scope for V1
 
 - Multiple parents per stream
 - Automatic stale/health labels
 - User-configured cadence or expected update frequency
-- Cascading close of children
+- Cascading close of sub-streams
 - Deep recursive tree rendering in main view
 - Bulk reparenting unless implementation makes it cheap
 - Deleting streams
-- Advanced relationship types beyond parent/child
+- Advanced relationship types beyond parent stream/sub-stream
 - Automatic category/tag inheritance

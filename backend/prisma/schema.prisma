@@ -103,7 +103,7 @@ model Workstream {
   project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   parent        Workstream?    @relation("WorkstreamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children      Workstream[]   @relation("WorkstreamHierarchy")
+  substreams    Workstream[]   @relation("WorkstreamHierarchy")
   statusUpdates StatusUpdate[]
   events        WorkstreamEvent[]
 

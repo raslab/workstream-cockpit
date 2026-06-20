@@ -41,7 +41,7 @@ const renderWithQuery = (ui: React.ReactElement) => {
   return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
 };
 
-describe('frontend hierarchy review blockers', () => {
+describe('frontend parent stream review blockers', () => {
   beforeEach(() => {
     apiPost.mockReset();
     workstreamsMock.mockReset();
@@ -60,7 +60,7 @@ describe('frontend hierarchy review blockers', () => {
     expect(screen.getByText('Cannot create a sub-stream under a closed parent.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'Child stream' } });
+    fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'Sub-stream' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     expect(apiPost).not.toHaveBeenCalled();
@@ -71,13 +71,13 @@ describe('frontend hierarchy review blockers', () => {
       <MemoryRouter>
         <SubstreamsSection
           workstream={baseWorkstream({
-            children: [
+            substreams: [
               {
-                id: 'child-1',
-                name: 'Child',
+                id: 'substream-1',
+                name: 'Sub-stream',
                 state: 'active',
                 lastActivityAt: '2026-06-20T10:00:00Z',
-                latestSubstreamActivitySource: { id: 'source-row', workstreamId: 'source-1', workstreamName: 'Deep child' },
+                latestSubstreamActivitySource: { id: 'source-row', workstreamId: 'source-1', workstreamName: 'Nested sub-stream' },
               },
             ],
           })}
@@ -88,7 +88,7 @@ describe('frontend hierarchy review blockers', () => {
 
     expect(screen.getByText('Last activity')).toBeInTheDocument();
     expect(screen.getByText(/from/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Deep child' })).toHaveAttribute('href', '/workstreams/source-1');
+    expect(screen.getByRole('link', { name: 'Nested sub-stream' })).toHaveAttribute('href', '/workstreams/source-1');
   });
 
   it('uses a searchable fuzzy parent picker instead of a plain long dropdown', () => {
@@ -102,7 +102,7 @@ describe('frontend hierarchy review blockers', () => {
       <ParentSelectorDialog
         isOpen
         onClose={vi.fn()}
-        workstream={baseWorkstream({ id: 'child-1', name: 'Child stream', parentId: null })}
+        workstream={baseWorkstream({ id: 'substream-1', name: 'Sub-stream', parentId: null })}
       />
     );
 
@@ -116,15 +116,15 @@ describe('frontend hierarchy review blockers', () => {
   it('normalizes status history source and latest activity source ID backend shapes', () => {
     const flatSourceUpdate = {
       id: 'update-1',
-      workstreamId: 'child-1',
+      workstreamId: 'substream-1',
       status: 'Done',
       note: null,
       createdAt: '2026-06-20T10:00:00Z',
       updatedAt: '2026-06-20T10:00:00Z',
-      source: { id: 'legacy-source-id', workstreamId: 'child-1', workstreamName: 'Child stream' },
+      source: { id: 'legacy-source-id', workstreamId: 'substream-1', workstreamName: 'Sub-stream' },
     } as StatusUpdate;
 
-    expect(getStatusUpdateSource(flatSourceUpdate)?.workstreamName).toBe('Child stream');
-    expect(getLatestSubstreamActivitySourceId({ id: 'legacy-source-id', workstreamId: 'child-1' })).toBe('child-1');
+    expect(getStatusUpdateSource(flatSourceUpdate)?.workstreamName).toBe('Sub-stream');
+    expect(getLatestSubstreamActivitySourceId({ id: 'legacy-source-id', workstreamId: 'substream-1' })).toBe('substream-1');
   });
 });

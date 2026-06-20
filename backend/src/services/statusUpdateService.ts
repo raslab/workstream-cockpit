@@ -1,6 +1,6 @@
 import { PrismaClient, StatusUpdate } from '@prisma/client';
 import { logger } from '../utils/logger';
-import { getBreadcrumbForWorkstream, getDescendantWorkstreamIds } from './workstreamService';
+import { getBreadcrumbForWorkstream, getSubstreamWorkstreamIds } from './workstreamService';
 
 const prisma = new PrismaClient();
 
@@ -36,7 +36,7 @@ export async function createStatusUpdate(input: CreateStatusUpdateInput): Promis
 export async function getStatusUpdatesByWorkstream(workstreamId: string, options: StatusUpdateListOptions = {}): Promise<any[]> {
   try {
     const workstreamIds = options.includeSubstreams && options.projectId
-      ? [workstreamId, ...(await getDescendantWorkstreamIds(options.projectId, workstreamId))]
+      ? [workstreamId, ...(await getSubstreamWorkstreamIds(options.projectId, workstreamId))]
       : [workstreamId];
     const updates = await prisma.statusUpdate.findMany({
       where: { workstreamId: { in: workstreamIds } },

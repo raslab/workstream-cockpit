@@ -24,7 +24,7 @@ router.use(requireUserContext);
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
-    const { startDate, endDate, categoryIds, tags, eventTypes, hierarchyScope, parentId, includeSubstreams } = req.query;
+    const { startDate, endDate, categoryIds, tags, eventTypes, streamScope, parentId, includeSubstreams } = req.query;
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
@@ -77,12 +77,12 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       }
     }
 
-    if (hierarchyScope !== undefined) {
-      if (typeof hierarchyScope !== 'string' || !['all', 'top-level', 'sub-streams', 'under-parent'].includes(hierarchyScope)) {
-        res.status(400).json({ error: 'hierarchyScope must be all, top-level, sub-streams, or under-parent' });
+    if (streamScope !== undefined) {
+      if (typeof streamScope !== 'string' || !['all', 'top-level', 'sub-streams', 'under-parent'].includes(streamScope)) {
+        res.status(400).json({ error: 'streamScope must be all, top-level, sub-streams, or under-parent' });
         return;
       }
-      filters.hierarchyScope = hierarchyScope;
+      filters.streamScope = streamScope;
     }
 
     if (parentId !== undefined) {

@@ -14,7 +14,7 @@ export default function Timeline() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>();
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>();
-  const [hierarchyScope, setHierarchyScope] = useState<'all' | 'top-level' | 'sub-streams' | 'under-parent'>('all');
+  const [streamScope, setStreamScope] = useState<'all' | 'top-level' | 'sub-streams' | 'under-parent'>('all');
   const [parentId, setParentId] = useState<string>('');
   const [includeSubstreams, setIncludeSubstreams] = useState(false);
   const [activityFilter, setActivityFilter] = useState<'all' | TimelineEventType>('all');
@@ -26,8 +26,8 @@ export default function Timeline() {
     endDate: customEndDate,
     categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
     tags: selectedTags.length > 0 ? selectedTags : undefined,
-    hierarchyScope,
-    parentId: hierarchyScope === 'under-parent' && parentId ? parentId : undefined,
+    streamScope,
+    parentId: streamScope === 'under-parent' && parentId ? parentId : undefined,
     includeSubstreams,
     eventTypes: activityFilter === 'all' ? undefined : [activityFilter],
     includeStructuralEvents: true,
@@ -133,9 +133,9 @@ export default function Timeline() {
           />
           <div>
             <SelectMenu
-              label="Hierarchy scope"
-              value={hierarchyScope}
-              onChange={(nextScope) => setHierarchyScope(nextScope)}
+              label="Stream scope"
+              value={streamScope}
+              onChange={(nextScope) => setStreamScope(nextScope)}
               options={[
                 { value: 'all', label: 'All streams' },
                 { value: 'top-level', label: 'Top-level only' },
@@ -144,7 +144,7 @@ export default function Timeline() {
               ]}
             />
           </div>
-          {hierarchyScope === 'under-parent' && (
+          {streamScope === 'under-parent' && (
             <div>
               <SelectMenu
                 label="Parent stream"
@@ -250,20 +250,20 @@ export default function Timeline() {
                             {format(parseISO(entry.createdAt), 'h:mm a')}
                           </time>
                         </div>
-                        {(entry.ancestors?.length || entry.parent || entry.parentName || entry.hierarchyPath || entry.breadcrumb) && (
+                        {((entry.parentStreams)?.length || entry.parent || entry.parentName || entry.parentStreamPath || entry.breadcrumb) && (
                           <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                            {entry.hierarchyPath || entry.breadcrumb ? (
-                              <span>{entry.hierarchyPath || entry.breadcrumb}</span>
+                            {entry.parentStreamPath || entry.breadcrumb ? (
+                              <span>{entry.parentStreamPath || entry.breadcrumb}</span>
                             ) : (
                               <>
-                                {(entry.ancestors || []).map((ancestor) => (
-                                  <span key={ancestor.id} className="inline-flex items-center gap-1">
-                                    <Link to={`/workstreams/${ancestor.id}`} className="hover:text-primary-600 dark:hover:text-primary-400">{getWorkstreamName(ancestor)}</Link>
+                                {(entry.parentStreams || []).map((parentStream) => (
+                                  <span key={parentStream.id} className="inline-flex items-center gap-1">
+                                    <Link to={`/workstreams/${parentStream.id}`} className="hover:text-primary-600 dark:hover:text-primary-400">{getWorkstreamName(parentStream)}</Link>
                                     <span aria-hidden="true">›</span>
                                   </span>
                                 ))}
                                 {entry.parent ? (
-                                  !entry.ancestors?.some((ancestor) => ancestor.id === entry.parent?.id) && (
+                                  !(entry.parentStreams)?.some((parentStream) => parentStream.id === entry.parent?.id) && (
                                     <span className="inline-flex items-center gap-1">
                                       <Link to={`/workstreams/${entry.parent.id}`} className="hover:text-primary-600 dark:hover:text-primary-400">{getWorkstreamName(entry.parent)}</Link>
                                       <span aria-hidden="true">›</span>

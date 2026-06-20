@@ -47,14 +47,14 @@ describe('Timeline filters layout', () => {
     });
   });
 
-  it('places legacy filters, hierarchy filters, and export action in one shared panel', () => {
+  it('places legacy filters, parent/sub-stream filters, and export action in one shared panel', () => {
     render(<MemoryRouter><Timeline /></MemoryRouter>);
 
     const panel = screen.getByTestId('timeline-filters-panel');
     const dateFilter = screen.getByRole('button', { name: /Date Range/ });
     const categoriesFilter = screen.getByRole('button', { name: /Categories/ });
     const tagsFilter = screen.getByRole('button', { name: /Tags/ });
-    const hierarchyFilter = screen.getByRole('button', { name: /Hierarchy scope.*All streams/ });
+    const hierarchyFilter = screen.getByRole('button', { name: /Stream scope.*All streams/ });
     const activityFilter = screen.getByRole('button', { name: /Activity type.*All activity/ });
     const includeSubstreams = screen.getByRole('checkbox', { name: /Include sub-stream activity/ });
     const exportButton = screen.getByRole('button', { name: /Export 1 timeline entries to CSV/ });
@@ -72,6 +72,6 @@ describe('Timeline filters layout', () => {
       expect(control.closest('[data-testid="timeline-filters-panel"]')).toBe(panel);
     }
 
-    expect(screen.queryByTestId('timeline-hierarchy-filters-panel')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('timeline-parent-stream-filters-panel')).not.toBeInTheDocument();
   });
 });

@@ -9,7 +9,7 @@ export interface ParentGroup {
 }
 
 export function getBreadcrumbItems(workstream: Workstream): WorkstreamSummary[] {
-  return [...(workstream.ancestors || []), { id: workstream.id, name: workstream.name, state: workstream.state, parentId: workstream.parentId, depth: workstream.depth }];
+  return [...(workstream.parentStreams || []), { id: workstream.id, name: workstream.name, state: workstream.state, parentId: workstream.parentId, depth: workstream.depth }];
 }
 
 export function getWorkstreamName(workstream: WorkstreamSummary | Workstream | null | undefined): string {
@@ -32,14 +32,14 @@ export function getBreadcrumbLabel(workstream: Workstream): string {
   return getBreadcrumbItems(workstream).map((item) => getWorkstreamName(item)).join(' > ');
 }
 
-export function getDirectChildCount(workstream: Workstream): number {
-  return workstream.directChildCount ?? workstream.childCount ?? workstream.children?.length ?? 0;
+export function getDirectSubstreamCount(workstream: Workstream): number {
+  return workstream.directSubstreamCount ?? workstream.substreamCount ?? workstream.substreams?.length ?? 0;
 }
 
-export function isObviousDescendant(candidate: Workstream, workstream: Workstream): boolean {
+export function isObviousSubstream(candidate: Workstream, workstream: Workstream): boolean {
   if (candidate.id === workstream.id) return true;
-  if ((candidate.ancestors || []).some((ancestor) => ancestor.id === workstream.id)) return true;
-  if ((workstream.children || []).some((child) => child.id === candidate.id)) return true;
+  if ((candidate.parentStreams || []).some((parentStream) => parentStream.id === workstream.id)) return true;
+  if ((workstream.substreams || []).some((substream) => substream.id === candidate.id)) return true;
   return false;
 }
 
@@ -51,7 +51,7 @@ export function applyHierarchyFilter(workstreams: Workstream[], filter: Hierarch
     case 'sub-streams':
       return workstreams.filter((ws) => Boolean(ws.parentId));
     case 'has-substreams':
-      return workstreams.filter((ws) => getDirectChildCount(ws) > 0);
+      return workstreams.filter((ws) => getDirectSubstreamCount(ws) > 0);
     case 'all':
     default:
       return workstreams;
@@ -120,7 +120,7 @@ export function hierarchyErrorMessage(error: unknown): string {
   const maybe = error as { response?: { data?: { error?: string; message?: string } }; message?: string };
   const message = maybe.response?.data?.error || maybe.response?.data?.message || maybe.message || '';
   if (/closed parent/i.test(message)) return 'Cannot create or move a stream under a closed parent.';
-  if (/depth/i.test(message)) return 'That parent would exceed the maximum hierarchy depth of 5.';
-  if (/cycle|descendant|self/i.test(message)) return 'That parent relationship would create an invalid hierarchy.';
-  return message || 'Hierarchy change failed. Please try again.';
+  if (/depth/i.test(message)) return 'That parent stream would exceed the maximum depth of 5.';
+  if (/cycle|sub-stream|self/i.test(message)) return 'That parent stream relationship would create an invalid cycle.';
+  return message || 'Parent stream change failed. Please try again.';
 }

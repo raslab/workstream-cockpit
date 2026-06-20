@@ -238,38 +238,38 @@ describe('WorkstreamService', () => {
       expect(found?.latestStatus?.status).toBe('Current status');
     });
 
-    it('should include latest activity metadata on direct children in detail response', async () => {
+    it('should include latest activity metadata on direct substreams in detail response', async () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
       const parent = await createTestWorkstream(project.id, { name: 'Parent' });
-      const child = await createTestWorkstream(project.id, { name: 'Child with activity', parentId: parent.id });
-      const quietChild = await createTestWorkstream(project.id, { name: 'Child without activity', parentId: parent.id });
-      const grandchild = await createTestWorkstream(project.id, { name: 'Grandchild with latest activity', parentId: child.id });
+      const substream = await createTestWorkstream(project.id, { name: 'Sub-stream with activity', parentId: parent.id });
+      const quietSubstream = await createTestWorkstream(project.id, { name: 'Sub-stream without activity', parentId: parent.id });
+      const nestedSubstream = await createTestWorkstream(project.id, { name: 'Nested sub-stream with latest activity', parentId: substream.id });
 
-      const childUpdate = await createTestStatusUpdate(child.id, { status: 'Child direct update' });
+      const substreamUpdate = await createTestStatusUpdate(substream.id, { status: 'Sub-stream direct update' });
       await new Promise(resolve => setTimeout(resolve, 10));
-      const grandchildUpdate = await createTestStatusUpdate(grandchild.id, { status: 'Grandchild latest update' });
+      const nestedSubstreamUpdate = await createTestStatusUpdate(nestedSubstream.id, { status: 'Nested sub-stream latest update' });
 
       const found = await getWorkstreamById(parent.id, project.id);
-      const children = found?.children ?? [];
-      const childSummary = children.find(summary => summary.id === child.id) as any;
-      const quietChildSummary = children.find(summary => summary.id === quietChild.id) as any;
+      const substreams = found?.substreams ?? [];
+      const substreamSummary = substreams.find(summary => summary.id === substream.id) as any;
+      const quietSubstreamSummary = substreams.find(summary => summary.id === quietSubstream.id) as any;
 
-      expect(childSummary).toBeDefined();
-      expect(childSummary.lastDirectUpdateAt?.toISOString()).toBe(childUpdate.createdAt.toISOString());
-      expect(childSummary.lastSubstreamActivityAt?.toISOString()).toBe(grandchildUpdate.createdAt.toISOString());
-      expect(childSummary.lastActivityAt?.toISOString()).toBe(grandchildUpdate.createdAt.toISOString());
-      expect(childSummary.latestSubstreamActivitySource).toMatchObject({
-        workstreamId: grandchild.id,
-        workstreamName: 'Grandchild with latest activity',
-        updateId: grandchildUpdate.id,
+      expect(substreamSummary).toBeDefined();
+      expect(substreamSummary.lastDirectUpdateAt?.toISOString()).toBe(substreamUpdate.createdAt.toISOString());
+      expect(substreamSummary.lastSubstreamActivityAt?.toISOString()).toBe(nestedSubstreamUpdate.createdAt.toISOString());
+      expect(substreamSummary.lastActivityAt?.toISOString()).toBe(nestedSubstreamUpdate.createdAt.toISOString());
+      expect(substreamSummary.latestSubstreamActivitySource).toMatchObject({
+        workstreamId: nestedSubstream.id,
+        workstreamName: 'Nested sub-stream with latest activity',
+        updateId: nestedSubstreamUpdate.id,
       });
 
-      expect(quietChildSummary).toBeDefined();
-      expect(quietChildSummary.lastDirectUpdateAt).toBeNull();
-      expect(quietChildSummary.lastSubstreamActivityAt).toBeNull();
-      expect(quietChildSummary.lastActivityAt).toBeNull();
-      expect(quietChildSummary.latestSubstreamActivitySource).toBeNull();
+      expect(quietSubstreamSummary).toBeDefined();
+      expect(quietSubstreamSummary.lastDirectUpdateAt).toBeNull();
+      expect(quietSubstreamSummary.lastSubstreamActivityAt).toBeNull();
+      expect(quietSubstreamSummary.lastActivityAt).toBeNull();
+      expect(quietSubstreamSummary.latestSubstreamActivitySource).toBeNull();
     });
   });
 

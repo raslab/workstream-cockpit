@@ -42,12 +42,12 @@ export interface WorkstreamWithLatestStatus extends Workstream {
     emoji?: string | null;
   } | null;
   parent?: WorkstreamSummary | null;
-  ancestors?: WorkstreamSummary[];
-  children?: WorkstreamSummary[];
-  childCount?: number;
-  directChildCount?: number;
-  activeChildCount?: number;
-  closedChildCount?: number;
+  parentStreams?: WorkstreamSummary[];
+  substreams?: WorkstreamSummary[];
+  substreamCount?: number;
+  directSubstreamCount?: number;
+  activeSubstreamCount?: number;
+  closedSubstreamCount?: number;
   depth?: number;
   lastDirectUpdateAt?: Date | null;
   lastSubstreamActivityAt?: Date | null;
@@ -60,7 +60,7 @@ function publicParent(parent: Workstream | null | undefined, depth?: number, act
   return { id: parent.id, name: parent.name, state: parent.state, parentId: parent.parentId, createdAt: parent.createdAt, closedAt: parent.closedAt, depth, ...activity };
 }
 
-function buildChildrenMap(workstreams: Workstream[]): Map<string | null, Workstream[]> {
+function buildSubstreamsByParent(workstreams: Workstream[]): Map<string | null, Workstream[]> {
   const map = new Map<string | null, Workstream[]>();
   for (const ws of workstreams) {
     const key = ws.parentId ?? null;
@@ -86,54 +86,55 @@ function computeDepth(workstream: Workstream, byId: Map<string, Workstream>): nu
   return depth;
 }
 
-function computeAncestors(workstream: Workstream, byId: Map<string, Workstream>): Workstream[] {
-  const ancestors: Workstream[] = [];
+function computeParentStreams(workstream: Workstream, byId: Map<string, Workstream>): Workstream[] {
+  const parentStreams: Workstream[] = [];
   let parentId = workstream.parentId;
   const seen = new Set<string>([workstream.id]);
   while (parentId) {
     const parent = byId.get(parentId);
     if (!parent || seen.has(parent.id)) break;
-    ancestors.unshift(parent);
+    parentStreams.unshift(parent);
     seen.add(parent.id);
     parentId = parent.parentId;
   }
-  return ancestors;
+  return parentStreams;
 }
 
-function descendantIds(workstreamId: string, childrenMap: Map<string | null, Workstream[]>): string[] {
+
+function substreamIds(workstreamId: string, substreamsByParent: Map<string | null, Workstream[]>): string[] {
   const ids: string[] = [];
   const visited = new Set<string>([workstreamId]);
-  const stack = [...(childrenMap.get(workstreamId) ?? [])];
+  const stack = [...(substreamsByParent.get(workstreamId) ?? [])];
   while (stack.length) {
-    const child = stack.pop()!;
-    if (visited.has(child.id)) continue;
-    visited.add(child.id);
-    ids.push(child.id);
-    stack.push(...(childrenMap.get(child.id) ?? []));
+    const substream = stack.pop()!;
+    if (visited.has(substream.id)) continue;
+    visited.add(substream.id);
+    ids.push(substream.id);
+    stack.push(...(substreamsByParent.get(substream.id) ?? []));
   }
   return ids;
 }
 
-function subtreeMaxRelativeDepth(workstreamId: string, childrenMap: Map<string | null, Workstream[]>): number {
+function substreamTreeMaxRelativeDepth(workstreamId: string, substreamsByParent: Map<string | null, Workstream[]>): number {
   let maxDepth = 1;
   const visited = new Set<string>([workstreamId]);
-  const stack = (childrenMap.get(workstreamId) ?? []).map(child => ({ id: child.id, depth: 2 }));
+  const stack = (substreamsByParent.get(workstreamId) ?? []).map(substream => ({ id: substream.id, depth: 2 }));
   while (stack.length) {
     const item = stack.pop()!;
     if (visited.has(item.id)) continue;
     visited.add(item.id);
     maxDepth = Math.max(maxDepth, item.depth);
-    stack.push(...(childrenMap.get(item.id) ?? []).map(child => ({ id: child.id, depth: item.depth + 1 })));
+    stack.push(...(substreamsByParent.get(item.id) ?? []).map(substream => ({ id: substream.id, depth: item.depth + 1 })));
   }
   return maxDepth;
 }
 
-async function enrichWorkstreams<T extends Workstream & { statusUpdates?: StatusUpdate[]; category?: any }>(rows: T[], includeChildren = false): Promise<WorkstreamWithLatestStatus[]> {
+async function enrichWorkstreams<T extends Workstream & { statusUpdates?: StatusUpdate[]; category?: any }>(rows: T[], includeSubstreams = false): Promise<WorkstreamWithLatestStatus[]> {
   if (rows.length === 0) return [];
   const projectId = rows[0].projectId;
   const allWorkstreams = await prisma.workstream.findMany({ where: { projectId } });
   const byId = new Map(allWorkstreams.map(ws => [ws.id, ws]));
-  const childrenMap = buildChildrenMap(allWorkstreams);
+  const substreamsByParent = buildSubstreamsByParent(allWorkstreams);
   const allIds = allWorkstreams.map(ws => ws.id);
   const latestUpdates = await prisma.statusUpdate.findMany({ where: { workstreamId: { in: allIds } }, orderBy: { createdAt: 'desc' } });
   const latestByWorkstream = new Map<string, StatusUpdate>();
@@ -144,16 +145,16 @@ async function enrichWorkstreams<T extends Workstream & { statusUpdates?: Status
 
   const computeActivityMetadata = (workstreamId: string, directLatestOverride?: StatusUpdate): ActivityMetadata => {
     const directLatest = directLatestOverride ?? latestByWorkstream.get(workstreamId);
-    const descendants = descendantIds(workstreamId, childrenMap);
+    const substreamWorkstreamIds = substreamIds(workstreamId, substreamsByParent);
     let latestSubstreamActivityAt: Date | null = null;
     let latestSubstreamActivitySource: LatestSubstreamActivitySource | null = null;
-    for (const descendantId of descendants) {
-      const update = latestByWorkstream.get(descendantId);
-      const event = latestEventByWorkstream.get(descendantId);
+    for (const substreamId of substreamWorkstreamIds) {
+      const update = latestByWorkstream.get(substreamId);
+      const event = latestEventByWorkstream.get(substreamId);
       const candidate = update && (!event || update.createdAt >= event.createdAt)
-        ? { at: update.createdAt, source: { workstreamId: descendantId, workstreamName: byId.get(descendantId)?.name ?? '', name: byId.get(descendantId)?.name ?? '', updateId: update.id, createdAt: update.createdAt } }
+        ? { at: update.createdAt, source: { workstreamId: substreamId, workstreamName: byId.get(substreamId)?.name ?? '', name: byId.get(substreamId)?.name ?? '', updateId: update.id, createdAt: update.createdAt } }
         : event
-          ? { at: event.createdAt, source: { workstreamId: descendantId, workstreamName: byId.get(descendantId)?.name ?? '', name: byId.get(descendantId)?.name ?? '', eventId: event.id, eventType: event.eventType, createdAt: event.createdAt } }
+          ? { at: event.createdAt, source: { workstreamId: substreamId, workstreamName: byId.get(substreamId)?.name ?? '', name: byId.get(substreamId)?.name ?? '', eventId: event.id, eventType: event.eventType, createdAt: event.createdAt } }
           : null;
       if (candidate && (!latestSubstreamActivityAt || candidate.at > latestSubstreamActivityAt)) {
         latestSubstreamActivityAt = candidate.at;
@@ -175,9 +176,9 @@ async function enrichWorkstreams<T extends Workstream & { statusUpdates?: Status
     const statusUpdates: StatusUpdate[] = row.statusUpdates ?? [];
     const directLatest = statusUpdates[0] ?? latestByWorkstream.get(row.id);
     const activity = computeActivityMetadata(row.id, directLatest);
-    const directChildren = childrenMap.get(row.id) ?? [];
+    const directSubstreams = substreamsByParent.get(row.id) ?? [];
     const depth = computeDepth(row, byId);
-    const ancestors = computeAncestors(row, byId).map(a => publicParent(a, computeDepth(a, byId))!);
+    const parentStreams = computeParentStreams(row, byId).map(parentStream => publicParent(parentStream, computeDepth(parentStream, byId))!);
     const parent = publicParent(row.parentId ? byId.get(row.parentId) : null, row.parentId ? depth - 1 : undefined);
     const workstreamData = { ...row } as any;
     delete workstreamData.statusUpdates;
@@ -188,12 +189,12 @@ async function enrichWorkstreams<T extends Workstream & { statusUpdates?: Status
       latestStatus,
       allTags: extractTagsFromFields(...texts),
       parent,
-      ancestors,
-      ...(includeChildren ? { children: directChildren.map(child => publicParent(child, depth + 1, computeActivityMetadata(child.id))) } : {}),
-      childCount: directChildren.length,
-      directChildCount: directChildren.length,
-      activeChildCount: directChildren.filter(child => child.state === 'active').length,
-      closedChildCount: directChildren.filter(child => child.state === 'closed').length,
+      parentStreams,
+      ...(includeSubstreams ? { substreams: directSubstreams.map(substream => publicParent(substream, depth + 1, computeActivityMetadata(substream.id))) } : {}),
+      substreamCount: directSubstreams.length,
+      directSubstreamCount: directSubstreams.length,
+      activeSubstreamCount: directSubstreams.filter(substream => substream.state === 'active').length,
+      closedSubstreamCount: directSubstreams.filter(substream => substream.state === 'closed').length,
       depth,
       ...activity,
     };
@@ -215,11 +216,11 @@ async function assertValidParent(client: PrismaExecutor, projectId: string, work
 
   const allWorkstreams = await client.workstream.findMany({ where: { projectId } });
   const byId = new Map(allWorkstreams.map(ws => [ws.id, ws]));
-  const childrenMap = buildChildrenMap(allWorkstreams);
-  if (workstreamId && descendantIds(workstreamId, childrenMap).includes(parentId)) throw new Error('Cannot move a workstream under its descendant because that would create a cycle');
+  const substreamsByParent = buildSubstreamsByParent(allWorkstreams);
+  if (workstreamId && substreamIds(workstreamId, substreamsByParent).includes(parentId)) throw new Error('Cannot move a workstream under its sub-stream because that would create a cycle');
   const parentDepth = computeDepth(parent, byId);
-  const relativeDepth = workstreamId ? subtreeMaxRelativeDepth(workstreamId, childrenMap) : 1;
-  if (parentDepth + relativeDepth > MAX_HIERARCHY_DEPTH) throw new Error(`Hierarchy depth cannot exceed ${MAX_HIERARCHY_DEPTH} levels`);
+  const relativeDepth = workstreamId ? substreamTreeMaxRelativeDepth(workstreamId, substreamsByParent) : 1;
+  if (parentDepth + relativeDepth > MAX_HIERARCHY_DEPTH) throw new Error(`Parent stream depth cannot exceed ${MAX_HIERARCHY_DEPTH} levels`);
 }
 
 async function hierarchyTransaction<T>(fn: (tx: PrismaTx) => Promise<T>): Promise<T> {
@@ -290,7 +291,7 @@ export async function createWorkstream(input: CreateWorkstreamInput): Promise<Wo
       if (input.parentId) {
         const allWorkstreams = await tx.workstream.findMany({ where: { projectId: input.projectId } });
         const byId = new Map(allWorkstreams.map(ws => [ws.id, ws]));
-        const parentBreadcrumb = parent ? [...computeAncestors(parent, byId), parent].map(ws => ws.name).join(' > ') : null;
+        const parentBreadcrumb = parent ? [...computeParentStreams(parent, byId), parent].map(ws => ws.name).join(' > ') : null;
         await tx.workstreamEvent.create({
           data: {
             workstreamId: workstream.id,
@@ -322,8 +323,8 @@ export async function updateWorkstream(workstreamId: string, projectId: string, 
       const newParent = updates.parentId ? await tx.workstream.findUnique({ where: { id: updates.parentId } }) : null;
       const allWorkstreams = parentChanged ? await tx.workstream.findMany({ where: { projectId } }) : [];
       const byId = new Map(allWorkstreams.map(ws => [ws.id, ws]));
-      const oldParentBreadcrumb = oldParent ? [...computeAncestors(oldParent, byId), oldParent].map(ws => ws.name).join(' > ') : null;
-      const newParentBreadcrumb = newParent ? [...computeAncestors(newParent, byId), newParent].map(ws => ws.name).join(' > ') : null;
+      const oldParentBreadcrumb = oldParent ? [...computeParentStreams(oldParent, byId), oldParent].map(ws => ws.name).join(' > ') : null;
+      const newParentBreadcrumb = newParent ? [...computeParentStreams(newParent, byId), newParent].map(ws => ws.name).join(' > ') : null;
       const updated = await tx.workstream.update({ where: { id: workstreamId }, data });
       if (parentChanged) {
         await tx.workstreamEvent.create({
@@ -350,8 +351,8 @@ export async function closeWorkstream(workstreamId: string, projectId: string): 
       if (!workstream) throw new Error('Workstream not found or access denied');
       const allWorkstreams = await tx.workstream.findMany({ where: { projectId } });
       const byId = new Map(allWorkstreams.map(ws => [ws.id, ws]));
-      const activeDescendants = descendantIds(workstreamId, buildChildrenMap(allWorkstreams)).filter(id => byId.get(id)?.state === 'active');
-      if (activeDescendants.length) throw new Error('Cannot close a workstream with active descendants');
+      const activeSubstreams = substreamIds(workstreamId, buildSubstreamsByParent(allWorkstreams)).filter(id => byId.get(id)?.state === 'active');
+      if (activeSubstreams.length) throw new Error('Cannot close a workstream with active sub-streams');
       return tx.workstream.update({ where: { id: workstreamId }, data: { state: 'closed', closedAt: new Date() } });
     });
     return (await getWorkstreamById(updated.id, projectId))!;
@@ -384,8 +385,8 @@ export async function deleteWorkstream(workstreamId: string, projectId: string):
     const workstream = await getWorkstreamById(workstreamId, projectId);
     if (!workstream) throw new Error('Workstream not found or access denied');
     const allWorkstreams = await prisma.workstream.findMany({ where: { projectId } });
-    const descendants = descendantIds(workstreamId, buildChildrenMap(allWorkstreams));
-    if (descendants.length) throw new Error('Cannot delete a workstream with descendants');
+    const relatedSubstreamIds = substreamIds(workstreamId, buildSubstreamsByParent(allWorkstreams));
+    if (relatedSubstreamIds.length) throw new Error('Cannot delete a workstream with sub-streams');
     await prisma.workstream.delete({ where: { id: workstreamId } });
     logger.info(`Workstream deleted successfully: ${workstreamId}`);
   } catch (error) {
@@ -394,9 +395,9 @@ export async function deleteWorkstream(workstreamId: string, projectId: string):
   }
 }
 
-export async function getDescendantWorkstreamIds(projectId: string, workstreamId: string): Promise<string[]> {
+export async function getSubstreamWorkstreamIds(projectId: string, workstreamId: string): Promise<string[]> {
   const workstreams = await prisma.workstream.findMany({ where: { projectId } });
-  return descendantIds(workstreamId, buildChildrenMap(workstreams));
+  return substreamIds(workstreamId, buildSubstreamsByParent(workstreams));
 }
 
 export async function getBreadcrumbForWorkstream(projectId: string, workstreamId: string): Promise<WorkstreamSummary[]> {
@@ -404,5 +405,5 @@ export async function getBreadcrumbForWorkstream(projectId: string, workstreamId
   const byId = new Map(workstreams.map(ws => [ws.id, ws]));
   const ws = byId.get(workstreamId);
   if (!ws) return [];
-  return [...computeAncestors(ws, byId), ws].map(item => publicParent(item, computeDepth(item, byId))!);
+  return [...computeParentStreams(ws, byId), ws].map(item => publicParent(item, computeDepth(item, byId))!);
 }

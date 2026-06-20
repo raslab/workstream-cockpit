@@ -8,8 +8,8 @@ interface WorkstreamBreadcrumbsProps {
 }
 
 export function WorkstreamBreadcrumbs({ workstream, subtleTopLevel = true }: WorkstreamBreadcrumbsProps) {
-  const ancestors = workstream.ancestors || [];
-  const items: WorkstreamSummary[] = [...ancestors, { id: workstream.id, name: workstream.name }];
+  const parentStreams = workstream.parentStreams || [];
+  const items: WorkstreamSummary[] = [...parentStreams, { id: workstream.id, name: workstream.name }];
 
   if (items.length <= 1 && subtleTopLevel) {
     return <div className="text-xs text-gray-500 dark:text-gray-400">Top-level</div>;

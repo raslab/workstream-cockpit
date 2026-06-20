@@ -236,7 +236,7 @@ function sanitizeToolError(err: any): string {
   if (err instanceof ToolError) return err.message;
   const message = typeof err?.message === 'string' ? err.message : '';
   if (/not found|access denied/i.test(message)) return 'Not found';
-  if (/descendant|cycle|own parent|closed parent|hierarchy depth/i.test(message)) return message;
+  if (/sub-stream|cycle|own parent|closed parent|parent stream depth/i.test(message)) return message;
   return 'Tool failed';
 }
 
@@ -372,13 +372,13 @@ const tools: ToolDef[] = [
   { name: 'settings_view_update', description: 'Update view', scope: 'mcp:write', inputSchema: schema({ id: uuidProp(), name: stringProp(1,100), isDefault: { type: 'boolean' }, config: { type: 'object' } }, ['id']), handler: async (args, ctx) => { const data: any = {}; if (args.name !== undefined) data.name = requireString(args, 'name', 100); if (args.isDefault !== undefined) data.isDefault = Boolean(args.isDefault); if (args.config !== undefined) data.config = args.config; return ok({ view: await viewService.updateView(requireString(args, 'id'), ctx.projectId, data) }); }},
   { name: 'settings_view_delete', description: 'Delete view', scope: 'mcp:write', inputSchema: schema({ id: uuidProp(), confirm: { type: 'boolean' } }, ['id','confirm']), annotations: { destructiveHint: true }, handler: async (args, ctx) => { requireConfirm(args); const id = requireString(args, 'id'); await viewService.deleteView(id, ctx.projectId); return ok({ deletedId: id }); }},
 
-  { name: 'timeline_query', description: 'Query timeline', scope: 'mcp:read', inputSchema: schema({ startDate: dateProp(), endDate: dateProp(), relativeDays: { type: 'integer', minimum: 1, maximum: 366, default: 7 }, tagNames: arrayProp(stringProp(1,100)), categoryIds: arrayProp(uuidProp()), eventTypes: arrayProp({ enum: ['status_update','workstream_created','workstream_closed','parent_changed','sub_stream_created'] }, 5), hierarchyScope: { enum: ['all','top-level','sub-streams','under-parent'] }, parentId: uuidProp(), includeSubstreams: { type: 'boolean', default: false }, limit: limitProp(), cursor: stringProp(1, 2048) }), handler: async (args, ctx) => {
+  { name: 'timeline_query', description: 'Query timeline', scope: 'mcp:read', inputSchema: schema({ startDate: dateProp(), endDate: dateProp(), relativeDays: { type: 'integer', minimum: 1, maximum: 366, default: 7 }, tagNames: arrayProp(stringProp(1,100)), categoryIds: arrayProp(uuidProp()), eventTypes: arrayProp({ enum: ['status_update','workstream_created','workstream_closed','parent_changed','sub_stream_created'] }, 5), streamScope: { enum: ['all','top-level','sub-streams','under-parent'] }, parentId: uuidProp(), includeSubstreams: { type: 'boolean', default: false }, limit: limitProp(), cursor: stringProp(1, 2048) }), handler: async (args, ctx) => {
     let startDate = dateArg(args.startDate, 'startDate'); let endDate = dateArg(args.endDate, 'endDate');
     if (!startDate && !endDate && args.relativeDays !== undefined) { const days = integerArg(args, 'relativeDays', 1, 366); endDate = new Date(); startDate = new Date(endDate.getTime() - days * 86400000); }
     validateDateRange(startDate, endDate);
     const pageLimit = limit(args);
     const cursor = decodeCursor(args.cursor, 'timeline_query');
-    let events = await getTimeline({ projectId: ctx.projectId, startDate, endDate, tags: args.tagNames, categoryIds: args.categoryIds, eventTypes: args.eventTypes, hierarchyScope: args.hierarchyScope, parentId: args.parentId, includeSubstreams: args.includeSubstreams });
+    let events = await getTimeline({ projectId: ctx.projectId, startDate, endDate, tags: args.tagNames, categoryIds: args.categoryIds, eventTypes: args.eventTypes, streamScope: args.streamScope, parentId: args.parentId, includeSubstreams: args.includeSubstreams });
     if (Array.isArray(args.eventTypes) && args.eventTypes.length) events = events.filter(e => args.eventTypes.includes(e.eventType as TimelineEventType));
     const sorted = afterCursor(events.sort(compareDesc), cursor);
     const { page, nextCursor } = paginate(sorted, pageLimit, 'timeline_query');

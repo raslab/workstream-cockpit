@@ -23,7 +23,7 @@ vi.mock('../../components/Markdown/MarkdownRenderer', () => ({
 
 import Timeline from '../../pages/Timeline';
 
-describe('Timeline hierarchy rendering', () => {
+describe('Timeline parent stream path rendering', () => {
   beforeEach(() => {
     useTimelineMock.mockReset();
     useTimelineMock.mockReturnValue({
@@ -33,19 +33,19 @@ describe('Timeline hierarchy rendering', () => {
         {
           id: 'move-1',
           eventType: 'parent_changed',
-          workstreamId: 'child-1',
-          workstreamName: 'Child stream',
+          workstreamId: 'substream-1',
+          workstreamName: 'Sub-stream',
           createdAt: '2026-06-20T10:00:00Z',
           oldParentName: 'Old parent',
           newParentName: 'New parent',
-          breadcrumb: 'Root > New parent > Child stream',
+          breadcrumb: 'Root > New parent > Sub-stream',
           category: null,
         },
         {
           id: 'created-1',
           eventType: 'sub_stream_created',
-          workstreamId: 'child-2',
-          workstreamName: 'Created child',
+          workstreamId: 'substream-2',
+          workstreamName: 'Created sub-stream',
           createdAt: '2026-06-20T09:00:00Z',
           parentName: 'Flat parent',
           category: null,
@@ -54,25 +54,25 @@ describe('Timeline hierarchy rendering', () => {
     });
   });
 
-  it('renders backend flat hierarchy fields without metadata or hierarchyPath', () => {
+  it('renders backend flat parent stream fields without metadata or parentStreamPath', () => {
     render(<MemoryRouter><Timeline /></MemoryRouter>);
 
     expect(screen.getByText('Moved from Old parent to New parent')).toBeInTheDocument();
-    expect(screen.getByText('Root > New parent > Child stream')).toBeInTheDocument();
+    expect(screen.getByText('Root > New parent > Sub-stream')).toBeInTheDocument();
     expect(screen.getByText('Created under Flat parent')).toBeInTheDocument();
   });
 
-  it('uses custom listbox controls for hierarchy and activity filters', () => {
+  it('uses custom listbox controls for parent stream and activity filters', () => {
     render(<MemoryRouter><Timeline /></MemoryRouter>);
 
-    const hierarchyControl = screen.getByRole('button', { name: /Hierarchy scope.*All streams/ });
+    const hierarchyControl = screen.getByRole('button', { name: /Stream scope.*All streams/ });
     const activityControl = screen.getByRole('button', { name: /Activity type.*All activity/ });
 
     expect(hierarchyControl.tagName).toBe('BUTTON');
     expect(activityControl.tagName).toBe('BUTTON');
     expect(hierarchyControl).toHaveAttribute('aria-haspopup', 'listbox');
     expect(activityControl).toHaveAttribute('aria-haspopup', 'listbox');
-    expect(document.querySelector('#hierarchyScope')).toBeNull();
+    expect(document.querySelector('#streamScope')).toBeNull();
     expect(document.querySelector('#activityFilter')).toBeNull();
 
     fireEvent.click(activityControl);
@@ -88,11 +88,11 @@ describe('Timeline hierarchy rendering', () => {
     expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({ eventTypes: ['parent_changed'] }));
   });
 
-  it('sends selected hierarchy scope and parent id to the timeline query', () => {
+  it('sends selected stream scope and parent id to the timeline query', () => {
     render(<MemoryRouter><Timeline /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole('button', { name: /Hierarchy scope.*All streams/ }));
-    fireEvent.click(within(screen.getByRole('listbox', { name: 'Hierarchy scope' })).getByRole('option', { name: 'Under parent' }));
+    fireEvent.click(screen.getByRole('button', { name: /Stream scope.*All streams/ }));
+    fireEvent.click(within(screen.getByRole('listbox', { name: 'Stream scope' })).getByRole('option', { name: 'Under parent' }));
 
     const parentControl = screen.getByRole('button', { name: /Parent stream.*Select a parent/ });
     expect(parentControl.tagName).toBe('BUTTON');
@@ -101,7 +101,7 @@ describe('Timeline hierarchy rendering', () => {
     fireEvent.click(within(screen.getByRole('listbox', { name: 'Parent stream' })).getByRole('option', { name: 'Parent stream' }));
 
     expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
-      hierarchyScope: 'under-parent',
+      streamScope: 'under-parent',
       parentId: 'parent-1',
     }));
   });
