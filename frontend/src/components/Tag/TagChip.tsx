@@ -26,7 +26,7 @@ export function TagChip({ tagName, onClick }: TagChipProps) {
   return (
     <button
       onClick={handleClick}
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-white hover:opacity-80 transition-opacity"
+      className="inline-flex min-w-0 max-w-full items-center truncate rounded-full px-2 py-0.5 text-xs font-medium text-white transition-opacity hover:opacity-80"
       style={{ backgroundColor: color }}
       title={`Tag ID: #${tagName}`}
     >

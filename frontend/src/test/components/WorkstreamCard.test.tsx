@@ -10,7 +10,7 @@ vi.mock('../../components/Markdown/MarkdownRenderer', () => ({
 }));
 
 vi.mock('../../components/Tag/TagChip', () => ({
-  TagChip: ({ tagName }: { tagName: string }) => <button title={`Tag ID: #${tagName}`}>#{tagName}</button>,
+  TagChip: ({ tagName }: { tagName: string }) => <button title={`Tag ID: #${tagName}`} className="min-w-0 max-w-full truncate">#{tagName}</button>,
 }));
 
 vi.mock('../../api/client', () => ({
@@ -65,7 +65,8 @@ describe('WorkstreamCard tile layout', () => {
 
     expect(screen.getByTestId('workstream-category-rail')).toHaveStyle({ backgroundColor: '#74d84f' });
     expect(screen.getByTestId('workstream-category-column')).toHaveClass('inset-y-0', 'left-[7px]', 'w-[66px]');
-    expect(screen.getByTestId('workstream-category-icon')).toHaveClass('col-start-2');
+    expect(screen.getByTestId('workstream-category-icon')).toHaveClass('absolute', 'left-[18px]', 'top-2');
+    expect(screen.getByTestId('workstream-category-icon').className).not.toContain('row-start');
     expect(screen.getByTestId('workstream-category-icon').className).not.toContain('mt-4');
 
     const titleLink = screen.getByRole('link', { name: /English learning plan/ });
@@ -74,7 +75,8 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.getByRole('heading', { name: 'English learning plan' })).toHaveClass('text-base', 'font-semibold');
     expect(screen.getByText('Latest work happened in child stream: weekly lessons are moving.')).toHaveClass('text-sm');
     expect(screen.getByText('Parent: Goals')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Log status' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Log status' })).toHaveClass('absolute', 'right-3', 'top-3');
+    expect(screen.getByRole('button', { name: 'Log status' }).className).not.toContain('row-start');
     expect(screen.getByText(/Self:/)).toBeInTheDocument();
     expect(screen.getByText(/Child:/)).toBeInTheDocument();
     expect(screen.getByText(/via Schedule 11 English classes/)).toBeInTheDocument();
@@ -97,7 +99,22 @@ describe('WorkstreamCard tile layout', () => {
     }
     expect(screen.queryByText(/^\+\d+$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^\+N$/i)).not.toBeInTheDocument();
-    expect(screen.getByTestId('workstream-tags')).toHaveClass('flex-wrap');
-    expect(screen.getByTestId('workstream-tags').className).not.toContain('max-w-[9rem]');
+    const tagsRegion = screen.getByTestId('workstream-tags');
+    expect(tagsRegion).toHaveClass('overflow-hidden', 'flex-nowrap');
+    expect(tagsRegion.className).not.toContain('flex-wrap');
+    expect(tagsRegion.className).not.toContain('max-w-[9rem]');
+  });
+
+  it('uses filled visible dots for the More icon', () => {
+    renderCard(baseWorkstream());
+
+    const moreButton = screen.getByRole('button', { name: 'More' });
+    expect(moreButton).toHaveAttribute('aria-label', 'More');
+    const dots = moreButton.querySelectorAll('[data-testid="more-icon-dot"]');
+    expect(dots).toHaveLength(3);
+    dots.forEach((dot) => {
+      expect(dot).toHaveAttribute('fill', 'currentColor');
+      expect(dot).toHaveAttribute('r', '1.8');
+    });
   });
 });

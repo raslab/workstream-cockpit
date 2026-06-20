@@ -79,8 +79,10 @@ function ParentIcon() {
 
 function MoreIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" className="h-5 w-5">
-      <path d="M12 5h.01M12 12h.01M12 19h.01" />
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 text-current">
+      <circle data-testid="more-icon-dot" cx="12" cy="5" r="1.8" fill="currentColor" />
+      <circle data-testid="more-icon-dot" cx="12" cy="12" r="1.8" fill="currentColor" />
+      <circle data-testid="more-icon-dot" cx="12" cy="19" r="1.8" fill="currentColor" />
     </svg>
   );
 }
@@ -143,7 +145,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
 
         <div
           data-testid="workstream-category-icon"
-          className="relative z-10 col-start-2 row-start-1 mx-auto mt-2 flex h-11 w-11 items-center justify-center rounded-lg text-2xl shadow-[inset_0_0_0_1px_rgba(15,23,42,0.07)]"
+          className="absolute left-[18px] top-2 z-10 flex h-11 w-11 items-center justify-center rounded-lg text-2xl shadow-[inset_0_0_0_1px_rgba(15,23,42,0.07)]"
           style={{ backgroundColor: categorySoftColor }}
           title={category?.name || 'Uncategorized'}
         >
@@ -152,7 +154,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
 
         <Link
           to={`/workstreams/${workstream.id}`}
-          className="relative z-10 col-start-3 row-start-1 min-w-0 pl-3 pr-2 pt-3 hover:text-primary-600 dark:hover:text-primary-400"
+          className="relative z-10 col-start-3 row-start-1 min-w-0 pl-3 pr-36 pt-3 hover:text-primary-600 dark:hover:text-primary-400"
         >
           <h3 className={`text-base font-semibold leading-tight text-gray-900 dark:text-gray-100 ${workstream.state === 'closed' ? 'text-gray-600 dark:text-gray-400' : ''}`}>
             {name}
@@ -160,7 +162,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
         </Link>
 
         <button
-          className="relative z-20 col-start-4 row-start-1 mr-3 mt-3 inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 bg-white px-3 text-xs font-bold text-gray-800 shadow-sm hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          className="absolute right-3 top-3 z-20 inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 bg-white px-3 text-xs font-bold text-gray-800 shadow-sm hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
           onClick={() => setShowDialog(true)}
           aria-label="Log status"
         >
@@ -214,7 +216,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
         {hasTags && (
           <div
             data-testid="workstream-tags"
-            className={`relative z-10 col-start-3 col-end-5 flex min-w-0 flex-wrap items-center gap-1.5 pb-3 pl-3 pr-14 pt-2 ${workstream.parent ? 'row-start-5' : 'row-start-4'} [&>button]:min-w-0 [&>button]:max-w-full [&>button]:flex-[0_1_auto] [&>button]:overflow-hidden [&>button]:text-ellipsis [&>button]:whitespace-nowrap`}
+            className={`relative z-10 col-start-3 col-end-5 flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden pb-3 pl-3 pr-14 pt-2 ${workstream.parent ? 'row-start-5' : 'row-start-4'} [&>button]:min-w-0 [&>button]:max-w-full [&>button]:flex-none [&>button]:overflow-hidden [&>button]:text-ellipsis [&>button]:whitespace-nowrap`}
           >
             {tags.map((tag) => <TagChip key={tag} tagName={tag} />)}
           </div>
