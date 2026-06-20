@@ -11,6 +11,17 @@ import { ViewCreateDialog } from '../components/ViewManagement/ViewCreateDialog'
 import { Workstream } from '../types/workstream';
 import { applyHierarchyFilter, getHierarchyTimestamp, groupWorkstreamsByParent } from '../utils/hierarchy';
 
+function softCategoryColor(color?: string | null) {
+  if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) return '#c5dae4';
+
+  const red = parseInt(color.slice(1, 3), 16);
+  const green = parseInt(color.slice(3, 5), 16);
+  const blue = parseInt(color.slice(5, 7), 16);
+  const mix = (channel: number) => Math.round(channel * 0.28 + 255 * 0.72);
+
+  return `rgb(${mix(red)}, ${mix(green)}, ${mix(blue)})`;
+}
+
 export default function Cockpit() {
   const location = useLocation();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -184,30 +195,27 @@ export default function Cockpit() {
           )}
 
           {!isLoading && workstreams && workstreams.length > 0 && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               {groupedWorkstreams.map((group) => (
                 <div key={group.key}>
                   {(currentConfig.group.by === 'category' || currentConfig.group.by === 'parent') && (
-                    <div className="mb-2 flex items-center gap-2">
-                      {group.color && (
-                        <div
-                          className="flex h-5 w-5 items-center justify-center rounded text-sm"
-                          style={{ backgroundColor: group.color }}
-                        >
-                          {group.emoji}
-                        </div>
-                      )}
-                      <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                    <div className="mb-2 flex min-h-8 items-center gap-2">
+                      <div
+                        className="grid h-6 w-6 flex-none place-items-center rounded-md text-sm shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]"
+                        style={{ backgroundColor: softCategoryColor(group.color) }}
+                      >
+                        {group.emoji || (currentConfig.group.by === 'category' ? '🏷️' : '↳')}
+                      </div>
+                      <h2 className="text-xl font-bold leading-none text-gray-900 dark:text-gray-100">
                         {group.name || (currentConfig.group.by === 'category' ? 'Untagged' : 'Top level / no parent')}
-                      </h3>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                      </h2>
+                      <span className="text-base font-medium text-gray-500 dark:text-gray-400">
                         ({group.workstreams.length})
                       </span>
                     </div>
                   )}
 
-                  {/* Two-column grid layout */}
-                  <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                  <div className="grid grid-cols-1 items-start gap-x-5 gap-y-3.5 lg:grid-cols-2">
                     {group.workstreams.map((workstream) => (
                       <WorkstreamCard key={workstream.id} workstream={workstream} />
                     ))}
