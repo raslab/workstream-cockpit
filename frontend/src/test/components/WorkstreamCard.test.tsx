@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
-import { WorkstreamCard } from '../../components/Workstream/WorkstreamCard';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { calculateVisibleTagCount, WorkstreamCard } from '../../components/Workstream/WorkstreamCard';
 import type { Workstream } from '../../types/workstream';
 
 vi.mock('../../components/Markdown/MarkdownRenderer', () => ({
@@ -60,6 +60,31 @@ const baseWorkstream = (overrides: Partial<Workstream> = {}): Workstream => ({
 });
 
 describe('WorkstreamCard tile layout', () => {
+  let rectSpy: ReturnType<typeof vi.spyOn>;
+  let mockTagsWidth = 600;
+
+  beforeEach(() => {
+    mockTagsWidth = 600;
+    rectSpy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function getMockRect() {
+      const element = this as HTMLElement;
+      let width = 0;
+
+      if (element.dataset.testid === 'workstream-tags' || element.parentElement?.dataset.testid === 'workstream-tags') {
+        width = mockTagsWidth;
+      } else if (element.dataset.tagName) {
+        width = Number(element.dataset.mockWidth || 70);
+      } else if (element.textContent?.match(/^\+\d+$/)) {
+        width = 34;
+      }
+
+      return { width, height: 20, x: 0, y: 0, top: 0, left: 0, right: width, bottom: 20, toJSON: () => ({}) } as DOMRect;
+    });
+  });
+
+  afterEach(() => {
+    rectSpy.mockRestore();
+  });
+
   it('renders the redesigned category, parent, self and child activity regions', () => {
     renderCard(baseWorkstream());
 
@@ -75,7 +100,7 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.getByRole('heading', { name: 'English learning plan' })).toHaveClass('text-base', 'font-semibold');
     expect(screen.getByText('Latest work happened in child stream: weekly lessons are moving.')).toHaveClass('text-sm');
     expect(screen.getByText('Parent: Goals')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Log status' })).toHaveClass('absolute', 'right-3', 'top-3');
+    expect(screen.getByRole('button', { name: 'Log status' })).toHaveClass('absolute', 'right-2', 'top-2');
     expect(screen.getByRole('button', { name: 'Log status' }).className).not.toContain('row-start');
     expect(screen.getByText(/Self:/)).toBeInTheDocument();
     expect(screen.getByText(/Child:/)).toBeInTheDocument();
@@ -90,19 +115,40 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument();
   });
 
-  it('renders every tag and relies on width-based CSS truncation instead of fixed count truncation', () => {
+  it('calculates visible tags from available width instead of a fixed count', () => {
+    expect(calculateVisibleTagCount(600, [70, 70, 70, 70, 70, 70, 70], 34)).toBe(7);
+    expect(calculateVisibleTagCount(260, [70, 70, 70, 70, 70, 70, 70], 34)).toBe(2);
+    expect(calculateVisibleTagCount(20, [70, 70, 70], 34)).toBe(0);
+  });
+
+  it('shows every tag with no overflow chip when all tags fit the measured width', () => {
     const tags = ['learning', 'English', 'speaking', 'weekly', 'practice', 'Mathew', 'long-topic-name'];
     renderCard(baseWorkstream({ allTags: tags }));
 
     for (const tag of tags) {
       expect(screen.getByTitle(`Tag ID: #${tag}`)).toBeInTheDocument();
     }
-    expect(screen.queryByText(/^\+\d+$/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('hidden-tags-count')).not.toBeInTheDocument();
     expect(screen.queryByText(/^\+N$/i)).not.toBeInTheDocument();
     const tagsRegion = screen.getByTestId('workstream-tags');
     expect(tagsRegion).toHaveClass('overflow-hidden', 'flex-nowrap');
     expect(tagsRegion.className).not.toContain('flex-wrap');
     expect(tagsRegion.className).not.toContain('max-w-[9rem]');
+  });
+
+  it('collapses width-overflowed tags into a gray +N chip', async () => {
+    const tags = ['learning', 'English', 'speaking', 'weekly', 'practice', 'Mathew', 'long-topic-name'];
+    mockTagsWidth = 260;
+    renderCard(baseWorkstream({ allTags: tags }));
+
+    await waitFor(() => expect(screen.getByTestId('hidden-tags-count')).toHaveTextContent('+5'));
+
+    expect(screen.getByTitle('Tag ID: #learning')).toBeInTheDocument();
+    expect(screen.getByTitle('Tag ID: #English')).toBeInTheDocument();
+    expect(screen.queryByTitle('Tag ID: #speaking')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Tag ID: #long-topic-name')).not.toBeInTheDocument();
+    expect(screen.getByTestId('hidden-tags-count')).toHaveClass('bg-gray-200', 'text-gray-700');
+    expect(screen.getByTestId('hidden-tags-count')).toHaveAttribute('aria-label', '5 hidden tags');
   });
 
   it('uses filled visible dots for the More icon', () => {

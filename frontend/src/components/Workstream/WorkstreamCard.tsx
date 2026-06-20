@@ -1,4 +1,4 @@
-import { CSSProperties, useState } from 'react';
+import { CSSProperties, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Workstream } from '../../types/workstream';
@@ -14,6 +14,7 @@ interface WorkstreamCardProps {
   workstream: Workstream;
 }
 
+const TAG_GAP_PX = 6;
 const DEFAULT_CATEGORY_COLOR = '#5b8ca0';
 const DEFAULT_CATEGORY_SOFT = '#c5dae4';
 const DEFAULT_CATEGORY_EMOJI = '🏷️';
@@ -84,6 +85,118 @@ function MoreIcon() {
       <circle data-testid="more-icon-dot" cx="12" cy="12" r="1.8" fill="currentColor" />
       <circle data-testid="more-icon-dot" cx="12" cy="19" r="1.8" fill="currentColor" />
     </svg>
+  );
+}
+
+export function calculateVisibleTagCount(containerWidth: number, tagWidths: number[], overflowChipWidth: number, gap = TAG_GAP_PX) {
+  if (tagWidths.length === 0) {
+    return 0;
+  }
+
+  const totalTagsWidth = tagWidths.reduce((sum, width) => sum + width, 0);
+  const totalGapsWidth = Math.max(0, tagWidths.length - 1) * gap;
+
+  if (totalTagsWidth + totalGapsWidth <= containerWidth) {
+    return tagWidths.length;
+  }
+
+  let usedWidth = 0;
+  let visibleCount = 0;
+
+  for (const tagWidth of tagWidths) {
+    const tagGap = visibleCount > 0 ? gap : 0;
+    const nextWidth = usedWidth + tagGap + tagWidth + gap + overflowChipWidth;
+
+    if (nextWidth > containerWidth) {
+      break;
+    }
+
+    usedWidth += tagGap + tagWidth;
+    visibleCount += 1;
+  }
+
+  return visibleCount;
+}
+
+function MeasuredTagList({ tags }: { tags: string[] }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const overflowMeasureRef = useRef<HTMLSpanElement | null>(null);
+  const tagWidthCacheRef = useRef(new Map<string, number>());
+  const [visibleCount, setVisibleCount] = useState(tags.length);
+
+  const measure = useCallback(() => {
+    const container = containerRef.current;
+
+    if (!container) {
+      return;
+    }
+
+    const containerWidth = container.getBoundingClientRect().width || container.clientWidth;
+    const visibleTagWrappers = Array.from(container.querySelectorAll<HTMLElement>('[data-tag-chip-index]'));
+
+    visibleTagWrappers.forEach((wrapper) => {
+      const tagName = wrapper.dataset.tagName;
+      const width = wrapper.getBoundingClientRect().width || wrapper.offsetWidth;
+
+      if (tagName && width > 0) {
+        tagWidthCacheRef.current.set(tagName, width);
+      }
+    });
+
+    const tagWidths = tags.map((tag) => tagWidthCacheRef.current.get(tag) || 0);
+
+    if (containerWidth <= 0 || tagWidths.some((width) => width <= 0)) {
+      return;
+    }
+
+    const overflowChipWidth = overflowMeasureRef.current
+      ? overflowMeasureRef.current.getBoundingClientRect().width || overflowMeasureRef.current.offsetWidth
+      : 0;
+    const nextVisibleCount = calculateVisibleTagCount(containerWidth, tagWidths, overflowChipWidth, TAG_GAP_PX);
+    setVisibleCount((currentVisibleCount) => (currentVisibleCount === nextVisibleCount ? currentVisibleCount : nextVisibleCount));
+  }, [tags]);
+
+  useLayoutEffect(() => {
+    measure();
+
+    const container = containerRef.current;
+
+    if (!container || typeof ResizeObserver === 'undefined') {
+      return undefined;
+    }
+
+    const resizeObserver = new ResizeObserver(() => measure());
+    resizeObserver.observe(container);
+
+    return () => resizeObserver.disconnect();
+  }, [measure]);
+
+  const hiddenCount = Math.max(0, tags.length - visibleCount);
+
+  return (
+    <div ref={containerRef} className="flex min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-hidden">
+      {tags.slice(0, visibleCount).map((tag, index) => (
+        <span key={tag} data-tag-chip-index={index} data-tag-name={tag} className="min-w-0 flex-none">
+          <TagChip tagName={tag} />
+        </span>
+      ))}
+      {hiddenCount > 0 && (
+        <span
+          data-testid="hidden-tags-count"
+          aria-label={`${hiddenCount} hidden tags`}
+          className="inline-flex flex-none items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+        >
+          +{hiddenCount}
+        </span>
+      )}
+      <span
+        ref={overflowMeasureRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-[9999px] top-0 inline-flex flex-none items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700"
+      >
+        +{tags.length}
+      </span>
+    </div>
   );
 }
 
@@ -162,7 +275,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
         </Link>
 
         <button
-          className="absolute right-3 top-3 z-20 inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 bg-white px-3 text-xs font-bold text-gray-800 shadow-sm hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          className="absolute right-2 top-2 z-20 inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 bg-white px-3 text-xs font-bold text-gray-800 shadow-sm hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
           onClick={() => setShowDialog(true)}
           aria-label="Log status"
         >
@@ -216,9 +329,9 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
         {hasTags && (
           <div
             data-testid="workstream-tags"
-            className={`relative z-10 col-start-3 col-end-5 flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden pb-3 pl-3 pr-14 pt-2 ${workstream.parent ? 'row-start-5' : 'row-start-4'} [&>button]:min-w-0 [&>button]:max-w-full [&>button]:flex-none [&>button]:overflow-hidden [&>button]:text-ellipsis [&>button]:whitespace-nowrap`}
+            className={`relative z-10 col-start-3 col-end-5 flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden pb-3 pl-3 pr-14 pt-2 ${workstream.parent ? 'row-start-5' : 'row-start-4'} [&_button]:min-w-0 [&_button]:max-w-full [&_button]:flex-none [&_button]:overflow-hidden [&_button]:text-ellipsis [&_button]:whitespace-nowrap`}
           >
-            {tags.map((tag) => <TagChip key={tag} tagName={tag} />)}
+            <MeasuredTagList tags={tags} />
           </div>
         )}
 
