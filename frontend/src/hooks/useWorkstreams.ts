@@ -3,15 +3,18 @@ import { apiClient } from '../api/client';
 import { Workstream } from '../types/workstream';
 
 interface UseWorkstreamsOptions {
-  state?: 'active' | 'closed';
+  state?: 'active' | 'closed' | 'all';
   tags?: string[];
   categoryIds?: string[];
   notUpdatedToday?: boolean;
+  hierarchy?: 'all' | 'top-level' | 'sub-streams' | 'no-parent' | 'has-substreams';
+  parentId?: string | null;
+  includeSubstreams?: boolean;
 }
 
 export function useWorkstreams(options: UseWorkstreamsOptions = {}) {
   return useQuery<Workstream[]>({
-    queryKey: ['workstreams', options.state, options.tags, options.categoryIds, options.notUpdatedToday],
+    queryKey: ['workstreams', options],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (options.state) {
@@ -25,6 +28,15 @@ export function useWorkstreams(options: UseWorkstreamsOptions = {}) {
       }
       if (options.notUpdatedToday !== undefined) {
         params.set('notUpdatedToday', String(options.notUpdatedToday));
+      }
+      if (options.hierarchy && options.hierarchy !== 'all') {
+        params.set('hierarchy', options.hierarchy);
+      }
+      if (options.parentId) {
+        params.set('parentId', options.parentId);
+      }
+      if (options.includeSubstreams !== undefined) {
+        params.set('includeSubstreams', String(options.includeSubstreams));
       }
       const url = `/api/workstreams${params.toString() ? `?${params.toString()}` : ''}`;
       const response = await apiClient.get(url);

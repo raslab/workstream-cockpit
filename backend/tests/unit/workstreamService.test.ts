@@ -237,6 +237,40 @@ describe('WorkstreamService', () => {
       expect(found?.category?.name).toBe('test-tag');
       expect(found?.latestStatus?.status).toBe('Current status');
     });
+
+    it('should include latest activity metadata on direct children in detail response', async () => {
+      const person = await createTestPerson();
+      const project = await createTestProject(person.id);
+      const parent = await createTestWorkstream(project.id, { name: 'Parent' });
+      const child = await createTestWorkstream(project.id, { name: 'Child with activity', parentId: parent.id });
+      const quietChild = await createTestWorkstream(project.id, { name: 'Child without activity', parentId: parent.id });
+      const grandchild = await createTestWorkstream(project.id, { name: 'Grandchild with latest activity', parentId: child.id });
+
+      const childUpdate = await createTestStatusUpdate(child.id, { status: 'Child direct update' });
+      await new Promise(resolve => setTimeout(resolve, 10));
+      const grandchildUpdate = await createTestStatusUpdate(grandchild.id, { status: 'Grandchild latest update' });
+
+      const found = await getWorkstreamById(parent.id, project.id);
+      const children = found?.children ?? [];
+      const childSummary = children.find(summary => summary.id === child.id) as any;
+      const quietChildSummary = children.find(summary => summary.id === quietChild.id) as any;
+
+      expect(childSummary).toBeDefined();
+      expect(childSummary.lastDirectUpdateAt?.toISOString()).toBe(childUpdate.createdAt.toISOString());
+      expect(childSummary.lastSubstreamActivityAt?.toISOString()).toBe(grandchildUpdate.createdAt.toISOString());
+      expect(childSummary.lastActivityAt?.toISOString()).toBe(grandchildUpdate.createdAt.toISOString());
+      expect(childSummary.latestSubstreamActivitySource).toMatchObject({
+        workstreamId: grandchild.id,
+        workstreamName: 'Grandchild with latest activity',
+        updateId: grandchildUpdate.id,
+      });
+
+      expect(quietChildSummary).toBeDefined();
+      expect(quietChildSummary.lastDirectUpdateAt).toBeNull();
+      expect(quietChildSummary.lastSubstreamActivityAt).toBeNull();
+      expect(quietChildSummary.lastActivityAt).toBeNull();
+      expect(quietChildSummary.latestSubstreamActivitySource).toBeNull();
+    });
   });
 
   describe('updateWorkstream', () => {

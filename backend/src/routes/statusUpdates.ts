@@ -62,6 +62,11 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (workstream.state === 'closed') {
+      res.status(409).json({ error: 'Cannot add status updates to a closed workstream' });
+      return;
+    }
+
     const statusUpdate = await createStatusUpdate({
       workstreamId,
       status: status.trim(),

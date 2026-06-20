@@ -1,27 +1,71 @@
 import { apiClient } from './client';
-import type { ViewConfig } from '../types/view';
+import type { FilterConfig, GroupConfig, SortConfig, ViewConfig } from '../types/view';
+
+export const DEFAULT_VIEW_CONFIG: ViewConfig['config'] = {
+  filters: {
+    categoryIds: [],
+    tags: [],
+    temporal: { notUpdatedToday: false },
+    hierarchy: {
+      mode: 'all',
+      parentId: null,
+      includeSubstreams: false,
+      timelineScope: 'all',
+      includeStructuralEvents: true,
+    },
+  },
+  sort: { field: 'lastActivityAt', direction: 'desc' },
+  group: { by: 'category' },
+};
+
+type LegacySortConfig = Partial<Omit<SortConfig, 'field'>> & { field?: SortConfig['field'] | 'updatedAt' };
+
+type ApiViewConfig = Partial<{
+  filters: Partial<Omit<FilterConfig, 'temporal' | 'hierarchy'>> & {
+    temporal?: Partial<FilterConfig['temporal']>;
+    hierarchy?: Partial<FilterConfig['hierarchy']>;
+  };
+  sort: LegacySortConfig;
+  group: Partial<GroupConfig>;
+}>;
+
+function normalizeSort(sort?: LegacySortConfig | null): SortConfig {
+  const field = sort?.field === 'updatedAt' ? 'lastActivityAt' : sort?.field;
+  return {
+    ...DEFAULT_VIEW_CONFIG.sort,
+    ...sort,
+    field: field || DEFAULT_VIEW_CONFIG.sort.field,
+  };
+}
+
+export function normalizeViewConfig(config?: ApiViewConfig | null): ViewConfig['config'] {
+  return {
+    filters: {
+      ...DEFAULT_VIEW_CONFIG.filters,
+      ...config?.filters,
+      temporal: {
+        ...DEFAULT_VIEW_CONFIG.filters.temporal,
+        ...config?.filters?.temporal,
+      },
+      hierarchy: {
+        ...DEFAULT_VIEW_CONFIG.filters.hierarchy,
+        ...config?.filters?.hierarchy,
+      },
+    },
+    sort: normalizeSort(config?.sort),
+    group: {
+      ...DEFAULT_VIEW_CONFIG.group,
+      ...config?.group,
+    },
+  };
+}
 
 export interface ViewDTO {
   id: string;
   projectId: string;
   name: string;
   isDefault: boolean;
-  config: {
-    filters: {
-      categoryIds: string[];
-      tags: string[];
-      temporal: {
-        notUpdatedToday: boolean;
-      };
-    };
-    sort: {
-      field: 'name' | 'createdAt' | 'updatedAt';
-      direction: 'asc' | 'desc';
-    };
-    group: {
-      by: 'none' | 'category';
-    };
-  };
+  config: ApiViewConfig;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,43 +73,13 @@ export interface ViewDTO {
 export interface CreateViewDTO {
   name: string;
   isDefault?: boolean;
-  config: {
-    filters: {
-      categoryIds: string[];
-      tags: string[];
-      temporal: {
-        notUpdatedToday: boolean;
-      };
-    };
-    sort: {
-      field: 'name' | 'createdAt' | 'updatedAt';
-      direction: 'asc' | 'desc';
-    };
-    group: {
-      by: 'none' | 'category';
-    };
-  };
+  config: ViewConfig['config'];
 }
 
 export interface UpdateViewDTO {
   name?: string;
   isDefault?: boolean;
-  config?: {
-    filters?: {
-      categoryIds?: string[];
-      tags?: string[];
-      temporal?: {
-        notUpdatedToday?: boolean;
-      };
-    };
-    sort?: {
-      field?: 'name' | 'createdAt' | 'updatedAt';
-      direction?: 'asc' | 'desc';
-    };
-    group?: {
-      by?: 'none' | 'category';
-    };
-  };
+  config?: ViewConfig['config'];
 }
 
 /**
@@ -78,7 +92,7 @@ function dtoToViewConfig(dto: ViewDTO): ViewConfig {
     isDefault: dto.isDefault,
     createdAt: new Date(dto.createdAt),
     updatedAt: new Date(dto.updatedAt),
-    config: dto.config,
+    config: normalizeViewConfig(dto.config),
   };
 }
 

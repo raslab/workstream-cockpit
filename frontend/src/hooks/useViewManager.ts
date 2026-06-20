@@ -3,6 +3,24 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ViewConfig } from '../types/view';
 import * as viewsApi from '../api/views';
 
+// Fallback used before saved views have loaded
+const FALLBACK_VIEW_CONFIG: ViewConfig['config'] = {
+  filters: {
+    categoryIds: [],
+    tags: [],
+    temporal: { notUpdatedToday: false },
+    hierarchy: {
+      mode: 'all',
+      parentId: null,
+      includeSubstreams: false,
+      timelineScope: 'all',
+      includeStructuralEvents: true,
+    },
+  },
+  sort: { field: 'lastActivityAt', direction: 'desc' },
+  group: { by: 'category' },
+};
+
 // Deep equality check for view configs
 function isEqual(a: any, b: any): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -210,11 +228,7 @@ export function useViewManager() {
     views,
     activeView,
     activeViewId: activeViewId || '',
-    currentConfig: currentConfig || {
-      filters: { categoryIds: [], tags: [], temporal: { notUpdatedToday: false } },
-      sort: { field: 'updatedAt' as const, direction: 'desc' as const },
-      group: { by: 'category' as const },
-    },
+    currentConfig: currentConfig || FALLBACK_VIEW_CONFIG,
     hasUnsavedChanges,
     isLoading,
     error,

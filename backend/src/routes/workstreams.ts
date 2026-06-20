@@ -14,6 +14,16 @@ import { getStatusUpdatesByWorkstream } from '../services/statusUpdateService';
 import { logger } from '../utils/logger';
 
 const router = Router();
+const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+
+function validateNullableUuid(value: unknown, field: string, res: Response): value is string | null | undefined {
+  if (value === undefined || value === null) return true;
+  if (typeof value !== 'string' || !UUID_RE.test(value)) {
+    res.status(400).json({ error: `${field} must be a valid UUID or null` });
+    return false;
+  }
+  return true;
+}
 
 // All routes require authentication
 router.use(requireUserContext);
@@ -30,10 +40,15 @@ router.use(requireUserContext);
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
-    const state = req.query.state as 'active' | 'closed' | undefined;
+    const state = req.query.state as 'active' | 'closed' | 'all' | undefined;
     const tagsQuery = req.query.tags as string | undefined;
     const categoryIdsQuery = req.query.categoryIds as string | undefined;
     const notUpdatedToday = req.query.notUpdatedToday === 'true';
+
+    if (state !== undefined && !['active', 'closed', 'all'].includes(state)) {
+      res.status(400).json({ error: 'state must be active, closed, or all' });
+      return;
+    }
 
     // Parse comma-separated tags
     const tags = tagsQuery 
@@ -102,7 +117,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
-    const { name, categoryId, context, initialStatus, initialNote } = req.body;
+    const { name, categoryId, parentId, context, initialStatus, initialNote } = req.body;
 
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -130,6 +145,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (!validateNullableUuid(categoryId, 'categoryId', res) || !validateNullableUuid(parentId, 'parentId', res)) return;
+
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
     
@@ -143,6 +160,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       projectId,
       name: name.trim(),
       categoryId,
+      parentId,
       context,
       initialStatus,
       initialNote,
@@ -152,6 +170,14 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     if (error instanceof Error && error.message === 'Category not found') {
       res.status(404).json({ error: 'Category not found' });
+      return;
+    }
+    if (error instanceof Error && error.message === 'Parent workstream not found') {
+      res.status(404).json({ error: 'Parent workstream not found' });
+      return;
+    }
+    if (error instanceof Error && /parent|depth|cycle|descendant/i.test(error.message)) {
+      res.status(400).json({ error: error.message });
       return;
     }
     logger.error('Error creating workstream:', error);
@@ -167,7 +193,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
     const workstreamId = req.params.id;
-    const { name, categoryId, context } = req.body;
+    const { name, categoryId, parentId, context } = req.body;
 
     // Validation
     if (name !== undefined) {
@@ -187,6 +213,8 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (!validateNullableUuid(categoryId, 'categoryId', res) || !validateNullableUuid(parentId, 'parentId', res)) return;
+
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
     
@@ -200,6 +228,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
     
     if (name !== undefined) updates.name = name.trim();
     if (categoryId !== undefined) updates.categoryId = categoryId;
+    if (parentId !== undefined) updates.parentId = parentId;
     if (context !== undefined) updates.context = context;
 
     const workstream = await updateWorkstream(workstreamId, projectId, updates);
@@ -212,6 +241,14 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
     }
     if (error.message === 'Category not found') {
       res.status(404).json({ error: 'Category not found' });
+      return;
+    }
+    if (error.message === 'Parent workstream not found') {
+      res.status(404).json({ error: 'Parent workstream not found' });
+      return;
+    }
+    if (/parent|depth|cycle|descendant/i.test(error.message)) {
+      res.status(400).json({ error: error.message });
       return;
     }
     logger.error('Error updating workstream:', error);
@@ -245,6 +282,10 @@ router.put('/:id/close', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ error: 'Workstream not found' });
       return;
     }
+    if (/active descendants/i.test(error.message)) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     logger.error('Error closing workstream:', error);
     res.status(500).json({ error: 'Failed to close workstream' });
   }
@@ -274,6 +315,10 @@ router.put('/:id/reopen', async (req: Request, res: Response): Promise<void> => 
   } catch (error: any) {
     if (error.message === 'Workstream not found or access denied') {
       res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    if (/parent.*closed/i.test(error.message)) {
+      res.status(400).json({ error: error.message });
       return;
     }
     logger.error('Error reopening workstream:', error);
@@ -307,6 +352,10 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ error: 'Workstream not found' });
       return;
     }
+    if (/descendants/i.test(error.message)) {
+      res.status(409).json({ error: error.message });
+      return;
+    }
     logger.error('Error deleting workstream:', error);
     res.status(500).json({ error: 'Failed to delete workstream' });
   }
@@ -338,7 +387,10 @@ router.get('/:id/status-updates', async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const statusUpdates = await getStatusUpdatesByWorkstream(workstreamId);
+    const statusUpdates = await getStatusUpdatesByWorkstream(workstreamId, {
+      includeSubstreams: req.query.includeSubstreams === 'true',
+      projectId,
+    });
     res.json(statusUpdates);
   } catch (error) {
     logger.error('Error fetching status updates:', error);

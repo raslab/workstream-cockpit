@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import type { FilterConfig, SortConfig, GroupConfig } from '../../types/view';
 import { useCategories } from '../../hooks/useCategories';
 import { useTags } from '../../api/tags';
+import { SelectMenu } from '../UI/SelectMenu';
 
 interface FilterPanelProps {
   filters: FilterConfig;
@@ -38,6 +39,7 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
       categoryIds: [],
       tags: [],
       temporal: { notUpdatedToday: false },
+      hierarchy: { mode: 'all', parentId: null, includeSubstreams: false, timelineScope: 'all', includeStructuralEvents: true },
     };
     setLocalFilters(clearedFilters);
   };
@@ -170,6 +172,39 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
             <span className="text-sm text-gray-700 dark:text-gray-300">Not updated today</span>
           </label>
         </div>
+
+        {/* Hierarchy Section */}
+        <div className="border-b border-gray-200 p-3 dark:border-gray-700">
+          <h4 className="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">Hierarchy</h4>
+          <SelectMenu
+            label="Hierarchy filter"
+            value={localFilters.hierarchy.mode}
+            onChange={(mode) => setLocalFilters({
+              ...localFilters,
+              hierarchy: { ...localFilters.hierarchy, mode },
+            })}
+            buttonClassName="w-full"
+            options={[
+              { value: 'all', label: 'All streams' },
+              { value: 'top-level', label: 'Top-level only' },
+              { value: 'sub-streams', label: 'Sub-streams only' },
+              { value: 'no-parent', label: 'No parent' },
+              { value: 'has-substreams', label: 'Has sub-streams' },
+            ]}
+          />
+          <label className="mt-2 flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={localFilters.hierarchy.includeSubstreams}
+              onChange={(e) => setLocalFilters({
+                ...localFilters,
+                hierarchy: { ...localFilters.hierarchy, includeSubstreams: e.target.checked },
+              })}
+              className="h-4 w-4 rounded border-gray-300 text-primary-600 accent-primary-600 dark:border-gray-500 dark:bg-gray-900 dark:text-primary-400 dark:accent-primary-400"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">Include sub-streams in scoped results</span>
+          </label>
+        </div>
       </div>
 
       {/* Actions */}
@@ -219,7 +254,9 @@ export function SortMenu({ currentSort, onSortChange, onClose }: SortMenuProps) 
   }, [onClose]);
 
   const sortOptions: { field: SortConfig['field']; label: string }[] = [
-    { field: 'updatedAt', label: 'Last Updated' },
+    { field: 'lastActivityAt', label: 'Last activity' },
+    { field: 'lastDirectUpdateAt', label: 'Last direct update' },
+    { field: 'lastSubstreamActivityAt', label: 'Last sub-stream activity' },
     { field: 'createdAt', label: 'Created Date' },
     { field: 'name', label: 'Name' },
   ];
@@ -291,6 +328,7 @@ export function GroupMenu({ currentGroup, onGroupChange, onClose }: GroupMenuPro
   const groupOptions: { by: GroupConfig['by']; label: string }[] = [
     { by: 'none', label: 'None' },
     { by: 'category', label: 'Category' },
+    { by: 'parent', label: 'Parent' },
   ];
 
   const handleSelect = (by: GroupConfig['by']) => {

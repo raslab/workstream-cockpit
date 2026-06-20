@@ -4,6 +4,7 @@ import { apiClient } from '../../api/client';
 import { Workstream } from '../../types/workstream';
 import { useCategories } from '../../hooks/useCategories';
 import { TagAutocomplete } from '../Tag/TagAutocomplete';
+import { SelectMenu } from '../UI/SelectMenu';
 
 interface WorkstreamEditDialogProps {
   workstream: Workstream;
@@ -77,22 +78,16 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
           </div>
 
           <div className="mb-4">
-            <label htmlFor="category" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Category
-            </label>
-            <select
-              id="category"
+            <SelectMenu
+              label="Category (optional)"
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-            >
-              <option value="">No category</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+              onChange={setCategoryId}
+              buttonClassName="w-full"
+              options={[
+                { value: '', label: 'No category' },
+                ...categories.map((category) => ({ value: category.id, label: category.name })),
+              ]}
+            />
           </div>
 
           <div className="mb-4">

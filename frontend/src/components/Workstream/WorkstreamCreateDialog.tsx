@@ -3,13 +3,17 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useCategories } from '../../hooks/useCategories';
 import { TagAutocomplete } from '../Tag/TagAutocomplete';
+import type { WorkstreamSummary } from '../../types/workstream';
+import { CLOSED_PARENT_SUBSTREAM_MESSAGE, hierarchyErrorMessage } from '../../utils/hierarchy';
+import { SelectMenu } from '../UI/SelectMenu';
 
 interface WorkstreamCreateDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  parent?: WorkstreamSummary | null;
 }
 
-export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDialogProps) {
+export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCreateDialogProps) {
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState<string>('');
   const [context, setContext] = useState('');
@@ -17,6 +21,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
   const [initialNote, setInitialNote] = useState('');
   const queryClient = useQueryClient();
   const { data: categories } = useCategories();
+  const isClosedParent = parent?.state === 'closed';
   
   // Refs for autocomplete
   const contextRef = useRef<HTMLTextAreaElement>(null);
@@ -30,12 +35,14 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
       context?: string;
       initialStatus?: string;
       initialNote?: string;
+      parentId?: string;
     }) => {
       const response = await apiClient.post('/api/workstreams', data);
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
+      if (parent?.id) queryClient.invalidateQueries({ queryKey: ['workstream', parent.id] });
       resetForm();
       onClose();
     },
@@ -58,6 +65,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isClosedParent) return;
     if (name.trim()) {
       createWorkstreamMutation.mutate({
         name: name.trim(),
@@ -65,6 +73,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
         context: context.trim() || undefined,
         initialStatus: initialStatus.trim() || undefined,
         initialNote: initialNote.trim() || undefined,
+        parentId: parent?.id,
       });
     }
   };
@@ -74,7 +83,18 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70">
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Create New Workstream</h2>
+        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">{parent ? 'Create Sub-stream' : 'Create New Workstream'}</h2>
+        {parent && (
+          <div className="mb-4 rounded-md border border-primary-200 bg-primary-50 p-3 text-sm text-primary-900 dark:border-primary-500 dark:bg-primary-900/40 dark:text-primary-50">
+            Parent: <span className="font-medium">{parent.name}</span>
+          </div>
+        )}
+
+        {isClosedParent && (
+          <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+            {CLOSED_PARENT_SUBSTREAM_MESSAGE}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
@@ -95,22 +115,16 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
           </div>
 
           <div className="mb-4">
-            <label htmlFor="categoryId" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Tag (optional)
-            </label>
-            <select
-              id="categoryId"
+            <SelectMenu
+              label="Category (optional)"
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-            >
-              <option value="">No category</option>
-              {categories?.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+              onChange={setCategoryId}
+              buttonClassName="w-full"
+              options={[
+                { value: '', label: 'No category' },
+                ...(categories?.map((category) => ({ value: category.id, label: category.name })) ?? []),
+              ]}
+            />
             {categoryId && categories && (
               <div className="mt-1 flex items-center gap-2">
                 <div
@@ -204,7 +218,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
 
           {createWorkstreamMutation.isError && (
             <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
-              Failed to create workstream. Please try again.
+              {hierarchyErrorMessage(createWorkstreamMutation.error)}
             </div>
           )}
 
@@ -220,7 +234,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose }: WorkstreamCreateDial
             <button
               type="submit"
               className="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-              disabled={!name.trim() || createWorkstreamMutation.isPending}
+              disabled={!name.trim() || isClosedParent || createWorkstreamMutation.isPending}
             >
               {createWorkstreamMutation.isPending && (
                 <svg

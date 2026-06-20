@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import type { WorkstreamSummary } from '../types/workstream';
 
-export type TimelineEventType = 'status_update' | 'workstream_created' | 'workstream_closed';
+export type TimelineEventType = 'status_update' | 'workstream_created' | 'workstream_closed' | 'parent_changed' | 'sub_stream_created';
 
 export interface TimelineEntry {
   id: string;
@@ -18,6 +19,23 @@ export interface TimelineEntry {
     color: string;
     emoji?: string | null;
   } | null;
+  parentId?: string | null;
+  parent?: WorkstreamSummary | null;
+  parentName?: string | null;
+  ancestors?: WorkstreamSummary[];
+  hierarchyPath?: string;
+  breadcrumb?: string;
+  oldParentName?: string | null;
+  newParentName?: string | null;
+  oldParentId?: string | null;
+  newParentId?: string | null;
+  metadata?: {
+    oldParentId?: string | null;
+    oldParentName?: string | null;
+    newParentId?: string | null;
+    newParentName?: string | null;
+    [key: string]: unknown;
+  };
 }
 
 interface UseTimelineOptions {
@@ -25,11 +43,16 @@ interface UseTimelineOptions {
   endDate?: Date;
   categoryIds?: string[];
   tags?: string[];
+  hierarchyScope?: 'all' | 'top-level' | 'sub-streams' | 'under-parent';
+  parentId?: string | null;
+  includeSubstreams?: boolean;
+  includeStructuralEvents?: boolean;
+  eventTypes?: TimelineEventType[];
 }
 
 export function useTimeline(options: UseTimelineOptions = {}) {
   return useQuery<TimelineEntry[]>({
-    queryKey: ['timeline', options.startDate, options.endDate, options.categoryIds, options.tags],
+    queryKey: ['timeline', options],
     queryFn: async () => {
       const params = new URLSearchParams();
       
@@ -44,6 +67,18 @@ export function useTimeline(options: UseTimelineOptions = {}) {
       }
       if (options.tags && options.tags.length > 0) {
         params.set('tags', options.tags.join(','));
+      }
+      if (options.hierarchyScope && options.hierarchyScope !== 'all') {
+        params.set('hierarchyScope', options.hierarchyScope);
+      }
+      if (options.parentId) {
+        params.set('parentId', options.parentId);
+      }
+      if (options.includeSubstreams !== undefined) {
+        params.set('includeSubstreams', String(options.includeSubstreams));
+      }
+      if (options.eventTypes && options.eventTypes.length > 0) {
+        params.set('eventTypes', options.eventTypes.join(','));
       }
       
       const url = `/api/timeline${params.toString() ? `?${params.toString()}` : ''}`;

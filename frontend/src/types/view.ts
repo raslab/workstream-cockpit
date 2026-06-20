@@ -1,5 +1,8 @@
 // View configuration types for saved views feature
 
+export type HierarchyFilter = 'all' | 'top-level' | 'sub-streams' | 'no-parent' | 'has-substreams';
+export type TimelineHierarchyScope = 'all' | 'top-level' | 'sub-streams' | 'under-parent';
+
 export interface ViewConfig {
   id: string;
   name: string;
@@ -19,15 +22,22 @@ export interface FilterConfig {
   temporal: {
     notUpdatedToday: boolean;
   };
+  hierarchy: {
+    mode: HierarchyFilter;
+    parentId: string | null;
+    includeSubstreams: boolean;
+    timelineScope?: TimelineHierarchyScope;
+    includeStructuralEvents?: boolean;
+  };
 }
 
 export interface SortConfig {
-  field: 'name' | 'createdAt' | 'updatedAt';
+  field: 'name' | 'createdAt' | 'lastDirectUpdateAt' | 'lastActivityAt' | 'lastSubstreamActivityAt';
   direction: 'asc' | 'desc';
 }
 
 export interface GroupConfig {
-  by: 'none' | 'category';
+  by: 'none' | 'category' | 'parent';
 }
 
 export interface ViewStorage {

@@ -9,6 +9,18 @@ import { ViewTabs } from '../components/ViewManagement/ViewTabs';
 import { ViewControls } from '../components/ViewManagement/ViewControls';
 import { ViewCreateDialog } from '../components/ViewManagement/ViewCreateDialog';
 import { Workstream } from '../types/workstream';
+import { applyHierarchyFilter, getHierarchyTimestamp, groupWorkstreamsByParent } from '../utils/hierarchy';
+
+function softCategoryColor(color?: string | null) {
+  if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) return '#c5dae4';
+
+  const red = parseInt(color.slice(1, 3), 16);
+  const green = parseInt(color.slice(3, 5), 16);
+  const blue = parseInt(color.slice(5, 7), 16);
+  const mix = (channel: number) => Math.round(channel * 0.28 + 255 * 0.72);
+
+  return `rgb(${mix(red)}, ${mix(green)}, ${mix(blue)})`;
+}
 
 export default function Cockpit() {
   const location = useLocation();
@@ -52,6 +64,9 @@ export default function Cockpit() {
     tags: currentConfig.filters.tags.length > 0 ? currentConfig.filters.tags : undefined,
     categoryIds: currentConfig.filters.categoryIds.length > 0 ? currentConfig.filters.categoryIds : undefined,
     notUpdatedToday: currentConfig.filters.temporal.notUpdatedToday,
+    hierarchy: currentConfig.filters.hierarchy.mode,
+    parentId: currentConfig.filters.hierarchy.parentId,
+    includeSubstreams: currentConfig.filters.hierarchy.includeSubstreams,
   });
 
   // Helper function to get sort comparator
@@ -65,16 +80,13 @@ export default function Cockpit() {
         case 'createdAt':
           comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
-        case 'updatedAt':
+        case 'lastDirectUpdateAt':
+        case 'lastActivityAt':
+        case 'lastSubstreamActivityAt':
+          comparison = getHierarchyTimestamp(a, sortField) - getHierarchyTimestamp(b, sortField);
+          break;
         default: {
-          // Sort by latest status update time, fallback to createdAt if no status
-          const aTime = a.latestStatus
-            ? new Date(a.latestStatus.updatedAt).getTime()
-            : new Date(a.createdAt).getTime();
-          const bTime = b.latestStatus
-            ? new Date(b.latestStatus.updatedAt).getTime()
-            : new Date(b.createdAt).getTime();
-          comparison = aTime - bTime;
+          comparison = getHierarchyTimestamp(a, 'lastActivityAt') - getHierarchyTimestamp(b, 'lastActivityAt');
           break;
         }
       }
@@ -85,18 +97,29 @@ export default function Cockpit() {
   // Group workstreams by category and sort within each group
   const groupedWorkstreams = useMemo(() => {
     if (!workstreams) return [];
+    const filteredWorkstreams = applyHierarchyFilter(workstreams, currentConfig.filters.hierarchy.mode);
 
     if (currentConfig.group.by === 'none') {
       // Sort all workstreams
-      const sorted = [...workstreams].sort(
+      const sorted = [...filteredWorkstreams].sort(
         getSortComparator(currentConfig.sort.field, currentConfig.sort.direction)
       );
       return [{ key: 'all', name: null, color: null, emoji: null, sortOrder: 0, workstreams: sorted }];
     }
 
+    if (currentConfig.group.by === 'parent') {
+      return groupWorkstreamsByParent(filteredWorkstreams).map((group, index) => ({
+        ...group,
+        color: null,
+        emoji: null,
+        sortOrder: index,
+        workstreams: group.workstreams.sort(getSortComparator(currentConfig.sort.field, currentConfig.sort.direction)),
+      }));
+    }
+
     // Group by category
     const groups = new Map<string, Workstream[]>();
-    workstreams.forEach((ws) => {
+    filteredWorkstreams.forEach((ws) => {
       const key = ws.category?.id || 'untagged';
       if (!groups.has(key)) {
         groups.set(key, []);
@@ -116,7 +139,7 @@ export default function Cockpit() {
 
     // Sort groups by category sortOrder
     return result.sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [workstreams, currentConfig.sort.field, currentConfig.sort.direction, currentConfig.group.by]);
+  }, [workstreams, currentConfig.sort.field, currentConfig.sort.direction, currentConfig.group.by, currentConfig.filters.hierarchy.mode]);
 
   const handleSaveAs = () => {
     setShowSaveAsDialog(true);
@@ -172,30 +195,27 @@ export default function Cockpit() {
           )}
 
           {!isLoading && workstreams && workstreams.length > 0 && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               {groupedWorkstreams.map((group) => (
                 <div key={group.key}>
-                  {currentConfig.group.by === 'category' && (
-                    <div className="mb-2 flex items-center gap-2">
-                      {group.color && (
-                        <div
-                          className="flex h-5 w-5 items-center justify-center rounded text-sm"
-                          style={{ backgroundColor: group.color }}
-                        >
-                          {group.emoji}
-                        </div>
-                      )}
-                      <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                        {group.name || 'Untagged'}
-                      </h3>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {(currentConfig.group.by === 'category' || currentConfig.group.by === 'parent') && (
+                    <div className="mb-2 flex min-h-8 items-center gap-2">
+                      <div
+                        className="grid h-6 w-6 flex-none place-items-center rounded-md text-sm shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]"
+                        style={{ backgroundColor: softCategoryColor(group.color) }}
+                      >
+                        {group.emoji || (currentConfig.group.by === 'category' ? '🏷️' : '↳')}
+                      </div>
+                      <h2 className="text-xl font-bold leading-none text-gray-900 dark:text-gray-100">
+                        {group.name || (currentConfig.group.by === 'category' ? 'Untagged' : 'Top level / no parent')}
+                      </h2>
+                      <span className="text-base font-medium text-gray-500 dark:text-gray-400">
                         ({group.workstreams.length})
                       </span>
                     </div>
                   )}
 
-                  {/* Two-column grid layout */}
-                  <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                  <div className="grid grid-cols-1 items-stretch gap-x-5 gap-y-3.5 lg:grid-cols-2">
                     {group.workstreams.map((workstream) => (
                       <WorkstreamCard key={workstream.id} workstream={workstream} />
                     ))}

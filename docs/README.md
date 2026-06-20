@@ -10,6 +10,8 @@ Start here when you need setup details, implementation references, testing instr
 
 ## Product reference
 
+- [Product specs](./product/README.md) — durable product behavior and feature contracts.
+- [Hierarchy V1: sub-streams](./product/hierarchy-v1.md) — parent/child workstream behavior and implementation contract.
 - [Requirements document](./Workstream%20Cockpit%20-%20Requirements%20Document.md) — product requirements and user stories.
 - [Changelog 002](./CHANGELOG-002.md) — timeline export feature notes.
 - [Screenshots](./screenshots/) — current UI captures used by the README and docs.

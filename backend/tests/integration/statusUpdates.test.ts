@@ -7,6 +7,7 @@ import {
   createTestProject,
   createTestWorkstream,
   createTestStatusUpdate,
+  prisma,
 } from '../helpers/testDb';
 import { createTestApp } from '../helpers/testApp';
 import statusUpdatesRoutes from '../../src/routes/statusUpdates';
@@ -61,6 +62,26 @@ describe('Status Updates API Integration Tests', () => {
       expect(response.status).toBe(201);
       expect(response.body.status).toBe('Completed first milestone');
       expect(response.body.note).toBe('Deployed to staging environment');
+    });
+
+    it('should reject creating a status update on a closed workstream', async () => {
+      const closedWorkstream = await createTestWorkstream(project.id, {
+        name: 'Closed Workstream',
+        state: 'closed',
+      });
+
+      const response = await request(app).post('/').send({
+        workstreamId: closedWorkstream.id,
+        status: 'Should not be added',
+      });
+
+      expect(response.status).toBe(409);
+      expect(response.body.error).toBe('Cannot add status updates to a closed workstream');
+
+      const statusUpdateCount = await prisma.statusUpdate.count({
+        where: { workstreamId: closedWorkstream.id },
+      });
+      expect(statusUpdateCount).toBe(0);
     });
 
     it('should return 400 when workstreamId is missing', async () => {

@@ -7,8 +7,11 @@ import { useStatusHistory } from '../hooks/useStatusHistory';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { StatusUpdateDialog } from '../components/StatusUpdate/StatusUpdateDialog';
 import { WorkstreamEditDialog } from '../components/Workstream/WorkstreamEditDialog';
+import { WorkstreamCreateDialog } from '../components/Workstream/WorkstreamCreateDialog';
+import { ParentSelectorDialog } from '../components/Workstream/ParentSelectorDialog';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 import { TagAutocomplete } from '../components/Tag/TagAutocomplete';
+import { getBreadcrumbItems, getDirectChildCount, getLatestSubstreamActivityAt, getLatestSubstreamActivitySourceId, getStatusUpdateSource, getWorkstreamName, hierarchyErrorMessage } from '../utils/hierarchy';
 
 interface StatusEditDialogProps {
   statusUpdate: StatusUpdate;
@@ -17,12 +20,20 @@ interface StatusEditDialogProps {
   onClose: () => void;
 }
 
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) return 'Not yet';
+  return format(parseISO(value), 'MMM d, yyyy • h:mm a');
+}
+
+function RelativeTime({ value, emptyLabel = 'No updates yet' }: { value: string | null | undefined; emptyLabel?: string }) {
+  if (!value) return <span>{emptyLabel}</span>;
+  return <time dateTime={value} title={formatDateTime(value)}>{formatDistanceToNow(parseISO(value), { addSuffix: true })}</time>;
+}
+
 function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: StatusEditDialogProps) {
   const [status, setStatus] = useState(statusUpdate.status);
   const [note, setNote] = useState(statusUpdate.note || '');
   const queryClient = useQueryClient();
-  
-  // Refs for autocomplete
   const statusRef = useRef<HTMLTextAreaElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
 
@@ -74,11 +85,7 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
                 maxLength={500}
                 autoFocus
               />
-              <TagAutocomplete
-                textareaRef={statusRef}
-                value={status}
-                onChange={setStatus}
-              />
+              <TagAutocomplete textareaRef={statusRef} value={status} onChange={setStatus} />
             </div>
             <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{status.length}/500 characters</div>
           </div>
@@ -97,11 +104,7 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
                 rows={3}
                 maxLength={2000}
               />
-              <TagAutocomplete
-                textareaRef={noteRef}
-                value={note}
-                onChange={setNote}
-              />
+              <TagAutocomplete textareaRef={noteRef} value={note} onChange={setNote} />
             </div>
             <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{note.length}/2000 characters</div>
           </div>
@@ -142,7 +145,12 @@ export default function WorkstreamDetail() {
   const [showNewStatusDialog, setShowNewStatusDialog] = useState(false);
   const [editingStatus, setEditingStatus] = useState<StatusUpdate | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showCreateSubstreamDialog, setShowCreateSubstreamDialog] = useState(false);
+  const [showParentDialog, setShowParentDialog] = useState(false);
+  const [includeSubstreams, setIncludeSubstreams] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [closeConfirm, setCloseConfirm] = useState(false);
+  const [reopenConfirm, setReopenConfirm] = useState(false);
 
   const { data: workstream, isLoading: workstreamLoading } = useQuery<Workstream>({
     queryKey: ['workstream', id],
@@ -153,7 +161,7 @@ export default function WorkstreamDetail() {
     enabled: !!id,
   });
 
-  const { data: statusUpdates, isLoading: historyLoading } = useStatusHistory(id!);
+  const { data: statusUpdates, isLoading: historyLoading } = useStatusHistory(id!, { includeSubstreams });
 
   const deleteMutation = useMutation({
     mutationFn: async (statusUpdateId: string) => {
@@ -170,17 +178,40 @@ export default function WorkstreamDetail() {
     },
   });
 
+  const closeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.put(`/api/workstreams/${id}/close`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workstreams'] });
+      queryClient.invalidateQueries({ queryKey: ['workstream', id] });
+      queryClient.invalidateQueries({ queryKey: ['timeline'] });
+      setCloseConfirm(false);
+    },
+  });
+
+  const reopenMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.put(`/api/workstreams/${id}/reopen`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workstreams'] });
+      queryClient.invalidateQueries({ queryKey: ['workstream', id] });
+      queryClient.invalidateQueries({ queryKey: ['timeline'] });
+      setReopenConfirm(false);
+    },
+  });
+
   const isLoading = workstreamLoading || historyLoading;
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="animate-pulse">
           <div className="mb-6 h-8 w-64 rounded bg-gray-200 dark:bg-gray-700" />
-          <div className="space-y-4">
-            <div className="h-32 rounded-lg bg-gray-200 dark:bg-gray-700" />
-            <div className="h-32 rounded-lg bg-gray-200 dark:bg-gray-700" />
-          </div>
+          <div className="h-96 rounded-lg bg-gray-200 dark:bg-gray-700" />
         </div>
       </div>
     );
@@ -199,163 +230,301 @@ export default function WorkstreamDetail() {
     );
   }
 
+  const categoryColor = workstream.category?.color || '#94a3b8';
+  const categorySoft = `${categoryColor}22`;
+  const breadcrumbs = getBreadcrumbItems(workstream);
+  const directChildren = workstream.children || [];
+  const latestSelfUpdateAt = workstream.lastDirectUpdateAt || workstream.latestStatus?.updatedAt || statusUpdates?.find((update) => update.workstreamId === workstream.id)?.updatedAt;
+  const latestChildUpdateAt = workstream.lastSubstreamActivityAt || workstream.latestSubstreamActivitySource?.lastActivityAt || workstream.latestSubstreamActivitySource?.updatedAt;
+
   return (
     <>
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-6">
-          <button
-            onClick={() => navigate('/')}
-            className="mb-3 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <button
+          onClick={() => navigate('/')}
+          className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+        >
+          ← Back to Cockpit
+        </button>
+
+        <article
+          data-testid="workstream-detail-shell"
+          className="grid overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:grid-cols-[8px_68px_minmax(0,1fr)]"
+        >
+          <div data-testid="workstream-category-rail" className="hidden sm:block" style={{ backgroundColor: categoryColor }} />
+          <div
+            data-testid="workstream-category-icon-band"
+            className="hidden justify-center border-r border-gray-100 pt-7 dark:border-gray-700 sm:flex"
+            style={{ backgroundColor: categorySoft }}
           >
-            ← Back to Cockpit
-          </button>
-          
-          {/* Workstream header */}
-            <div className="flex items-center gap-2">
-              {workstream.category && (
-                <div
-                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-lg"
-                  style={{ backgroundColor: workstream.category.color }}
-                  title={workstream.category.name}
-                >
-                  {workstream.category.emoji}
-                </div>
-              )}
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{workstream.name}</h1>
-
-              <div className="flex-1"></div>
-
-              {/* Action buttons */}
-              <div className="flex flex-shrink-0 items-center gap-2">
-                <button
-                  onClick={() => setShowEditDialog(true)}
-                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => setShowNewStatusDialog(true)}
-                  className="whitespace-nowrap rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-                >
-                  Add Update
-                </button>
-              </div>
+            <div
+              className="flex h-11 w-11 items-center justify-center rounded-lg text-2xl shadow-inner ring-1 ring-black/10"
+              style={{ backgroundColor: categorySoft }}
+              title={workstream.category?.name || 'Uncategorized'}
+            >
+              {workstream.category?.emoji || '•'}
             </div>
-          
-          {/* Context */}
-          {workstream.context && (
-            <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
-              <MarkdownRenderer content={workstream.context} className="text-sm text-gray-700 dark:text-gray-300" />
-            </div>
-          )}
-        </div>
+          </div>
 
-        {/* Status History */}
-        <div>
-          <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Status History</h2>
+          <div className="min-w-0">
+            <header className="grid gap-7 border-b border-gray-200 px-5 py-7 dark:border-gray-700 lg:grid-cols-[minmax(0,1fr)_190px] lg:px-7">
+              <div className="min-w-0">
+                <nav aria-label="Workstream hierarchy breadcrumbs" className="mb-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                  {breadcrumbs.map((crumb, index) => {
+                    const isCurrent = crumb.id === workstream.id;
+                    return (
+                      <span key={`${crumb.id}-${index}`} className="inline-flex items-center gap-2">
+                        {index > 0 && <span className="text-gray-400 dark:text-gray-500">›</span>}
+                        {isCurrent ? (
+                          <span aria-current="page" className="text-gray-700 dark:text-gray-200">{getWorkstreamName(crumb)}</span>
+                        ) : (
+                          <Link to={`/workstreams/${crumb.id}`} className="hover:text-primary-700 hover:underline dark:hover:text-primary-300">
+                            {getWorkstreamName(crumb)}
+                          </Link>
+                        )}
+                      </span>
+                    );
+                  })}
+                </nav>
 
-          {statusUpdates && statusUpdates.length === 0 && (
-            <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
-              <p className="text-sm text-gray-500 dark:text-gray-400">No status updates yet. Add the first one!</p>
-            </div>
-          )}
-
-          <div className="space-y-4">
-            {statusUpdates?.map((update) => (
-              <div key={update.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                
-                {/* Timestamp */}
-                <div className="flex items-baseline gap-2">
-                  <time className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {format(parseISO(update.createdAt), 'MMM d, yyyy • h:mm a')}
-                  </time>
-                  {update.createdAt !== update.updatedAt && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">(edited)</span>
-                  )}
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    • {formatDistanceToNow(parseISO(update.createdAt), { addSuffix: true })}
-                  </span>
-
-                  <div className="flex-1"></div>
-
-                  {/* Action buttons */}
-                  <div className="flex justify-end gap-2 mb-3">
-                    <button
-                      onClick={() => setEditingStatus(update)}
-                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                    >
-                      Edit
-                    </button>
-                    
-                    {deleteConfirm === update.id ? (
-                      <>
-                        <button
-                          onClick={() => setDeleteConfirm(null)}
-                          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                          disabled={deleteMutation.isPending}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => deleteMutation.mutate(update.id)}
-                          className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-                          disabled={deleteMutation.isPending}
-                        >
-                          {deleteMutation.isPending ? 'Deleting...' : 'Confirm'}
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => setDeleteConfirm(update.id)}
-                        className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-gray-800 dark:text-red-300 dark:hover:bg-red-900/40"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Status */}
-                <div className="mt-2">
-                  <MarkdownRenderer content={update.status} className="text-sm text-gray-700 dark:text-gray-300" />
-                </div>
-                
-                {/* Note (if exists) */}
-                {update.note && (
-                  <div className="mt-3 border-t border-gray-900 pt-3">
-                    <MarkdownRenderer content={update.note} className="text-sm text-gray-600 dark:text-gray-400" />
+                <h1 className="max-w-3xl text-3xl font-extrabold leading-tight text-gray-900 dark:text-gray-100 sm:text-4xl">{workstream.name}</h1>
+                {workstream.context && (
+                  <div className="mt-4 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">
+                    <MarkdownRenderer content={workstream.context} />
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
-      <StatusUpdateDialog
-        workstreamId={workstream.id}
-        workstreamName={workstream.name}
-        isOpen={showNewStatusDialog}
-        onClose={() => setShowNewStatusDialog(false)}
-      />
+              <div data-testid="workstream-detail-actions" className="grid content-start gap-2 lg:w-[190px]">
+                {workstream.state !== 'closed' && (
+                  <button onClick={() => setShowNewStatusDialog(true)} className="h-10 rounded-md bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700">
+                    Add Update
+                  </button>
+                )}
+                <button onClick={() => setShowCreateSubstreamDialog(true)} className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                  Create sub-stream
+                </button>
+                <button onClick={() => setShowEditDialog(true)} className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                  Edit
+                </button>
+                <button onClick={() => setShowParentDialog(true)} className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                  {workstream.parentId ? 'Change parent' : 'Set parent'}
+                </button>
+                {workstream.state !== 'closed' ? (
+                  closeConfirm ? (
+                    <>
+                      <button onClick={() => setCloseConfirm(false)} className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700" disabled={closeMutation.isPending}>
+                        Cancel close
+                      </button>
+                      <button onClick={() => closeMutation.mutate()} className="h-10 rounded-md bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50" disabled={closeMutation.isPending}>
+                        {closeMutation.isPending ? 'Closing...' : 'Confirm close'}
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={() => setCloseConfirm(true)} className="h-10 rounded-md border border-red-300 bg-white px-4 text-sm font-semibold text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-gray-800 dark:text-red-300 dark:hover:bg-red-900/40">
+                      Close stream
+                    </button>
+                  )
+                ) : reopenConfirm ? (
+                  <>
+                    <button onClick={() => setReopenConfirm(false)} className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700" disabled={reopenMutation.isPending}>
+                      Cancel reopen
+                    </button>
+                    <button onClick={() => reopenMutation.mutate()} className="h-10 rounded-md bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50" disabled={reopenMutation.isPending}>
+                      {reopenMutation.isPending ? 'Reopening...' : 'Confirm reopen'}
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={() => setReopenConfirm(true)} className="h-10 rounded-md border border-green-300 bg-white px-4 text-sm font-semibold text-green-700 hover:bg-green-50 dark:border-green-700 dark:bg-gray-800 dark:text-green-300 dark:hover:bg-green-900/40">
+                    Reopen stream
+                  </button>
+                )}
+              </div>
+            </header>
+
+            {(closeMutation.isError || reopenMutation.isError) && (
+              <div className="mx-5 mt-5 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200 lg:mx-7">
+                {closeMutation.isError ? hierarchyErrorMessage(closeMutation.error) : hierarchyErrorMessage(reopenMutation.error)}
+              </div>
+            )}
+
+            <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
+              <section className="min-w-0 border-gray-200 px-5 py-6 dark:border-gray-700 lg:border-r lg:px-7" aria-labelledby="status-history-heading">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <h2 id="status-history-heading" className="text-2xl font-bold text-gray-900 dark:text-gray-100">Status History</h2>
+                  <label className="inline-flex items-center gap-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={includeSubstreams}
+                      onChange={(event) => setIncludeSubstreams(event.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    Include sub-stream updates
+                  </label>
+                </div>
+
+                {statusUpdates && statusUpdates.length === 0 && (
+                  <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No status updates yet. Add the first one!</p>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  {statusUpdates?.map((update) => {
+                    const updateSource = getStatusUpdateSource(update);
+                    const updateSourceId = getLatestSubstreamActivitySourceId(updateSource);
+                    const isChildUpdate = Boolean(updateSourceId && updateSourceId !== workstream.id);
+                    return (
+                      <article
+                        key={update.id}
+                        data-testid={`status-update-${update.id}`}
+                        data-source={isChildUpdate ? 'sub-stream' : 'self'}
+                        className={`rounded-lg border p-5 shadow-sm ${
+                          isChildUpdate
+                            ? 'border-blue-200 bg-blue-50/70 shadow-blue-100 dark:border-blue-800 dark:bg-blue-950/30 dark:shadow-none'
+                            : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
+                        }`}
+                      >
+                        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+                          <div className="grid gap-2">
+                            <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                              <time dateTime={update.createdAt} title={formatDateTime(update.createdAt)}>{formatDistanceToNow(parseISO(update.createdAt), { addSuffix: true })}</time>
+                              {update.createdAt !== update.updatedAt && <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">(edited)</span>}
+                              <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">• {isChildUpdate ? 'from child' : 'self update'}</span>
+                            </div>
+                            {isChildUpdate && updateSource && updateSourceId && (
+                              <Link to={`/workstreams/${updateSourceId}`} className="w-fit rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700 hover:underline dark:bg-blue-900 dark:text-blue-200">
+                                Sub-stream: {getWorkstreamName(updateSource)}
+                              </Link>
+                            )}
+                          </div>
+
+                          <div className="flex gap-2">
+                            {isChildUpdate && updateSourceId ? (
+                              <Link to={`/workstreams/${updateSourceId}`} className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                                Open child
+                              </Link>
+                            ) : (
+                              <>
+                                <button onClick={() => setEditingStatus(update)} className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                                  Edit
+                                </button>
+                                {deleteConfirm === update.id ? (
+                                  <>
+                                    <button onClick={() => setDeleteConfirm(null)} className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700" disabled={deleteMutation.isPending}>
+                                      Cancel
+                                    </button>
+                                    <button onClick={() => deleteMutation.mutate(update.id)} className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50" disabled={deleteMutation.isPending}>
+                                      {deleteMutation.isPending ? 'Deleting...' : 'Confirm'}
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button onClick={() => setDeleteConfirm(update.id)} className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-gray-800 dark:text-red-300 dark:hover:bg-red-900/40">
+                                    Delete
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <MarkdownRenderer content={update.status} className="text-sm leading-6 text-gray-700 dark:text-gray-300" />
+                        {update.note && (
+                          <div className="mt-4 border-t border-gray-900/80 pt-4 dark:border-gray-200/40">
+                            <MarkdownRenderer content={update.note} className="text-sm leading-6 text-gray-600 dark:text-gray-400" />
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <aside data-testid="workstream-detail-sidebar" className="bg-gray-50 px-5 py-6 dark:bg-gray-900/40 lg:px-6">
+                <section className="border-b border-gray-200 pb-6 dark:border-gray-700">
+                  <h3 className="mb-3 flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100">
+                    Sub-streams <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{getDirectChildCount(workstream)}</span>
+                  </h3>
+                  <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">Direct children of this stream. No sibling or neighbor hierarchy shown here.</p>
+                  <div className="mt-4 grid gap-3">
+                    {directChildren.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">No direct sub-streams yet.</p>}
+                    {directChildren.map((child) => {
+                      const childActivity = getLatestSubstreamActivityAt(child) || child.lastActivityAt;
+                      return (
+                        <Link key={child.id} to={`/workstreams/${child.id}`} className="rounded-lg border border-gray-200 bg-white p-3 hover:border-primary-300 hover:shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:hover:border-primary-700">
+                          <div className="flex justify-between gap-3 text-sm font-bold text-gray-900 dark:text-gray-100">
+                            <span>{getWorkstreamName(child)}</span>
+                            <span className="h-fit rounded-full bg-gray-100 px-2 py-1 text-[11px] font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-300">{child.state || 'active'}</span>
+                          </div>
+                          <div className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Latest update: <RelativeTime value={childActivity} /></div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                <section className="pt-6">
+                  <h3 className="mb-4 text-lg font-bold text-gray-900 dark:text-gray-100">Metadata</h3>
+                  <dl className="grid gap-4">
+                    <div>
+                      <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Category</dt>
+                      <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">{workstream.category?.name || 'Uncategorized'}</dd>
+                    </div>
+                    {workstream.parent && (
+                      <div>
+                        <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Parent stream</dt>
+                        <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                          <Link to={`/workstreams/${workstream.parent.id}`} className="text-primary-700 hover:underline dark:text-primary-300">
+                            {getWorkstreamName(workstream.parent)}
+                          </Link>
+                        </dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Created</dt>
+                      <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200"><RelativeTime value={workstream.createdAt} /></dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Latest self update</dt>
+                      <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200"><RelativeTime value={latestSelfUpdateAt} /></dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Latest child update</dt>
+                      <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        {latestChildUpdateAt ? (
+                          <>
+                            <RelativeTime value={latestChildUpdateAt} />
+                            {workstream.latestSubstreamActivitySource && (
+                              <>
+                                {' '}•{' '}
+                                <Link to={`/workstreams/${getLatestSubstreamActivitySourceId(workstream.latestSubstreamActivitySource) || workstream.latestSubstreamActivitySource.id}`} className="text-primary-700 hover:underline dark:text-primary-300">
+                                  {getWorkstreamName(workstream.latestSubstreamActivitySource)}
+                                </Link>
+                              </>
+                            )}
+                          </>
+                        ) : 'No child updates yet'}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+              </aside>
+            </div>
+          </div>
+        </article>
+      </main>
+
+      <StatusUpdateDialog workstreamId={workstream.id} workstreamName={workstream.name} isOpen={showNewStatusDialog} onClose={() => setShowNewStatusDialog(false)} />
 
       {editingStatus && (
-        <StatusEditDialog
-          statusUpdate={editingStatus}
-          workstreamId={workstream.id}
-          isOpen={!!editingStatus}
-          onClose={() => setEditingStatus(null)}
-        />
+        <StatusEditDialog statusUpdate={editingStatus} workstreamId={workstream.id} isOpen={!!editingStatus} onClose={() => setEditingStatus(null)} />
       )}
 
-      {workstream && (
-        <WorkstreamEditDialog
-          workstream={workstream}
-          isOpen={showEditDialog}
-          onClose={() => setShowEditDialog(false)}
-        />
-      )}
+      <WorkstreamEditDialog workstream={workstream} isOpen={showEditDialog} onClose={() => setShowEditDialog(false)} />
+
+      <WorkstreamCreateDialog isOpen={showCreateSubstreamDialog} onClose={() => setShowCreateSubstreamDialog(false)} parent={workstream} />
+
+      <ParentSelectorDialog workstream={workstream} isOpen={showParentDialog} onClose={() => setShowParentDialog(false)} />
     </>
   );
 }

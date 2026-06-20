@@ -80,6 +80,7 @@ export async function cleanDatabase(): Promise<void> {
   const tables = [
     'personal_access_tokens',
     'views',
+    'workstream_events',
     'status_updates',
     'workstreams',
     'tags',
@@ -169,6 +170,7 @@ export async function createTestWorkstream(
   data?: {
     name?: string;
     categoryId?: string;
+    parentId?: string | null;
     context?: string;
     state?: string;
   }
@@ -178,6 +180,7 @@ export async function createTestWorkstream(
       projectId,
       name: data?.name || 'Test Workstream',
       categoryId: data?.categoryId,
+      parentId: data?.parentId,
       context: data?.context,
       state: data?.state || 'active',
     },
