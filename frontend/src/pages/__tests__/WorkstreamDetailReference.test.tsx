@@ -85,8 +85,8 @@ const updates: StatusUpdate[] = [
   {
     id: 'self-update',
     workstreamId: 'current-stream',
-    status: 'One more production sample is needed before closing the regression.',
-    note: 'Need one more canary window.',
+    status: 'One more production sample is needed before closing the regression. #Production',
+    note: 'Need one more canary window. #Canary',
     createdAt: '2026-06-18T11:00:00Z',
     updatedAt: '2026-06-18T11:00:00Z',
     sourceWorkstream: { id: 'current-stream', name: 'Payments latency regression follow-up' },
@@ -117,7 +117,7 @@ describe('WorkstreamDetail reference redesign', () => {
     useStatusHistoryMock.mockReturnValue({ data: updates, isLoading: false });
   });
 
-  it('renders the reference detail shell with category rail, icon band, deep breadcrumbs, title, context, and tags', async () => {
+  it('renders the reference detail shell with category rail, icon band, deep breadcrumbs, title, and inline context hashtags without duplicated tag pills', async () => {
     renderDetail();
 
     expect(await screen.findByTestId('workstream-detail-shell')).toBeInTheDocument();
@@ -133,9 +133,10 @@ describe('WorkstreamDetail reference redesign', () => {
     expect(within(breadcrumbs).getByText('Payments latency regression follow-up')).toHaveAttribute('aria-current', 'page');
 
     expect(screen.getByRole('heading', { level: 1, name: workstream.name })).toBeInTheDocument();
-    expect(screen.getByText(/Goal: track mitigation work/)).toBeInTheDocument();
-    expect(screen.getByText('#Customers')).toBeInTheDocument();
-    expect(screen.getByText('#Latency')).toBeInTheDocument();
+    expect(screen.getByText(/Goal: track mitigation work/)).toHaveTextContent('#Customers #Latency #Observability');
+    expect(screen.queryByLabelText('Workstream tags')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^#Customers$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^#Latency$/)).not.toBeInTheDocument();
   });
 
   it('keeps primary actions reachable as a right-side stack and exposes the include-substreams control', async () => {
@@ -153,7 +154,7 @@ describe('WorkstreamDetail reference redesign', () => {
     expect(screen.getByRole('checkbox', { name: /include sub-stream updates/i })).toBeInTheDocument();
   });
 
-  it('marks sub-stream updates with source and open-child affordance while own updates retain edit/delete actions', async () => {
+  it('marks sub-stream updates with source and open-child affordance while own updates retain edit/delete actions and inline hashtags stay unduplicated', async () => {
     renderDetail();
     await screen.findByTestId('workstream-detail-shell');
 
@@ -161,11 +162,17 @@ describe('WorkstreamDetail reference redesign', () => {
     expect(childUpdate).toHaveAttribute('data-source', 'sub-stream');
     expect(within(childUpdate).getByText('Sub-stream: run CoE')).toBeInTheDocument();
     expect(within(childUpdate).getByRole('link', { name: 'Open child' })).toHaveAttribute('href', '/workstreams/child-1');
+    expect(childUpdate).toHaveTextContent('#Production');
+    expect(within(childUpdate).queryByText(/^#Production$/)).not.toBeInTheDocument();
 
     const ownUpdate = screen.getByTestId('status-update-self-update');
     expect(ownUpdate).toHaveAttribute('data-source', 'self');
     expect(within(ownUpdate).getByRole('button', { name: 'Edit' })).toBeInTheDocument();
     expect(within(ownUpdate).getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+    expect(ownUpdate).toHaveTextContent('#Production');
+    expect(ownUpdate).toHaveTextContent('#Canary');
+    expect(within(ownUpdate).queryByText(/^#Production$/)).not.toBeInTheDocument();
+    expect(within(ownUpdate).queryByText(/^#Canary$/)).not.toBeInTheDocument();
   });
 
   it('renders sidebar direct sub-streams and metadata without sibling hierarchy', async () => {

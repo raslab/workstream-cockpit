@@ -20,16 +20,6 @@ interface StatusEditDialogProps {
   onClose: () => void;
 }
 
-const tagPalette = ['#f97316', '#0f9f8f', '#2686c8', '#7267d8'];
-
-function extractHashTags(...values: Array<string | null | undefined>): string[] {
-  const tags = new Set<string>();
-  values.forEach((value) => {
-    value?.match(/#[\p{L}\p{N}_-]+(?:\s[\p{L}\p{N}_-]+)?/gu)?.forEach((tag) => tags.add(tag.replace(/^#/, '')));
-  });
-  return Array.from(tags);
-}
-
 function formatDateTime(value: string | null | undefined): string {
   if (!value) return 'Not yet';
   return format(parseISO(value), 'MMM d, yyyy • h:mm a');
@@ -243,7 +233,6 @@ export default function WorkstreamDetail() {
   const categoryColor = workstream.category?.color || '#94a3b8';
   const categorySoft = `${categoryColor}22`;
   const breadcrumbs = getBreadcrumbItems(workstream);
-  const headerTags = workstream.allTags?.length ? workstream.allTags : extractHashTags(workstream.context);
   const directChildren = workstream.children || [];
   const latestSelfUpdateAt = workstream.lastDirectUpdateAt || workstream.latestStatus?.updatedAt || statusUpdates?.find((update) => update.workstreamId === workstream.id)?.updatedAt;
   const latestChildUpdateAt = workstream.lastSubstreamActivityAt || workstream.latestSubstreamActivitySource?.lastActivityAt || workstream.latestSubstreamActivitySource?.updatedAt;
@@ -302,15 +291,6 @@ export default function WorkstreamDetail() {
                 {workstream.context && (
                   <div className="mt-4 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">
                     <MarkdownRenderer content={workstream.context} />
-                  </div>
-                )}
-                {headerTags.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-2" aria-label="Workstream tags">
-                    {headerTags.map((tag, index) => (
-                      <span key={tag} className="inline-flex min-h-[27px] items-center rounded-full px-3 text-xs font-bold text-white" style={{ backgroundColor: tagPalette[index % tagPalette.length] }}>
-                        #{tag}
-                      </span>
-                    ))}
                   </div>
                 )}
               </div>
@@ -392,8 +372,6 @@ export default function WorkstreamDetail() {
                     const updateSource = getStatusUpdateSource(update);
                     const updateSourceId = getLatestSubstreamActivitySourceId(updateSource);
                     const isChildUpdate = Boolean(updateSourceId && updateSourceId !== workstream.id);
-                    const updateTags = extractHashTags(update.status, update.note);
-
                     return (
                       <article
                         key={update.id}
@@ -452,15 +430,6 @@ export default function WorkstreamDetail() {
                         {update.note && (
                           <div className="mt-4 border-t border-gray-900/80 pt-4 dark:border-gray-200/40">
                             <MarkdownRenderer content={update.note} className="text-sm leading-6 text-gray-600 dark:text-gray-400" />
-                          </div>
-                        )}
-                        {updateTags.length > 0 && (
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            {updateTags.map((tag, index) => (
-                              <span key={tag} className="inline-flex min-h-[24px] items-center rounded-full px-2.5 text-xs font-bold text-white" style={{ backgroundColor: tagPalette[index % tagPalette.length] }}>
-                                #{tag}
-                              </span>
-                            ))}
                           </div>
                         )}
                       </article>
