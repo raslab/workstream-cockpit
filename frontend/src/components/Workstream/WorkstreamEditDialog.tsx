@@ -79,7 +79,7 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
 
           <div className="mb-4">
             <SelectMenu
-              label="Category"
+              label="Category (optional)"
               value={categoryId}
               onChange={setCategoryId}
               buttonClassName="w-full"

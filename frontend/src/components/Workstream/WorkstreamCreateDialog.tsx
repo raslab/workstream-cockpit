@@ -116,7 +116,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
 
           <div className="mb-4">
             <SelectMenu
-              label="Tag (optional)"
+              label="Category (optional)"
               value={categoryId}
               onChange={setCategoryId}
               buttonClassName="w-full"
