@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import type { FilterConfig, SortConfig, GroupConfig } from '../../types/view';
 import { useCategories } from '../../hooks/useCategories';
 import { useTags } from '../../api/tags';
+import { SelectMenu } from '../UI/SelectMenu';
 
 interface FilterPanelProps {
   filters: FilterConfig;
@@ -175,21 +176,22 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
         {/* Hierarchy Section */}
         <div className="border-b border-gray-200 p-3 dark:border-gray-700">
           <h4 className="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">Hierarchy</h4>
-          <select
-            aria-label="Hierarchy filter"
+          <SelectMenu
+            label="Hierarchy filter"
             value={localFilters.hierarchy.mode}
-            onChange={(e) => setLocalFilters({
+            onChange={(mode) => setLocalFilters({
               ...localFilters,
-              hierarchy: { ...localFilters.hierarchy, mode: e.target.value as FilterConfig['hierarchy']['mode'] },
+              hierarchy: { ...localFilters.hierarchy, mode },
             })}
-            className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-          >
-            <option value="all">All streams</option>
-            <option value="top-level">Top-level only</option>
-            <option value="sub-streams">Sub-streams only</option>
-            <option value="no-parent">No parent</option>
-            <option value="has-substreams">Has sub-streams</option>
-          </select>
+            buttonClassName="w-full"
+            options={[
+              { value: 'all', label: 'All streams' },
+              { value: 'top-level', label: 'Top-level only' },
+              { value: 'sub-streams', label: 'Sub-streams only' },
+              { value: 'no-parent', label: 'No parent' },
+              { value: 'has-substreams', label: 'Has sub-streams' },
+            ]}
+          />
           <label className="mt-2 flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"

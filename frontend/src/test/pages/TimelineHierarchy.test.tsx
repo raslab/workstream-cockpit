@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
@@ -62,11 +62,47 @@ describe('Timeline hierarchy rendering', () => {
     expect(screen.getByText('Created under Flat parent')).toBeInTheDocument();
   });
 
+  it('uses custom listbox controls for hierarchy and activity filters', () => {
+    render(<MemoryRouter><Timeline /></MemoryRouter>);
+
+    const hierarchyControl = screen.getByRole('button', { name: /Hierarchy scope.*All streams/ });
+    const activityControl = screen.getByRole('button', { name: /Activity type.*All activity/ });
+
+    expect(hierarchyControl.tagName).toBe('BUTTON');
+    expect(activityControl.tagName).toBe('BUTTON');
+    expect(hierarchyControl).toHaveAttribute('aria-haspopup', 'listbox');
+    expect(activityControl).toHaveAttribute('aria-haspopup', 'listbox');
+    expect(document.querySelector('#hierarchyScope')).toBeNull();
+    expect(document.querySelector('#activityFilter')).toBeNull();
+
+    fireEvent.click(activityControl);
+    expect(screen.getByRole('listbox', { name: 'Activity type' })).toBeInTheDocument();
+  });
+
   it('exposes activity filtering and sends selected event type to the timeline query', () => {
     render(<MemoryRouter><Timeline /></MemoryRouter>);
 
-    fireEvent.change(screen.getByLabelText('Activity type'), { target: { value: 'parent_changed' } });
+    fireEvent.click(screen.getByRole('button', { name: /Activity type.*All activity/ }));
+    fireEvent.click(within(screen.getByRole('listbox', { name: 'Activity type' })).getByRole('option', { name: 'Parent changes' }));
 
     expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({ eventTypes: ['parent_changed'] }));
+  });
+
+  it('sends selected hierarchy scope and parent id to the timeline query', () => {
+    render(<MemoryRouter><Timeline /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: /Hierarchy scope.*All streams/ }));
+    fireEvent.click(within(screen.getByRole('listbox', { name: 'Hierarchy scope' })).getByRole('option', { name: 'Under parent' }));
+
+    const parentControl = screen.getByRole('button', { name: /Parent stream.*Select a parent/ });
+    expect(parentControl.tagName).toBe('BUTTON');
+
+    fireEvent.click(parentControl);
+    fireEvent.click(within(screen.getByRole('listbox', { name: 'Parent stream' })).getByRole('option', { name: 'Parent stream' }));
+
+    expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      hierarchyScope: 'under-parent',
+      parentId: 'parent-1',
+    }));
   });
 });

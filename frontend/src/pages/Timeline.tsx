@@ -6,6 +6,7 @@ import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 import { getWorkstreamName } from '../utils/hierarchy';
+import { SelectMenu } from '../components/UI/SelectMenu';
 
 export default function Timeline() {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
@@ -129,50 +130,46 @@ export default function Timeline() {
       <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label htmlFor="hierarchyScope" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Hierarchy scope</label>
-            <select
-              id="hierarchyScope"
+            <SelectMenu
+              label="Hierarchy scope"
               value={hierarchyScope}
-              onChange={(event) => setHierarchyScope(event.target.value as typeof hierarchyScope)}
-              className="rounded-md border border-gray-300 p-2 pr-8 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-            >
-              <option value="all">All streams</option>
-              <option value="top-level">Top-level only</option>
-              <option value="sub-streams">Sub-streams only</option>
-              <option value="under-parent">Under parent</option>
-            </select>
+              onChange={(nextScope) => setHierarchyScope(nextScope)}
+              options={[
+                { value: 'all', label: 'All streams' },
+                { value: 'top-level', label: 'Top-level only' },
+                { value: 'sub-streams', label: 'Sub-streams only' },
+                { value: 'under-parent', label: 'Under parent' },
+              ]}
+            />
           </div>
           {hierarchyScope === 'under-parent' && (
             <div>
-              <label htmlFor="parentStream" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Parent stream</label>
-              <select
-                id="parentStream"
+              <SelectMenu
+                label="Parent stream"
                 value={parentId}
-                onChange={(event) => setParentId(event.target.value)}
-                className="min-w-64 rounded-md border border-gray-300 p-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-              >
-                <option value="">Select a parent</option>
-                {workstreams.map((stream) => (
-                  <option key={stream.id} value={stream.id}>{getWorkstreamName(stream)}</option>
-                ))}
-              </select>
+                onChange={setParentId}
+                buttonClassName="min-w-64"
+                options={[
+                  { value: '', label: 'Select a parent' },
+                  ...workstreams.map((stream) => ({ value: stream.id, label: getWorkstreamName(stream) })),
+                ]}
+              />
             </div>
           )}
           <div>
-            <label htmlFor="activityFilter" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Activity type</label>
-            <select
-              id="activityFilter"
+            <SelectMenu
+              label="Activity type"
               value={activityFilter}
-              onChange={(event) => setActivityFilter(event.target.value as typeof activityFilter)}
-              className="rounded-md border border-gray-300 p-2 pr-8 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-            >
-              <option value="all">All activity</option>
-              <option value="status_update">Status updates</option>
-              <option value="workstream_created">Created</option>
-              <option value="workstream_closed">Closed</option>
-              <option value="parent_changed">Parent changes</option>
-              <option value="sub_stream_created">Sub-stream created</option>
-            </select>
+              onChange={(nextActivity) => setActivityFilter(nextActivity)}
+              options={[
+                { value: 'all', label: 'All activity' },
+                { value: 'status_update', label: 'Status updates' },
+                { value: 'workstream_created', label: 'Created' },
+                { value: 'workstream_closed', label: 'Closed' },
+                { value: 'parent_changed', label: 'Parent changes' },
+                { value: 'sub_stream_created', label: 'Sub-stream created' },
+              ]}
+            />
           </div>
           <label className="inline-flex items-center gap-2 pb-2 text-sm text-gray-700 dark:text-gray-300">
             <input

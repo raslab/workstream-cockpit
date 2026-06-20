@@ -5,6 +5,7 @@ import { useCategories } from '../../hooks/useCategories';
 import { TagAutocomplete } from '../Tag/TagAutocomplete';
 import type { WorkstreamSummary } from '../../types/workstream';
 import { CLOSED_PARENT_SUBSTREAM_MESSAGE, hierarchyErrorMessage } from '../../utils/hierarchy';
+import { SelectMenu } from '../UI/SelectMenu';
 
 interface WorkstreamCreateDialogProps {
   isOpen: boolean;
@@ -114,22 +115,16 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
           </div>
 
           <div className="mb-4">
-            <label htmlFor="categoryId" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Tag (optional)
-            </label>
-            <select
-              id="categoryId"
+            <SelectMenu
+              label="Tag (optional)"
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-            >
-              <option value="">No category</option>
-              {categories?.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+              onChange={setCategoryId}
+              buttonClassName="w-full"
+              options={[
+                { value: '', label: 'No category' },
+                ...(categories?.map((category) => ({ value: category.id, label: category.name })) ?? []),
+              ]}
+            />
             {categoryId && categories && (
               <div className="mt-1 flex items-center gap-2">
                 <div
