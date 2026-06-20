@@ -104,7 +104,7 @@ export function SelectMenu<T extends string>({
     if (event.key === 'ArrowUp') {
       event.preventDefault();
       setIsOpen(true);
-      setActiveIndex(enabledOptionIndexes.at(-1) ?? selectedIndex);
+      setActiveIndex(enabledOptionIndexes[enabledOptionIndexes.length - 1] ?? selectedIndex);
     }
   };
 
@@ -142,7 +142,7 @@ export function SelectMenu<T extends string>({
 
     if (event.key === 'End') {
       event.preventDefault();
-      setActiveIndex(enabledOptionIndexes.at(-1) ?? 0);
+      setActiveIndex(enabledOptionIndexes[enabledOptionIndexes.length - 1] ?? 0);
     }
   };
 
