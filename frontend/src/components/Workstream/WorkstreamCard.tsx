@@ -9,6 +9,7 @@ import { MarkdownRenderer } from '../Markdown/MarkdownRenderer';
 import { TagChip } from '../Tag/TagChip';
 import { WorkstreamCreateDialog } from './WorkstreamCreateDialog';
 import { ParentSelectorDialog } from './ParentSelectorDialog';
+import { getCategoryIconBandBackground } from '../../utils/categoryColor';
 
 interface WorkstreamCardProps {
   workstream: Workstream;
@@ -16,21 +17,7 @@ interface WorkstreamCardProps {
 
 const TAG_GAP_PX = 6;
 const DEFAULT_CATEGORY_COLOR = '#5b8ca0';
-const DEFAULT_CATEGORY_SOFT = '#c5dae4';
 const DEFAULT_CATEGORY_EMOJI = '🏷️';
-
-function hexToSoftColor(color?: string | null) {
-  if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) {
-    return DEFAULT_CATEGORY_SOFT;
-  }
-
-  const red = parseInt(color.slice(1, 3), 16);
-  const green = parseInt(color.slice(3, 5), 16);
-  const blue = parseInt(color.slice(5, 7), 16);
-  const mix = (channel: number) => Math.round(channel * 0.28 + 255 * 0.72);
-
-  return `rgb(${mix(red)}, ${mix(green)}, ${mix(blue)})`;
-}
 
 function formatActivity(value?: string | null) {
   if (!value) {
@@ -211,7 +198,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
   const tags = allTags || [];
   const hasTags = tags.length > 0;
   const categoryColor = category?.color || DEFAULT_CATEGORY_COLOR;
-  const categorySoftColor = hexToSoftColor(categoryColor);
+  const categorySoftColor = getCategoryIconBandBackground(categoryColor, DEFAULT_CATEGORY_COLOR);
   const categoryEmoji = category?.emoji || DEFAULT_CATEGORY_EMOJI;
   const directActivityAt = workstream.lastDirectUpdateAt || latestStatus?.updatedAt;
   const sourceName = getSourceName(workstream);

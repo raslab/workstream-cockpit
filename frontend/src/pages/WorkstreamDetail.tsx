@@ -12,6 +12,7 @@ import { ParentSelectorDialog } from '../components/Workstream/ParentSelectorDia
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 import { TagAutocomplete } from '../components/Tag/TagAutocomplete';
 import { getBreadcrumbItems, getDirectChildCount, getLatestSubstreamActivityAt, getLatestSubstreamActivitySourceId, getStatusUpdateSource, getWorkstreamName, hierarchyErrorMessage } from '../utils/hierarchy';
+import { getCategoryIconBandBackground } from '../utils/categoryColor';
 
 interface StatusEditDialogProps {
   statusUpdate: StatusUpdate;
@@ -231,7 +232,7 @@ export default function WorkstreamDetail() {
   }
 
   const categoryColor = workstream.category?.color || '#94a3b8';
-  const categorySoft = `${categoryColor}22`;
+  const categorySoft = getCategoryIconBandBackground(categoryColor);
   const breadcrumbs = getBreadcrumbItems(workstream);
   const directChildren = workstream.children || [];
   const latestSelfUpdateAt = workstream.lastDirectUpdateAt || workstream.latestStatus?.updatedAt || statusUpdates?.find((update) => update.workstreamId === workstream.id)?.updatedAt;

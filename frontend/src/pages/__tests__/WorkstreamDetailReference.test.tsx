@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { StatusUpdate, Workstream } from '../../types/workstream';
+import { getCategoryIconBandBackground } from '../../utils/categoryColor';
 
 const apiGetMock = vi.hoisted(() => vi.fn());
 const useStatusHistoryMock = vi.hoisted(() => vi.fn());
@@ -124,7 +125,11 @@ describe('WorkstreamDetail reference redesign', () => {
 
     expect(await screen.findByTestId('workstream-detail-shell')).toBeInTheDocument();
     expect(screen.getByTestId('workstream-category-rail')).toBeInTheDocument();
-    expect(screen.getByTestId('workstream-category-icon-band')).toHaveTextContent('🚀');
+    const expectedCategoryBandBackground = getCategoryIconBandBackground(workstream.category?.color);
+    const iconBand = screen.getByTestId('workstream-category-icon-band');
+    expect(iconBand).toHaveTextContent('🚀');
+    expect(iconBand).toHaveStyle({ backgroundColor: expectedCategoryBandBackground });
+    expect(iconBand.firstElementChild).toHaveStyle({ backgroundColor: expectedCategoryBandBackground });
     expect(screen.getByRole('button', { name: /back to cockpit/i })).toBeInTheDocument();
 
     const breadcrumbs = screen.getByLabelText('Workstream hierarchy breadcrumbs');
