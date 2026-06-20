@@ -93,6 +93,7 @@ model Workstream {
   id         String    @id @default(uuid())
   projectId  String    @map("project_id")
   categoryId String?   @map("category_id")
+  parentId   String?   @map("parent_id")
   name       String
   context    String?   @db.Text
   state      String    @default("active")
@@ -101,12 +102,31 @@ model Workstream {
 
   project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  parent        Workstream?    @relation("WorkstreamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children      Workstream[]   @relation("WorkstreamHierarchy")
   statusUpdates StatusUpdate[]
+  events        WorkstreamEvent[]
 
   @@index([projectId])
   @@index([projectId, state])
   @@index([categoryId])
+  @@index([parentId])
   @@map("workstreams")
+}
+
+model WorkstreamEvent {
+  id           String   @id @default(uuid())
+  workstreamId String   @map("workstream_id")
+  eventType    String   @map("event_type")
+  metadata     Json
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  workstream Workstream @relation(fields: [workstreamId], references: [id], onDelete: Cascade)
+
+  @@index([workstreamId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("workstream_events")
 }
 
 model StatusUpdate {

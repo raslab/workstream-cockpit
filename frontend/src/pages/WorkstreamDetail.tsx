@@ -7,8 +7,13 @@ import { useStatusHistory } from '../hooks/useStatusHistory';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { StatusUpdateDialog } from '../components/StatusUpdate/StatusUpdateDialog';
 import { WorkstreamEditDialog } from '../components/Workstream/WorkstreamEditDialog';
+import { WorkstreamCreateDialog } from '../components/Workstream/WorkstreamCreateDialog';
+import { ParentSelectorDialog } from '../components/Workstream/ParentSelectorDialog';
+import { SubstreamsSection } from '../components/Workstream/SubstreamsSection';
+import { WorkstreamBreadcrumbs } from '../components/Workstream/WorkstreamBreadcrumbs';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 import { TagAutocomplete } from '../components/Tag/TagAutocomplete';
+import { getLatestSubstreamActivitySourceId, getStatusUpdateSource, getWorkstreamName, hierarchyErrorMessage } from '../utils/hierarchy';
 
 interface StatusEditDialogProps {
   statusUpdate: StatusUpdate;
@@ -142,7 +147,12 @@ export default function WorkstreamDetail() {
   const [showNewStatusDialog, setShowNewStatusDialog] = useState(false);
   const [editingStatus, setEditingStatus] = useState<StatusUpdate | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showCreateSubstreamDialog, setShowCreateSubstreamDialog] = useState(false);
+  const [showParentDialog, setShowParentDialog] = useState(false);
+  const [includeSubstreams, setIncludeSubstreams] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [closeConfirm, setCloseConfirm] = useState(false);
+  const [reopenConfirm, setReopenConfirm] = useState(false);
 
   const { data: workstream, isLoading: workstreamLoading } = useQuery<Workstream>({
     queryKey: ['workstream', id],
@@ -153,7 +163,7 @@ export default function WorkstreamDetail() {
     enabled: !!id,
   });
 
-  const { data: statusUpdates, isLoading: historyLoading } = useStatusHistory(id!);
+  const { data: statusUpdates, isLoading: historyLoading } = useStatusHistory(id!, { includeSubstreams });
 
   const deleteMutation = useMutation({
     mutationFn: async (statusUpdateId: string) => {
@@ -167,6 +177,32 @@ export default function WorkstreamDetail() {
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
       queryClient.invalidateQueries({ queryKey: ['timeline'] });
       setDeleteConfirm(null);
+    },
+  });
+
+  const closeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.put(`/api/workstreams/${id}/close`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workstreams'] });
+      queryClient.invalidateQueries({ queryKey: ['workstream', id] });
+      queryClient.invalidateQueries({ queryKey: ['timeline'] });
+      setCloseConfirm(false);
+    },
+  });
+
+  const reopenMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.put(`/api/workstreams/${id}/reopen`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workstreams'] });
+      queryClient.invalidateQueries({ queryKey: ['workstream', id] });
+      queryClient.invalidateQueries({ queryKey: ['timeline'] });
+      setReopenConfirm(false);
     },
   });
 
@@ -212,7 +248,8 @@ export default function WorkstreamDetail() {
           </button>
           
           {/* Workstream header */}
-            <div className="flex items-center gap-2">
+          <WorkstreamBreadcrumbs workstream={workstream} />
+          <div className="mt-2 flex items-center gap-2">
               {workstream.category && (
                 <div
                   className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-lg"
@@ -227,7 +264,73 @@ export default function WorkstreamDetail() {
               <div className="flex-1"></div>
 
               {/* Action buttons */}
-              <div className="flex flex-shrink-0 items-center gap-2">
+              <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setShowParentDialog(true)}
+                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  {workstream.parentId ? 'Change parent' : 'Set parent'}
+                </button>
+                <button
+                  onClick={() => setShowCreateSubstreamDialog(true)}
+                  className="rounded-md border border-primary-300 bg-white px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 dark:border-primary-700 dark:bg-gray-800 dark:text-primary-300 dark:hover:bg-primary-900/40"
+                >
+                  Create sub-stream
+                </button>
+                {workstream.state !== 'closed' && (
+                  closeConfirm ? (
+                    <>
+                      <button
+                        onClick={() => setCloseConfirm(false)}
+                        className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                        disabled={closeMutation.isPending}
+                      >
+                        Cancel close
+                      </button>
+                      <button
+                        onClick={() => closeMutation.mutate()}
+                        className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                        disabled={closeMutation.isPending}
+                      >
+                        {closeMutation.isPending ? 'Closing...' : 'Confirm close'}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setCloseConfirm(true)}
+                      className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-gray-800 dark:text-red-300 dark:hover:bg-red-900/40"
+                    >
+                      Close stream
+                    </button>
+                  )
+                )}
+                {workstream.state === 'closed' && (
+                  reopenConfirm ? (
+                    <>
+                      <button
+                        onClick={() => setReopenConfirm(false)}
+                        className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                        disabled={reopenMutation.isPending}
+                      >
+                        Cancel reopen
+                      </button>
+                      <button
+                        onClick={() => reopenMutation.mutate()}
+                        className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                        disabled={reopenMutation.isPending}
+                      >
+                        {reopenMutation.isPending ? 'Reopening...' : 'Confirm reopen'}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setReopenConfirm(true)}
+                      className="rounded-md border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50 dark:border-green-700 dark:bg-gray-800 dark:text-green-300 dark:hover:bg-green-900/40"
+                    >
+                      Reopen stream
+                    </button>
+                  )
+                )}
                 <button
                   onClick={() => setShowEditDialog(true)}
                   className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -242,6 +345,17 @@ export default function WorkstreamDetail() {
                 </button>
               </div>
             </div>
+
+          {closeMutation.isError && (
+            <div className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+              {hierarchyErrorMessage(closeMutation.error)}
+            </div>
+          )}
+          {reopenMutation.isError && (
+            <div className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+              {hierarchyErrorMessage(reopenMutation.error)}
+            </div>
+          )}
           
           {/* Context */}
           {workstream.context && (
@@ -251,9 +365,41 @@ export default function WorkstreamDetail() {
           )}
         </div>
 
+        {(workstream.parent || workstream.lastSubstreamActivityAt || workstream.latestSubstreamActivitySource) && (
+          <section className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Hierarchy activity</h2>
+            {workstream.parent && (
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                Parent: <Link to={`/workstreams/${workstream.parent.id}`} className="font-medium text-primary-700 hover:underline dark:text-primary-300">{getWorkstreamName(workstream.parent)}</Link>
+              </p>
+            )}
+            {workstream.lastSubstreamActivityAt && (
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                Latest sub-stream activity: {formatDistanceToNow(parseISO(workstream.lastSubstreamActivityAt), { addSuffix: true })}
+                {workstream.latestSubstreamActivitySource && (
+                  <> from <Link to={`/workstreams/${getLatestSubstreamActivitySourceId(workstream.latestSubstreamActivitySource)}`} className="font-medium text-primary-700 hover:underline dark:text-primary-300">{getWorkstreamName(workstream.latestSubstreamActivitySource)}</Link></>
+                )}
+              </p>
+            )}
+          </section>
+        )}
+
+        <SubstreamsSection workstream={workstream} onCreateSubstream={() => setShowCreateSubstreamDialog(true)} />
+
         {/* Status History */}
         <div>
-          <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Status History</h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Status History</h2>
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={includeSubstreams}
+                onChange={(event) => setIncludeSubstreams(event.target.checked)}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              Include sub-stream updates
+            </label>
+          </div>
 
           {statusUpdates && statusUpdates.length === 0 && (
             <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -262,7 +408,11 @@ export default function WorkstreamDetail() {
           )}
 
           <div className="space-y-4">
-            {statusUpdates?.map((update) => (
+            {statusUpdates?.map((update) => {
+              const updateSource = getStatusUpdateSource(update);
+              const updateSourceId = getLatestSubstreamActivitySourceId(updateSource);
+
+              return (
               <div key={update.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 
                 {/* Timestamp */}
@@ -276,6 +426,11 @@ export default function WorkstreamDetail() {
                   <span className="text-xs text-gray-500 dark:text-gray-400">
                     • {formatDistanceToNow(parseISO(update.createdAt), { addSuffix: true })}
                   </span>
+                  {includeSubstreams && updateSource && updateSourceId && updateSourceId !== workstream.id && (
+                    <Link to={`/workstreams/${updateSourceId}`} className="text-xs font-medium text-primary-700 hover:underline dark:text-primary-300">
+                      • {getWorkstreamName(updateSource)}
+                    </Link>
+                  )}
 
                   <div className="flex-1"></div>
 
@@ -328,7 +483,8 @@ export default function WorkstreamDetail() {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -356,6 +512,18 @@ export default function WorkstreamDetail() {
           onClose={() => setShowEditDialog(false)}
         />
       )}
+
+      <WorkstreamCreateDialog
+        isOpen={showCreateSubstreamDialog}
+        onClose={() => setShowCreateSubstreamDialog(false)}
+        parent={workstream}
+      />
+
+      <ParentSelectorDialog
+        workstream={workstream}
+        isOpen={showParentDialog}
+        onClose={() => setShowParentDialog(false)}
+      />
     </>
   );
 }

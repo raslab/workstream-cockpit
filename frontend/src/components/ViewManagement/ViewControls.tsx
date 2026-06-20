@@ -26,13 +26,18 @@ export function ViewControls({
   const activeFilterCount =
     config.filters.categoryIds.length +
     config.filters.tags.length +
-    (config.filters.temporal.notUpdatedToday ? 1 : 0);
+    (config.filters.temporal.notUpdatedToday ? 1 : 0) +
+    (config.filters.hierarchy.mode !== 'all' ? 1 : 0) +
+    (config.filters.hierarchy.includeSubstreams ? 1 : 0);
 
   const getSortLabel = (): string => {
     const fieldLabels = {
       name: 'Name',
       createdAt: 'Created',
       updatedAt: 'Updated',
+      lastDirectUpdateAt: 'Last direct update',
+      lastActivityAt: 'Last activity',
+      lastSubstreamActivityAt: 'Last sub-stream activity',
     };
     const field = fieldLabels[config.sort.field];
     const direction = config.sort.direction === 'asc' ? '↑' : '↓';
@@ -40,7 +45,9 @@ export function ViewControls({
   };
 
   const getGroupLabel = (): string => {
-    return config.group.by === 'category' ? 'Category' : 'None';
+    if (config.group.by === 'category') return 'Category';
+    if (config.group.by === 'parent') return 'Parent';
+    return 'None';
   };
 
   return (

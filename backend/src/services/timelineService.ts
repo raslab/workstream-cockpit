@@ -1,10 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { extractTags } from '../utils/tagExtractor';
+import { getBreadcrumbForWorkstream } from './workstreamService';
 
 const prisma = new PrismaClient();
 
-export type TimelineEventType = 'status_update' | 'workstream_created' | 'workstream_closed';
+export type TimelineEventType = 'status_update' | 'workstream_created' | 'workstream_closed' | 'parent_changed' | 'sub_stream_created';
 
 export interface TimelineEntry {
   id: string;
@@ -15,11 +16,15 @@ export interface TimelineEntry {
   note?: string | null;
   createdAt: Date;
   updatedAt?: Date;
-  category?: {
-    id: string;
-    name: string;
-    color: string;
-  } | null;
+  category?: { id: string; name: string; color: string } | null;
+  parentId?: string | null;
+  parentName?: string | null;
+  breadcrumb?: string;
+  currentBreadcrumb?: string;
+  oldParentId?: string | null;
+  oldParentName?: string | null;
+  newParentId?: string | null;
+  newParentName?: string | null;
 }
 
 export interface TimelineFilters {
@@ -28,184 +33,172 @@ export interface TimelineFilters {
   endDate?: Date;
   categoryIds?: string[];
   tags?: string[];
+  eventTypes?: TimelineEventType[];
+  hierarchyScope?: 'all' | 'top-level' | 'sub-streams' | 'under-parent';
+  parentId?: string;
+  includeSubstreams?: boolean;
 }
 
-/**
- * Get timeline of status updates and workstream events with filters
- */
+function collectDescendantIds(rootId: string, childrenByParent: Map<string | null, { id: string }[]>, maxDepth = 5): string[] {
+  const ids: string[] = [];
+  const visited = new Set<string>([rootId]);
+  const queue = (childrenByParent.get(rootId) ?? []).map(child => ({ id: child.id, depth: 2 }));
+  while (queue.length) {
+    const item = queue.shift()!;
+    if (item.depth > maxDepth || visited.has(item.id)) continue;
+    visited.add(item.id);
+    ids.push(item.id);
+    for (const child of childrenByParent.get(item.id) ?? []) queue.push({ id: child.id, depth: item.depth + 1 });
+  }
+  return ids;
+}
+
+async function hierarchyWorkstreamIdFilter(filters: TimelineFilters): Promise<string[] | undefined> {
+  const scope = filters.hierarchyScope ?? (filters.parentId ? 'under-parent' : 'all');
+  if (scope === 'all') return undefined;
+  const rows = await prisma.workstream.findMany({ where: { projectId: filters.projectId }, select: { id: true, parentId: true } });
+  if (scope === 'top-level') return rows.filter(row => row.parentId === null).map(row => row.id);
+  if (scope === 'sub-streams') return rows.filter(row => row.parentId !== null).map(row => row.id);
+  if (!filters.parentId) return [];
+  if (!rows.some(row => row.id === filters.parentId)) return [];
+  if (!filters.includeSubstreams) return [filters.parentId];
+  const childrenByParent = new Map<string | null, { id: string }[]>();
+  for (const row of rows) childrenByParent.set(row.parentId, [...(childrenByParent.get(row.parentId) ?? []), row]);
+  return [filters.parentId, ...collectDescendantIds(filters.parentId, childrenByParent, 5)];
+}
+
+function dateWhere(filters: TimelineFilters) {
+  const out: any = {};
+  if (filters.startDate) out.gte = filters.startDate;
+  if (filters.endDate) out.lte = filters.endDate;
+  return out;
+}
+
+async function hierarchyMeta(projectId: string, workstreamId: string) {
+  const breadcrumb = await getBreadcrumbForWorkstream(projectId, workstreamId);
+  const self = breadcrumb[breadcrumb.length - 1];
+  const parent = breadcrumb.length > 1 ? breadcrumb[breadcrumb.length - 2] : null;
+  return {
+    parentId: self?.parentId ?? null,
+    parentName: parent?.name ?? null,
+    breadcrumb: breadcrumb.map(item => item.name).join(' > '),
+  };
+}
+
 export async function getTimeline(filters: TimelineFilters): Promise<TimelineEntry[]> {
   try {
-    const workstreamWhereClause: any = {
-      projectId: filters.projectId,
-    };
+    const requested = new Set(filters.eventTypes ?? ['status_update', 'workstream_created', 'workstream_closed', 'parent_changed', 'sub_stream_created']);
+    const workstreamWhereClause: any = { projectId: filters.projectId };
+    const createdAtFilter = dateWhere(filters);
+    if (filters.categoryIds?.length) workstreamWhereClause.categoryId = { in: filters.categoryIds };
+    const scopedWorkstreamIds = await hierarchyWorkstreamIdFilter(filters);
+    if (scopedWorkstreamIds) workstreamWhereClause.id = { in: scopedWorkstreamIds };
 
-    const dateFilter: any = {};
-    if (filters.startDate) {
-      dateFilter.gte = filters.startDate;
-    }
-    if (filters.endDate) {
-      dateFilter.lte = filters.endDate;
-    }
+    const timeline: any[] = [];
 
-    if (filters.categoryIds && filters.categoryIds.length > 0) {
-      workstreamWhereClause.categoryId = {
-        in: filters.categoryIds,
-      };
-    }
-
-    // Fetch status updates
-    const statusUpdateWhereClause: any = {
-      workstream: workstreamWhereClause,
-    };
-
-    if (filters.startDate || filters.endDate) {
-      statusUpdateWhereClause.createdAt = dateFilter;
-    }
-
-    const statusUpdates = await prisma.statusUpdate.findMany({
-      where: statusUpdateWhereClause,
-      include: {
-        workstream: {
-          select: {
-            name: true,
-            context: true,
-            category: {
-              select: {
-                id: true,
-                name: true,
-                color: true,
-                emoji: true,
-              },
+    if (requested.has('status_update')) {
+      const statusUpdateWhereClause: any = { workstream: workstreamWhereClause };
+      if (filters.startDate || filters.endDate) statusUpdateWhereClause.createdAt = createdAtFilter;
+      const statusUpdates = await prisma.statusUpdate.findMany({
+        where: statusUpdateWhereClause,
+        include: {
+          workstream: {
+            select: {
+              name: true,
+              context: true,
+              parentId: true,
+              category: { select: { id: true, name: true, color: true, emoji: true } },
             },
           },
         },
-      },
-    });
-
-    // Fetch workstream creation events
-    const workstreamCreationWhereClause: any = {
-      ...workstreamWhereClause,
-    };
-
-    if (filters.startDate || filters.endDate) {
-      workstreamCreationWhereClause.createdAt = dateFilter;
+      });
+      for (const update of statusUpdates) {
+        timeline.push({
+          id: `status-${update.id}`,
+          eventType: 'status_update',
+          workstreamId: update.workstreamId,
+          workstreamName: update.workstream.name,
+          status: update.status,
+          note: update.note,
+          createdAt: update.createdAt,
+          updatedAt: update.updatedAt,
+          category: update.workstream.category,
+          workstreamContext: update.workstream.context,
+          ...(await hierarchyMeta(filters.projectId, update.workstreamId)),
+        });
+      }
     }
 
-    const workstreamsCreated = await prisma.workstream.findMany({
-      where: workstreamCreationWhereClause,
-      select: {
-        id: true,
-        name: true,
-        context: true,
-        createdAt: true,
-        category: {
-          select: {
-            id: true,
-            name: true,
-            color: true,
-            emoji: true,
-          },
-        },
-      },
-    });
-
-    // Fetch workstream closure events
-    const workstreamClosureWhereClause: any = {
-      ...workstreamWhereClause,
-      closedAt: {
-        not: null,
-      },
-    };
-
-    if (filters.startDate || filters.endDate) {
-      workstreamClosureWhereClause.closedAt = dateFilter;
+    if (requested.has('workstream_created')) {
+      const where: any = { ...workstreamWhereClause };
+      if (filters.startDate || filters.endDate) where.createdAt = createdAtFilter;
+      const workstreamsCreated = await prisma.workstream.findMany({
+        where,
+        select: { id: true, name: true, context: true, createdAt: true, category: { select: { id: true, name: true, color: true, emoji: true } } },
+      });
+      for (const workstream of workstreamsCreated) {
+        timeline.push({ id: `created-${workstream.id}`, eventType: 'workstream_created', workstreamId: workstream.id, workstreamName: workstream.name, createdAt: workstream.createdAt, category: workstream.category, workstreamContext: workstream.context, ...(await hierarchyMeta(filters.projectId, workstream.id)) });
+      }
     }
 
-    const workstreamsClosed = await prisma.workstream.findMany({
-      where: workstreamClosureWhereClause,
-      select: {
-        id: true,
-        name: true,
-        context: true,
-        closedAt: true,
-        category: {
-          select: {
-            id: true,
-            name: true,
-            color: true,
-            emoji: true,
-          },
-        },
-      },
-    });
+    if (requested.has('workstream_closed')) {
+      const where: any = { ...workstreamWhereClause, closedAt: { not: null } };
+      if (filters.startDate || filters.endDate) where.closedAt = createdAtFilter;
+      const workstreamsClosed = await prisma.workstream.findMany({
+        where,
+        select: { id: true, name: true, context: true, closedAt: true, category: { select: { id: true, name: true, color: true, emoji: true } } },
+      });
+      for (const workstream of workstreamsClosed) {
+        timeline.push({ id: `closed-${workstream.id}`, eventType: 'workstream_closed', workstreamId: workstream.id, workstreamName: workstream.name, createdAt: workstream.closedAt!, category: workstream.category, workstreamContext: workstream.context, ...(await hierarchyMeta(filters.projectId, workstream.id)) });
+      }
+    }
 
-    // Combine all events into timeline
-    const timeline: TimelineEntry[] = [
-      // Status updates
-      ...statusUpdates.map((update) => ({
-        id: `status-${update.id}`,
-        eventType: 'status_update' as TimelineEventType,
-        workstreamId: update.workstreamId,
-        workstreamName: update.workstream.name,
-        status: update.status,
-        note: update.note,
-        createdAt: update.createdAt,
-        updatedAt: update.updatedAt,
-        category: update.workstream.category,
-        workstreamContext: update.workstream.context,
-      })),
-      // Workstream creation events
-      ...workstreamsCreated.map((workstream) => ({
-        id: `created-${workstream.id}`,
-        eventType: 'workstream_created' as TimelineEventType,
-        workstreamId: workstream.id,
-        workstreamName: workstream.name,
-        createdAt: workstream.createdAt,
-        category: workstream.category,
-        workstreamContext: workstream.context,
-      })),
-      // Workstream closure events
-      ...workstreamsClosed.map((workstream) => ({
-        id: `closed-${workstream.id}`,
-        eventType: 'workstream_closed' as TimelineEventType,
-        workstreamId: workstream.id,
-        workstreamName: workstream.name,
-        createdAt: workstream.closedAt!,
-        category: workstream.category,
-        workstreamContext: workstream.context,
-      })),
-    ];
+    if (requested.has('parent_changed') || requested.has('sub_stream_created')) {
+      const eventWhere: any = { eventType: { in: Array.from(requested).filter(type => type === 'parent_changed' || type === 'sub_stream_created') }, workstream: workstreamWhereClause };
+      if (filters.startDate || filters.endDate) eventWhere.createdAt = createdAtFilter;
+      const events = await prisma.workstreamEvent.findMany({ where: eventWhere, include: { workstream: { select: { id: true, name: true, context: true, category: { select: { id: true, name: true, color: true, emoji: true } } } } } });
+      for (const event of events) {
+        const metadata = event.metadata as any;
+        const meta = await hierarchyMeta(filters.projectId, event.workstreamId);
+        const eventParentBreadcrumb = metadata.newParentBreadcrumb ?? null;
+        const eventBreadcrumb = eventParentBreadcrumb
+          ? `${eventParentBreadcrumb} > ${event.workstream.name}`
+          : event.workstream.name;
+        timeline.push({
+          id: `event-${event.id}`,
+          eventType: event.eventType,
+          workstreamId: event.workstreamId,
+          workstreamName: event.workstream.name,
+          createdAt: event.createdAt,
+          category: event.workstream.category,
+          workstreamContext: event.workstream.context,
+          parentId: meta.parentId,
+          parentName: meta.parentName,
+          breadcrumb: eventBreadcrumb,
+          currentBreadcrumb: meta.breadcrumb,
+          oldParentId: metadata.oldParentId ?? null,
+          oldParentName: metadata.oldParentName ?? null,
+          newParentId: metadata.newParentId ?? null,
+          newParentName: metadata.newParentName ?? null,
+        });
+      }
+    }
 
-    // Filter by tags if specified
     let filteredTimeline = timeline;
-    if (filters.tags && filters.tags.length > 0) {
+    if (filters.tags?.length) {
       filteredTimeline = timeline.filter((entry: any) => {
-        // Extract tags from all relevant text fields
-        const textFields = [
-          entry.workstreamContext,
-          entry.status,
-          entry.note,
-        ].filter(Boolean);
-        
+        const textFields = [entry.workstreamContext, entry.status, entry.note].filter(Boolean);
         const entryTags = extractTags(textFields.join(' '));
-        
-        // Check if any of the filter tags are in the entry's tags
-        return filters.tags!.some(filterTag => 
-          entryTags.some(entryTag => entryTag.toLowerCase() === filterTag.toLowerCase())
-        );
+        return filters.tags!.some(filterTag => entryTags.some(entryTag => entryTag.toLowerCase() === filterTag.toLowerCase()));
       });
     }
 
-    // Remove temporary workstreamContext field before returning
     const cleanedTimeline = filteredTimeline.map((entry: any) => {
       const rest = { ...entry };
       delete rest.workstreamContext;
       return rest as TimelineEntry;
     });
-
-    // Sort by date descending
     cleanedTimeline.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
     return cleanedTimeline;
   } catch (error) {
     logger.error('Error getting timeline:', error);

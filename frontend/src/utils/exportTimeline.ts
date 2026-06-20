@@ -65,12 +65,23 @@ function escapeCSVField(value: string | null | undefined): string {
 function entryToCSVRow(entry: TimelineEntry): string {
   const date = parseISO(entry.createdAt);
   const tags = extractEntryTags(entry);
+  const parentName = entry.parent?.name || entry.parent?.workstreamName || entry.parentName || '';
+  const hierarchyPath = entry.hierarchyPath || entry.breadcrumb || '';
+  const ancestorPath = entry.ancestors?.map((ancestor) => ancestor.name || ancestor.workstreamName || '').join(' > ') ||
+    (hierarchyPath ? hierarchyPath.split(' > ').slice(0, -1).join(' > ') : '');
+  const oldParentName = entry.metadata?.oldParentName || entry.oldParentName || '';
+  const newParentName = entry.metadata?.newParentName || entry.newParentName || '';
+  const oldParentId = entry.metadata?.oldParentId || entry.oldParentId || '';
+  const newParentId = entry.metadata?.newParentId || entry.newParentId || '';
   
   // Map event type to readable label
   const eventTypeLabels: Record<string, string> = {
     status_update: 'Status Update',
     workstream_created: 'Workstream Created',
     workstream_closed: 'Workstream Closed',
+    workstream_reopened: 'Workstream Reopened',
+    parent_changed: 'Parent Changed',
+    sub_stream_created: 'Sub-stream Created',
   };
   
   const columns = [
@@ -82,6 +93,14 @@ function entryToCSVRow(entry: TimelineEntry): string {
     entry.status || '',
     entry.note || '',
     tags.join(';'),                       // Semicolon separator
+    entry.parentId || '',
+    parentName,
+    ancestorPath,
+    hierarchyPath,
+    oldParentId,
+    newParentId,
+    oldParentName,
+    newParentName,
     entry.category?.color || '',
     entry.category?.emoji || '',
     entry.workstreamId,
@@ -104,6 +123,14 @@ function generateCSV(entries: TimelineEntry[]): string {
     'Status',
     'Note',
     'Tags',
+    'Parent ID',
+    'Parent Workstream',
+    'Ancestor Path',
+    'Hierarchy Path',
+    'old_parent_id',
+    'new_parent_id',
+    'Old Parent',
+    'New Parent',
     'Category Color',
     'Category Emoji',
     'Workstream ID',

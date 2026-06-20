@@ -9,6 +9,7 @@ import { ViewTabs } from '../components/ViewManagement/ViewTabs';
 import { ViewControls } from '../components/ViewManagement/ViewControls';
 import { ViewCreateDialog } from '../components/ViewManagement/ViewCreateDialog';
 import { Workstream } from '../types/workstream';
+import { applyHierarchyFilter, getHierarchyTimestamp, groupWorkstreamsByParent } from '../utils/hierarchy';
 
 export default function Cockpit() {
   const location = useLocation();
@@ -52,6 +53,9 @@ export default function Cockpit() {
     tags: currentConfig.filters.tags.length > 0 ? currentConfig.filters.tags : undefined,
     categoryIds: currentConfig.filters.categoryIds.length > 0 ? currentConfig.filters.categoryIds : undefined,
     notUpdatedToday: currentConfig.filters.temporal.notUpdatedToday,
+    hierarchy: currentConfig.filters.hierarchy.mode,
+    parentId: currentConfig.filters.hierarchy.parentId,
+    includeSubstreams: currentConfig.filters.hierarchy.includeSubstreams,
   });
 
   // Helper function to get sort comparator
@@ -64,6 +68,11 @@ export default function Cockpit() {
           break;
         case 'createdAt':
           comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+        case 'lastDirectUpdateAt':
+        case 'lastActivityAt':
+        case 'lastSubstreamActivityAt':
+          comparison = getHierarchyTimestamp(a, sortField) - getHierarchyTimestamp(b, sortField);
           break;
         case 'updatedAt':
         default: {
@@ -85,18 +94,29 @@ export default function Cockpit() {
   // Group workstreams by category and sort within each group
   const groupedWorkstreams = useMemo(() => {
     if (!workstreams) return [];
+    const filteredWorkstreams = applyHierarchyFilter(workstreams, currentConfig.filters.hierarchy.mode);
 
     if (currentConfig.group.by === 'none') {
       // Sort all workstreams
-      const sorted = [...workstreams].sort(
+      const sorted = [...filteredWorkstreams].sort(
         getSortComparator(currentConfig.sort.field, currentConfig.sort.direction)
       );
       return [{ key: 'all', name: null, color: null, emoji: null, sortOrder: 0, workstreams: sorted }];
     }
 
+    if (currentConfig.group.by === 'parent') {
+      return groupWorkstreamsByParent(filteredWorkstreams).map((group, index) => ({
+        ...group,
+        color: null,
+        emoji: null,
+        sortOrder: index,
+        workstreams: group.workstreams.sort(getSortComparator(currentConfig.sort.field, currentConfig.sort.direction)),
+      }));
+    }
+
     // Group by category
     const groups = new Map<string, Workstream[]>();
-    workstreams.forEach((ws) => {
+    filteredWorkstreams.forEach((ws) => {
       const key = ws.category?.id || 'untagged';
       if (!groups.has(key)) {
         groups.set(key, []);
@@ -116,7 +136,7 @@ export default function Cockpit() {
 
     // Sort groups by category sortOrder
     return result.sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [workstreams, currentConfig.sort.field, currentConfig.sort.direction, currentConfig.group.by]);
+  }, [workstreams, currentConfig.sort.field, currentConfig.sort.direction, currentConfig.group.by, currentConfig.filters.hierarchy.mode]);
 
   const handleSaveAs = () => {
     setShowSaveAsDialog(true);
@@ -175,7 +195,7 @@ export default function Cockpit() {
             <div className="space-y-4">
               {groupedWorkstreams.map((group) => (
                 <div key={group.key}>
-                  {currentConfig.group.by === 'category' && (
+                  {(currentConfig.group.by === 'category' || currentConfig.group.by === 'parent') && (
                     <div className="mb-2 flex items-center gap-2">
                       {group.color && (
                         <div
@@ -186,7 +206,7 @@ export default function Cockpit() {
                         </div>
                       )}
                       <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                        {group.name || 'Untagged'}
+                        {group.name || (currentConfig.group.by === 'category' ? 'Untagged' : 'Top level / no parent')}
                       </h3>
                       <span className="text-sm text-gray-500 dark:text-gray-400">
                         ({group.workstreams.length})

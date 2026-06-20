@@ -4,6 +4,14 @@ const STORAGE_KEY = 'workstream_cockpit_views';
 const STORAGE_VERSION = 1;
 const MAX_VIEWS = 50;
 
+const DEFAULT_HIERARCHY_FILTER = {
+  mode: 'all' as const,
+  parentId: null,
+  includeSubstreams: false,
+  timelineScope: 'all' as const,
+  includeStructuralEvents: true,
+};
+
 /**
  * Get the default view storage structure
  */
@@ -19,8 +27,9 @@ export function getDefaultStorage(): ViewStorage {
         categoryIds: [],
         tags: [],
         temporal: { notUpdatedToday: false },
+        hierarchy: { ...DEFAULT_HIERARCHY_FILTER },
       },
-      sort: { field: 'updatedAt', direction: 'desc' },
+      sort: { field: 'lastActivityAt', direction: 'desc' },
       group: { by: 'category' },
     },
   };
@@ -56,6 +65,18 @@ function deserializeStorage(serialized: SerializedViewStorage): ViewStorage {
     ...serialized,
     views: serialized.views.map(view => ({
       ...view,
+      config: {
+        ...view.config,
+        filters: {
+          ...view.config.filters,
+          hierarchy: {
+            ...DEFAULT_HIERARCHY_FILTER,
+            ...view.config.filters.hierarchy,
+          },
+        },
+        sort: view.config.sort || { field: 'lastActivityAt', direction: 'desc' },
+        group: view.config.group || { by: 'category' },
+      },
       createdAt: new Date(view.createdAt),
       updatedAt: new Date(view.updatedAt),
     })),

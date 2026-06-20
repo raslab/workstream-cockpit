@@ -1,0 +1,118 @@
+import { useEffect, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../../api/client';
+import { useWorkstreams } from '../../hooks/useWorkstreams';
+import type { Workstream } from '../../types/workstream';
+import { getBreadcrumbLabel, getWorkstreamName, hierarchyErrorMessage, isObviousDescendant } from '../../utils/hierarchy';
+
+interface ParentSelectorDialogProps {
+  workstream: Workstream;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSelectorDialogProps) {
+  const [parentId, setParentId] = useState<string>('');
+  const [isConfirming, setIsConfirming] = useState(false);
+  const queryClient = useQueryClient();
+  const { data: workstreams = [] } = useWorkstreams({ state: 'active' });
+
+  useEffect(() => {
+    if (isOpen) {
+      setParentId(workstream.parentId || '');
+      setIsConfirming(false);
+    }
+  }, [isOpen, workstream.parentId]);
+
+  const candidates = workstreams.filter((candidate) => {
+    if (isObviousDescendant(candidate, workstream)) return false;
+    if (candidate.state === 'closed') return false;
+    if ((candidate.depth || 1) >= 5) return false;
+    if ((workstream.ancestors || []).some((ancestor) => ancestor.id === candidate.id)) return false;
+    return true;
+  });
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.put(`/api/workstreams/${workstream.id}`, { parentId: parentId || null });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workstreams'] });
+      queryClient.invalidateQueries({ queryKey: ['workstream', workstream.id] });
+      queryClient.invalidateQueries({ queryKey: ['timeline'] });
+      onClose();
+    },
+  });
+
+  const selectedParent = candidates.find((candidate) => candidate.id === parentId) || null;
+  const currentParentName = getWorkstreamName(workstream.parent || null);
+  const nextParentName = parentId ? getWorkstreamName(selectedParent) : 'Top level / no parent';
+  const hasChange = parentId !== (workstream.parentId || '');
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70">
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{workstream.parentId ? 'Change parent' : 'Set parent'}</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose one active parent stream, or detach this stream to top level.</p>
+
+        <label htmlFor="parentId" className="mt-4 mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+          Parent stream
+        </label>
+        <select
+          id="parentId"
+          value={parentId}
+          onChange={(event) => {
+            setParentId(event.target.value);
+            setIsConfirming(false);
+          }}
+          className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+        >
+          <option value="">Top level / no parent</option>
+          {candidates.map((candidate) => (
+            <option key={candidate.id} value={candidate.id}>
+              {getBreadcrumbLabel(candidate)}
+            </option>
+          ))}
+        </select>
+
+        {hasChange && (
+          <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+            <div className="font-medium">Preview hierarchy change</div>
+            <div className="mt-1">Current parent: {workstream.parentId ? currentParentName : 'Top level / no parent'}</div>
+            <div>New parent: {nextParentName}</div>
+            {!parentId && <div className="mt-1">This will detach the stream and make it top-level.</div>}
+          </div>
+        )}
+
+        {mutation.isError && (
+          <div className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+            {hierarchyErrorMessage(mutation.error)}
+          </div>
+        )}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700" disabled={mutation.isPending}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!isConfirming) {
+                setIsConfirming(true);
+                return;
+              }
+              mutation.mutate();
+            }}
+            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+            disabled={mutation.isPending || !hasChange}
+          >
+            {mutation.isPending ? 'Saving...' : isConfirming ? (parentId ? 'Confirm parent change' : 'Confirm detach') : (parentId ? 'Review parent change' : 'Review detach')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
