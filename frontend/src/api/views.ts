@@ -18,14 +18,25 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig['config'] = {
   group: { by: 'category' },
 };
 
+type LegacySortConfig = Partial<Omit<SortConfig, 'field'>> & { field?: SortConfig['field'] | 'updatedAt' };
+
 type ApiViewConfig = Partial<{
   filters: Partial<Omit<FilterConfig, 'temporal' | 'hierarchy'>> & {
     temporal?: Partial<FilterConfig['temporal']>;
     hierarchy?: Partial<FilterConfig['hierarchy']>;
   };
-  sort: Partial<SortConfig>;
+  sort: LegacySortConfig;
   group: Partial<GroupConfig>;
 }>;
+
+function normalizeSort(sort?: LegacySortConfig | null): SortConfig {
+  const field = sort?.field === 'updatedAt' ? 'lastActivityAt' : sort?.field;
+  return {
+    ...DEFAULT_VIEW_CONFIG.sort,
+    ...sort,
+    field: field || DEFAULT_VIEW_CONFIG.sort.field,
+  };
+}
 
 export function normalizeViewConfig(config?: ApiViewConfig | null): ViewConfig['config'] {
   return {
@@ -41,10 +52,7 @@ export function normalizeViewConfig(config?: ApiViewConfig | null): ViewConfig['
         ...config?.filters?.hierarchy,
       },
     },
-    sort: {
-      ...DEFAULT_VIEW_CONFIG.sort,
-      ...config?.sort,
-    },
+    sort: normalizeSort(config?.sort),
     group: {
       ...DEFAULT_VIEW_CONFIG.group,
       ...config?.group,

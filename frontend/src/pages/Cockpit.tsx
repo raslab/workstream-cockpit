@@ -74,16 +74,8 @@ export default function Cockpit() {
         case 'lastSubstreamActivityAt':
           comparison = getHierarchyTimestamp(a, sortField) - getHierarchyTimestamp(b, sortField);
           break;
-        case 'updatedAt':
         default: {
-          // Sort by latest status update time, fallback to createdAt if no status
-          const aTime = a.latestStatus
-            ? new Date(a.latestStatus.updatedAt).getTime()
-            : new Date(a.createdAt).getTime();
-          const bTime = b.latestStatus
-            ? new Date(b.latestStatus.updatedAt).getTime()
-            : new Date(b.createdAt).getTime();
-          comparison = aTime - bTime;
+          comparison = getHierarchyTimestamp(a, 'lastActivityAt') - getHierarchyTimestamp(b, 'lastActivityAt');
           break;
         }
       }

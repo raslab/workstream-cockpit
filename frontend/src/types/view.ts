@@ -32,7 +32,7 @@ export interface FilterConfig {
 }
 
 export interface SortConfig {
-  field: 'name' | 'createdAt' | 'updatedAt' | 'lastDirectUpdateAt' | 'lastActivityAt' | 'lastSubstreamActivityAt';
+  field: 'name' | 'createdAt' | 'lastDirectUpdateAt' | 'lastActivityAt' | 'lastSubstreamActivityAt';
   direction: 'asc' | 'desc';
 }
 

@@ -70,9 +70,6 @@ export function getHierarchyTimestamp(workstream: Workstream, field: SortConfig[
     case 'lastActivityAt':
       value = workstream.lastActivityAt || workstream.latestStatus?.updatedAt;
       break;
-    case 'updatedAt':
-      value = workstream.latestStatus?.updatedAt;
-      break;
     case 'createdAt':
       value = workstream.createdAt;
       break;

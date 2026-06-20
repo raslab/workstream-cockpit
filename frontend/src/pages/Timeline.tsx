@@ -134,7 +134,7 @@ export default function Timeline() {
               id="hierarchyScope"
               value={hierarchyScope}
               onChange={(event) => setHierarchyScope(event.target.value as typeof hierarchyScope)}
-              className="rounded-md border border-gray-300 p-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+              className="rounded-md border border-gray-300 p-2 pr-8 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             >
               <option value="all">All streams</option>
               <option value="top-level">Top-level only</option>
@@ -164,7 +164,7 @@ export default function Timeline() {
               id="activityFilter"
               value={activityFilter}
               onChange={(event) => setActivityFilter(event.target.value as typeof activityFilter)}
-              className="rounded-md border border-gray-300 p-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+              className="rounded-md border border-gray-300 p-2 pr-8 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             >
               <option value="all">All activity</option>
               <option value="status_update">Status updates</option>

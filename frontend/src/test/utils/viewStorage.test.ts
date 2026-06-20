@@ -105,4 +105,28 @@ describe('viewStorage hierarchy config', () => {
       includeStructuralEvents: true,
     });
   });
+
+  it('should migrate legacy updatedAt sorting to last activity when loading views', () => {
+    const base = getDefaultStorage();
+    const serialized = {
+      ...base,
+      views: [
+        {
+          ...base.views[0],
+          createdAt: base.views[0].createdAt.toISOString(),
+          updatedAt: base.views[0].updatedAt.toISOString(),
+          config: {
+            ...base.views[0].config,
+            sort: { field: 'updatedAt', direction: 'asc' },
+          },
+        },
+      ],
+    };
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized));
+
+    const loaded = loadViewsFromStorage();
+
+    expect(loaded.views[0].config.sort).toEqual({ field: 'lastActivityAt', direction: 'asc' });
+  });
 });

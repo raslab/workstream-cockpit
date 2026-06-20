@@ -5,8 +5,19 @@ import { useViewManager } from '../../hooks/useViewManager';
 import type { ViewConfig } from '../../types/view';
 
 const defaultConfig: ViewConfig['config'] = {
-  filters: { categoryIds: [], tags: [], temporal: { notUpdatedToday: false } },
-  sort: { field: 'updatedAt', direction: 'desc' },
+  filters: {
+    categoryIds: [],
+    tags: [],
+    temporal: { notUpdatedToday: false },
+    hierarchy: {
+      mode: 'all',
+      parentId: null,
+      includeSubstreams: false,
+      timelineScope: 'all',
+      includeStructuralEvents: true,
+    },
+  },
+  sort: { field: 'lastActivityAt', direction: 'desc' },
   group: { by: 'none' },
 };
 

@@ -255,7 +255,6 @@ export function SortMenu({ currentSort, onSortChange, onClose }: SortMenuProps) 
     { field: 'lastActivityAt', label: 'Last activity' },
     { field: 'lastDirectUpdateAt', label: 'Last direct update' },
     { field: 'lastSubstreamActivityAt', label: 'Last sub-stream activity' },
-    { field: 'updatedAt', label: 'Legacy updated' },
     { field: 'createdAt', label: 'Created Date' },
     { field: 'name', label: 'Name' },
   ];

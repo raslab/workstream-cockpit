@@ -20,6 +20,18 @@ code {
   color-scheme: dark;
 }
 
+.dark select,
+.dark select option,
+.dark select optgroup {
+  color-scheme: dark;
+  background-color: #111827;
+  color: #f3f4f6;
+}
+
+select {
+  padding-inline-end: 2rem;
+}
+
 .dark .dark-scrollbar {
   scrollbar-color: #4b5563 #111827;
 }

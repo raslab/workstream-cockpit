@@ -84,7 +84,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
         <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">{parent ? 'Create Sub-stream' : 'Create New Workstream'}</h2>
         {parent && (
-          <div className="mb-4 rounded-md border border-primary-200 bg-primary-50 p-3 text-sm text-primary-900 dark:border-primary-800 dark:bg-primary-950 dark:text-primary-100">
+          <div className="mb-4 rounded-md border border-primary-200 bg-primary-50 p-3 text-sm text-primary-900 dark:border-primary-500 dark:bg-primary-900/40 dark:text-primary-50">
             Parent: <span className="font-medium">{parent.name}</span>
           </div>
         )}

@@ -57,6 +57,14 @@ function serializeStorage(storage: ViewStorage): SerializedViewStorage {
   };
 }
 
+function normalizeSort(sort: any): ViewConfig['config']['sort'] {
+  if (!sort) return { field: 'lastActivityAt', direction: 'desc' };
+  return {
+    ...sort,
+    field: sort.field === 'updatedAt' ? 'lastActivityAt' : sort.field,
+  };
+}
+
 /**
  * Deserialize view storage from localStorage (convert strings to Dates)
  */
@@ -74,7 +82,7 @@ function deserializeStorage(serialized: SerializedViewStorage): ViewStorage {
             ...view.config.filters.hierarchy,
           },
         },
-        sort: view.config.sort || { field: 'lastActivityAt', direction: 'desc' },
+        sort: normalizeSort(view.config.sort),
         group: view.config.group || { by: 'category' },
       },
       createdAt: new Date(view.createdAt),

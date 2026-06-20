@@ -1,9 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useWorkstreams } from '../../hooks/useWorkstreams';
 import type { Workstream } from '../../types/workstream';
 import { getBreadcrumbLabel, getWorkstreamName, hierarchyErrorMessage, isObviousDescendant } from '../../utils/hierarchy';
+
+function normalizeSearch(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function fuzzyMatch(label: string, normalizedQuery: string): boolean {
+  const haystack = normalizeSearch(label);
+  if (haystack.includes(normalizedQuery)) return true;
+
+  let searchIndex = 0;
+  for (const char of normalizedQuery.replace(/\s+/g, '')) {
+    searchIndex = haystack.indexOf(char, searchIndex);
+    if (searchIndex === -1) return false;
+    searchIndex += 1;
+  }
+  return true;
+}
 
 interface ParentSelectorDialogProps {
   workstream: Workstream;
@@ -13,6 +30,7 @@ interface ParentSelectorDialogProps {
 
 export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSelectorDialogProps) {
   const [parentId, setParentId] = useState<string>('');
+  const [parentSearch, setParentSearch] = useState('');
   const [isConfirming, setIsConfirming] = useState(false);
   const queryClient = useQueryClient();
   const { data: workstreams = [] } = useWorkstreams({ state: 'active' });
@@ -20,6 +38,7 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
   useEffect(() => {
     if (isOpen) {
       setParentId(workstream.parentId || '');
+      setParentSearch('');
       setIsConfirming(false);
     }
   }, [isOpen, workstream.parentId]);
@@ -46,6 +65,12 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
   });
 
   const selectedParent = candidates.find((candidate) => candidate.id === parentId) || null;
+  const filteredCandidates = useMemo(() => {
+    const query = normalizeSearch(parentSearch);
+    if (!query) return candidates;
+
+    return candidates.filter((candidate) => fuzzyMatch(getBreadcrumbLabel(candidate), query));
+  }, [candidates, parentSearch]);
   const currentParentName = getWorkstreamName(workstream.parent || null);
   const nextParentName = parentId ? getWorkstreamName(selectedParent) : 'Top level / no parent';
   const hasChange = parentId !== (workstream.parentId || '');
@@ -58,25 +83,52 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{workstream.parentId ? 'Change parent' : 'Set parent'}</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose one active parent stream, or detach this stream to top level.</p>
 
-        <label htmlFor="parentId" className="mt-4 mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Parent stream
+        <label htmlFor="parentSearch" className="mt-4 mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+          Search parent streams
         </label>
-        <select
-          id="parentId"
-          value={parentId}
-          onChange={(event) => {
-            setParentId(event.target.value);
-            setIsConfirming(false);
-          }}
-          className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-        >
-          <option value="">Top level / no parent</option>
-          {candidates.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>
-              {getBreadcrumbLabel(candidate)}
-            </option>
-          ))}
-        </select>
+        <input
+          id="parentSearch"
+          type="text"
+          value={parentSearch}
+          onChange={(event) => setParentSearch(event.target.value)}
+          placeholder="Type to fuzzy search streams..."
+          className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+        />
+        <div className="mt-2 max-h-56 overflow-y-auto rounded-md border border-gray-200 bg-white p-1 dark-scrollbar dark:border-gray-700 dark:bg-gray-900">
+          <button
+            type="button"
+            onClick={() => {
+              setParentId('');
+              setIsConfirming(false);
+            }}
+            className={`flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800 ${
+              !parentId ? 'bg-primary-50 font-medium text-primary-700 dark:bg-primary-950 dark:text-primary-200' : 'text-gray-700 dark:text-gray-300'
+            }`}
+          >
+            <span>Top level / no parent</span>
+            {!parentId && <span aria-hidden="true">✓</span>}
+          </button>
+          {filteredCandidates.length === 0 ? (
+            <div className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">No matching parent streams</div>
+          ) : (
+            filteredCandidates.map((candidate) => (
+              <button
+                key={candidate.id}
+                type="button"
+                onClick={() => {
+                  setParentId(candidate.id);
+                  setIsConfirming(false);
+                }}
+                className={`flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800 ${
+                  candidate.id === parentId ? 'bg-primary-50 font-medium text-primary-700 dark:bg-primary-950 dark:text-primary-200' : 'text-gray-700 dark:text-gray-300'
+                }`}
+              >
+                <span>{getBreadcrumbLabel(candidate)}</span>
+                {candidate.id === parentId && <span aria-hidden="true">✓</span>}
+              </button>
+            ))
+          )}
+        </div>
 
         {hasChange && (
           <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">

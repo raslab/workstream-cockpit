@@ -34,7 +34,6 @@ export function ViewControls({
     const fieldLabels = {
       name: 'Name',
       createdAt: 'Created',
-      updatedAt: 'Updated',
       lastDirectUpdateAt: 'Last direct update',
       lastActivityAt: 'Last activity',
       lastSubstreamActivityAt: 'Last sub-stream activity',
