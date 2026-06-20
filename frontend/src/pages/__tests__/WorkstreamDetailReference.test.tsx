@@ -70,6 +70,8 @@ const workstream: Workstream = {
   lastSubstreamActivityAt: '2026-06-20T10:15:00Z',
   latestSubstreamActivitySource: { id: 'child-1', name: 'run CoE', lastActivityAt: '2026-06-20T10:15:00Z' },
   allTags: ['Customers', 'Latency', 'Observability'],
+  parentId: 'ancestor-4',
+  parent: { id: 'ancestor-4', name: 'Team Payments' },
 };
 
 const updates: StatusUpdate[] = [
@@ -93,14 +95,14 @@ const updates: StatusUpdate[] = [
   },
 ];
 
-function renderDetail() {
+function renderDetail(detailWorkstream: Workstream = workstream) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[`/workstreams/${workstream.id}`]}>
+      <MemoryRouter initialEntries={[`/workstreams/${detailWorkstream.id}`]}>
         <Routes>
           <Route path="/workstreams/:id" element={<WorkstreamDetail />} />
         </Routes>
@@ -147,11 +149,23 @@ describe('WorkstreamDetail reference redesign', () => {
     expect(within(actions).getByRole('button', { name: 'Add Update' })).toBeInTheDocument();
     expect(within(actions).getByRole('button', { name: 'Create sub-stream' })).toBeInTheDocument();
     expect(within(actions).getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    expect(within(actions).getByRole('button', { name: 'Set parent' })).toBeInTheDocument();
+    expect(within(actions).getByRole('button', { name: 'Change parent' })).toBeInTheDocument();
     expect(within(actions).getByRole('button', { name: 'Close stream' })).toBeInTheDocument();
 
     expect(screen.getByRole('heading', { level: 2, name: 'Status History' })).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: /include sub-stream updates/i })).toBeInTheDocument();
+  });
+
+  it('does not expose Add Update when the stream is closed', async () => {
+    const closedWorkstream = { ...workstream, state: 'closed' as const, closedAt: '2026-06-20T11:00:00Z' };
+    apiGetMock.mockResolvedValueOnce({ data: closedWorkstream });
+
+    renderDetail(closedWorkstream);
+    await screen.findByTestId('workstream-detail-shell');
+
+    const actions = screen.getByTestId('workstream-detail-actions');
+    expect(within(actions).queryByRole('button', { name: 'Add Update' })).not.toBeInTheDocument();
+    expect(within(actions).getByRole('button', { name: 'Reopen stream' })).toBeInTheDocument();
   });
 
   it('marks sub-stream updates with source and open-child affordance while own updates retain edit/delete actions and inline hashtags stay unduplicated', async () => {
@@ -160,7 +174,7 @@ describe('WorkstreamDetail reference redesign', () => {
 
     const childUpdate = screen.getByTestId('status-update-child-update');
     expect(childUpdate).toHaveAttribute('data-source', 'sub-stream');
-    expect(within(childUpdate).getByText('Sub-stream: run CoE')).toBeInTheDocument();
+    expect(within(childUpdate).getByRole('link', { name: 'Sub-stream: run CoE' })).toHaveAttribute('href', '/workstreams/child-1');
     expect(within(childUpdate).getByRole('link', { name: 'Open child' })).toHaveAttribute('href', '/workstreams/child-1');
     expect(childUpdate).toHaveTextContent('#Production');
     expect(within(childUpdate).queryByText(/^#Production$/)).not.toBeInTheDocument();
@@ -182,7 +196,7 @@ describe('WorkstreamDetail reference redesign', () => {
     const sidebar = screen.getByTestId('workstream-detail-sidebar');
     expect(within(sidebar).getByRole('heading', { name: /Sub-streams/ })).toHaveTextContent('2');
     expect(within(sidebar).getByText('Direct children of this stream. No sibling or neighbor hierarchy shown here.')).toBeInTheDocument();
-    expect(within(sidebar).getByText('run CoE')).toBeInTheDocument();
+    expect(within(sidebar).getAllByText('run CoE').length).toBeGreaterThan(0);
     expect(within(sidebar).getByText('Checkout tracing cleanup')).toBeInTheDocument();
     expect(within(sidebar).queryByText('Latest update: No updates yet')).not.toBeInTheDocument();
 
@@ -191,9 +205,12 @@ describe('WorkstreamDetail reference redesign', () => {
     expect(within(sidebar).getByText('Customers')).toBeInTheDocument();
     expect(within(sidebar).getByText('Latest self update')).toBeInTheDocument();
     expect(within(sidebar).getByText('Latest child update')).toBeInTheDocument();
+    expect(within(sidebar).getByText('Parent stream')).toBeInTheDocument();
+    expect(within(sidebar).getByRole('link', { name: 'Team Payments' })).toHaveAttribute('href', '/workstreams/ancestor-4');
+    expect(within(sidebar).getByRole('link', { name: 'run CoE' })).toHaveAttribute('href', '/workstreams/child-1');
   });
 
-  it('uses latestStatus.updatedAt as the metadata fallback for latest self update', async () => {
+  it('uses relative dates with exact date-time hover titles in metadata and history', async () => {
     apiGetMock.mockResolvedValueOnce({
       data: {
         ...workstream,
@@ -213,7 +230,16 @@ describe('WorkstreamDetail reference redesign', () => {
     await screen.findByTestId('workstream-detail-shell');
 
     const sidebar = screen.getByTestId('workstream-detail-sidebar');
-    expect(within(sidebar).getByText('Jun 19, 2026 • 12:30 PM')).toBeInTheDocument();
+    const latestSelfTime = within(sidebar).getByTitle('Jun 19, 2026 • 12:30 PM');
+    expect(latestSelfTime).toHaveTextContent(/ago$/);
     expect(within(sidebar).queryByText('Jun 1, 2026 • 8:00 AM')).not.toBeInTheDocument();
+
+    const childUpdate = screen.getByTestId('status-update-child-update');
+    const childTime = within(childUpdate).getByTitle('Jun 20, 2026 • 10:15 AM');
+    expect(childTime).toHaveTextContent(/ago$/);
+
+    const ownUpdate = screen.getByTestId('status-update-self-update');
+    const ownTime = within(ownUpdate).getByTitle('Jun 18, 2026 • 11:00 AM');
+    expect(ownTime).toHaveTextContent(/ago$/);
   });
 });

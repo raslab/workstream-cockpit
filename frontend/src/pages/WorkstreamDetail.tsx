@@ -25,9 +25,9 @@ function formatDateTime(value: string | null | undefined): string {
   return format(parseISO(value), 'MMM d, yyyy • h:mm a');
 }
 
-function formatRelative(value: string | null | undefined): string {
-  if (!value) return 'No updates yet';
-  return formatDistanceToNow(parseISO(value), { addSuffix: true });
+function RelativeTime({ value, emptyLabel = 'No updates yet' }: { value: string | null | undefined; emptyLabel?: string }) {
+  if (!value) return <span>{emptyLabel}</span>;
+  return <time dateTime={value} title={formatDateTime(value)}>{formatDistanceToNow(parseISO(value), { addSuffix: true })}</time>;
 }
 
 function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: StatusEditDialogProps) {
@@ -296,9 +296,11 @@ export default function WorkstreamDetail() {
               </div>
 
               <div data-testid="workstream-detail-actions" className="grid content-start gap-2 lg:w-[190px]">
-                <button onClick={() => setShowNewStatusDialog(true)} className="h-10 rounded-md bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700">
-                  Add Update
-                </button>
+                {workstream.state !== 'closed' && (
+                  <button onClick={() => setShowNewStatusDialog(true)} className="h-10 rounded-md bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700">
+                    Add Update
+                  </button>
+                )}
                 <button onClick={() => setShowCreateSubstreamDialog(true)} className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
                   Create sub-stream
                 </button>
@@ -386,14 +388,14 @@ export default function WorkstreamDetail() {
                         <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
                           <div className="grid gap-2">
                             <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                              <time>{formatDateTime(update.createdAt)}</time>
+                              <time dateTime={update.createdAt} title={formatDateTime(update.createdAt)}>{formatDistanceToNow(parseISO(update.createdAt), { addSuffix: true })}</time>
                               {update.createdAt !== update.updatedAt && <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">(edited)</span>}
-                              <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">• {isChildUpdate ? 'from child' : formatRelative(update.createdAt)}</span>
+                              <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">• {isChildUpdate ? 'from child' : 'self update'}</span>
                             </div>
-                            {isChildUpdate && updateSource && (
-                              <div className="w-fit rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+                            {isChildUpdate && updateSource && updateSourceId && (
+                              <Link to={`/workstreams/${updateSourceId}`} className="w-fit rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700 hover:underline dark:bg-blue-900 dark:text-blue-200">
                                 Sub-stream: {getWorkstreamName(updateSource)}
-                              </div>
+                              </Link>
                             )}
                           </div>
 
@@ -454,7 +456,7 @@ export default function WorkstreamDetail() {
                             <span>{getWorkstreamName(child)}</span>
                             <span className="h-fit rounded-full bg-gray-100 px-2 py-1 text-[11px] font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-300">{child.state || 'active'}</span>
                           </div>
-                          <div className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Latest update: {formatRelative(childActivity)}</div>
+                          <div className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Latest update: <RelativeTime value={childActivity} /></div>
                         </Link>
                       );
                     })}
@@ -468,22 +470,37 @@ export default function WorkstreamDetail() {
                       <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Category</dt>
                       <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">{workstream.category?.name || 'Uncategorized'}</dd>
                     </div>
+                    {workstream.parent && (
+                      <div>
+                        <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Parent stream</dt>
+                        <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                          <Link to={`/workstreams/${workstream.parent.id}`} className="text-primary-700 hover:underline dark:text-primary-300">
+                            {getWorkstreamName(workstream.parent)}
+                          </Link>
+                        </dd>
+                      </div>
+                    )}
                     <div>
                       <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Created</dt>
-                      <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">{formatDateTime(workstream.createdAt)}</dd>
+                      <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200"><RelativeTime value={workstream.createdAt} /></dd>
                     </div>
                     <div>
                       <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Latest self update</dt>
-                      <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">{formatDateTime(latestSelfUpdateAt)}</dd>
+                      <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200"><RelativeTime value={latestSelfUpdateAt} /></dd>
                     </div>
                     <div>
                       <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Latest child update</dt>
                       <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
                         {latestChildUpdateAt ? (
                           <>
-                            {formatDateTime(latestChildUpdateAt)}
+                            <RelativeTime value={latestChildUpdateAt} />
                             {workstream.latestSubstreamActivitySource && (
-                              <> • {getWorkstreamName(workstream.latestSubstreamActivitySource)}</>
+                              <>
+                                {' '}•{' '}
+                                <Link to={`/workstreams/${getLatestSubstreamActivitySourceId(workstream.latestSubstreamActivitySource) || workstream.latestSubstreamActivitySource.id}`} className="text-primary-700 hover:underline dark:text-primary-300">
+                                  {getWorkstreamName(workstream.latestSubstreamActivitySource)}
+                                </Link>
+                              </>
                             )}
                           </>
                         ) : 'No child updates yet'}
