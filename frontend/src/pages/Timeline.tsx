@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 import { getWorkstreamName } from '../utils/hierarchy';
 import { SelectMenu } from '../components/UI/SelectMenu';
+import { ExportButton } from '../components/Timeline/ExportButton';
 
 export default function Timeline() {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
@@ -115,20 +116,21 @@ export default function Timeline() {
         </p>
       </div>
 
-      <FilterBar
-        selectedCategoryIds={selectedCategoryIds}
-        onCategoryIdsChange={setSelectedCategoryIds}
-        selectedTags={selectedTags}
-        onTagsChange={setSelectedTags}
-        customStartDate={customStartDate}
-        customEndDate={customEndDate}
-        onCustomStartDateChange={setCustomStartDate}
-        onCustomEndDateChange={setCustomEndDate}
-        timelineEntries={timeline}
-      />
-
-      <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div
+        data-testid="timeline-filters-panel"
+        className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+      >
         <div className="flex flex-wrap items-end gap-4">
+          <FilterBar
+            selectedCategoryIds={selectedCategoryIds}
+            onCategoryIdsChange={setSelectedCategoryIds}
+            selectedTags={selectedTags}
+            onTagsChange={setSelectedTags}
+            customStartDate={customStartDate}
+            customEndDate={customEndDate}
+            onCustomStartDateChange={setCustomStartDate}
+            onCustomEndDateChange={setCustomEndDate}
+          />
           <div>
             <SelectMenu
               label="Hierarchy scope"
@@ -180,6 +182,9 @@ export default function Timeline() {
             />
             Include sub-stream activity
           </label>
+          <div className="ml-auto">
+            <ExportButton entries={timeline ?? []} />
+          </div>
         </div>
       </div>
 
