@@ -215,7 +215,7 @@ export default function Cockpit() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 items-start gap-x-5 gap-y-3.5 lg:grid-cols-2">
+                  <div className="grid grid-cols-1 items-stretch gap-x-5 gap-y-3.5 lg:grid-cols-2">
                     {group.workstreams.map((workstream) => (
                       <WorkstreamCard key={workstream.id} workstream={workstream} />
                     ))}

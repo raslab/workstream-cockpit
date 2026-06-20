@@ -100,6 +100,10 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.getByRole('heading', { name: 'English learning plan' })).toHaveClass('text-base', 'font-semibold');
     expect(screen.getByText('Latest work happened in child stream: weekly lessons are moving.')).toHaveClass('text-sm');
     expect(screen.getByText('Parent: Goals')).toBeInTheDocument();
+    const parentLink = screen.getByText('Parent: Goals').closest('a');
+    expect(parentLink).toHaveClass('min-w-0', 'overflow-hidden', 'pr-36');
+    expect(parentLink).not.toHaveClass('pr-4');
+    expect(screen.getByText('Parent: Goals')).toHaveClass('truncate');
     expect(screen.getByRole('button', { name: 'Log status' })).toHaveClass('absolute', 'right-2', 'top-2');
     expect(screen.getByRole('button', { name: 'Log status' }).className).not.toContain('row-start');
     expect(screen.getByText(/Self:/)).toBeInTheDocument();
@@ -113,6 +117,14 @@ describe('WorkstreamCard tile layout', () => {
 
     expect(screen.queryByTestId('workstream-tags')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument();
+  });
+
+  it('stretches the tile to the grid row height while keeping content compact at the top', () => {
+    renderCard(baseWorkstream());
+
+    const card = screen.getByRole('heading', { name: 'English learning plan' }).closest('article');
+    expect(card).toHaveClass('h-full', 'content-start');
+    expect(card).not.toHaveClass('content-between', 'gap-y-4', 'gap-y-5', 'gap-y-6');
   });
 
   it('calculates visible tags from available width instead of a fixed count', () => {

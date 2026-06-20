@@ -242,7 +242,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
   return (
     <>
       <article
-        className={`relative grid grid-cols-[7px_66px_minmax(0,1fr)_auto] rounded-lg border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800 ${workstream.state === 'closed' ? 'bg-gray-50/80 dark:bg-gray-800/70' : ''}`}
+        className={`relative grid h-full content-start grid-cols-[7px_66px_minmax(0,1fr)_auto] rounded-lg border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800 ${workstream.state === 'closed' ? 'bg-gray-50/80 dark:bg-gray-800/70' : ''}`}
         style={categoryStyle}
       >
         <div
@@ -286,7 +286,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
         {workstream.parent && (
           <Link
             to={`/workstreams/${workstream.parent.id}`}
-            className="relative z-10 col-start-3 col-end-5 row-start-2 mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden pl-3 pr-4 text-xs text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400"
+            className="relative z-10 col-start-3 col-end-5 row-start-2 mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden pl-3 pr-36 text-xs text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400"
           >
             <ParentIcon />
             <span className="truncate">Parent: {workstream.parent.name || workstream.parent.workstreamName}</span>
