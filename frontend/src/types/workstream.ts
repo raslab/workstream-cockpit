@@ -14,6 +14,7 @@ export interface WorkstreamSummary {
   state?: 'active' | 'closed';
   parentId?: string | null;
   depth?: number;
+  lastDirectUpdateAt?: string | null;
   lastActivityAt?: string | null;
   lastSubstreamActivityAt?: string | null;
   latestSubstreamActivitySource?: LatestSubstreamActivitySource | null;

@@ -5,7 +5,14 @@ import { extractTagsFromFields } from '../utils/tagExtractor';
 const prisma = new PrismaClient();
 const MAX_HIERARCHY_DEPTH = 5;
 
-type WorkstreamSummary = Pick<Workstream, 'id' | 'name' | 'state' | 'parentId' | 'createdAt' | 'closedAt'> & { depth?: number };
+type LatestSubstreamActivitySource = { workstreamId: string; workstreamName: string; name?: string; updateId?: string; eventId?: string; eventType?: string; createdAt: Date };
+type ActivityMetadata = {
+  lastDirectUpdateAt: Date | null;
+  lastSubstreamActivityAt: Date | null;
+  lastActivityAt: Date | null;
+  latestSubstreamActivitySource: LatestSubstreamActivitySource | null;
+};
+type WorkstreamSummary = Pick<Workstream, 'id' | 'name' | 'state' | 'parentId' | 'createdAt' | 'closedAt'> & { depth?: number } & Partial<ActivityMetadata>;
 type PrismaTx = Prisma.TransactionClient;
 type PrismaExecutor = PrismaClient | PrismaTx;
 
@@ -45,12 +52,12 @@ export interface WorkstreamWithLatestStatus extends Workstream {
   lastDirectUpdateAt?: Date | null;
   lastSubstreamActivityAt?: Date | null;
   lastActivityAt?: Date | null;
-  latestSubstreamActivitySource?: { workstreamId: string; workstreamName: string; name?: string; updateId?: string; eventId?: string; eventType?: string; createdAt: Date } | null;
+  latestSubstreamActivitySource?: LatestSubstreamActivitySource | null;
 }
 
-function publicParent(parent: Workstream | null | undefined, depth?: number): WorkstreamSummary | null {
+function publicParent(parent: Workstream | null | undefined, depth?: number, activity?: ActivityMetadata): WorkstreamSummary | null {
   if (!parent) return null;
-  return { id: parent.id, name: parent.name, state: parent.state, parentId: parent.parentId, createdAt: parent.createdAt, closedAt: parent.closedAt, depth };
+  return { id: parent.id, name: parent.name, state: parent.state, parentId: parent.parentId, createdAt: parent.createdAt, closedAt: parent.closedAt, depth, ...activity };
 }
 
 function buildChildrenMap(workstreams: Workstream[]): Map<string | null, Workstream[]> {
@@ -135,12 +142,11 @@ async function enrichWorkstreams<T extends Workstream & { statusUpdates?: Status
   const latestEventByWorkstream = new Map<string, any>();
   for (const event of structuralEvents) if (!latestEventByWorkstream.has(event.workstreamId)) latestEventByWorkstream.set(event.workstreamId, event);
 
-  return rows.map((row: any) => {
-    const statusUpdates: StatusUpdate[] = row.statusUpdates ?? [];
-    const directLatest = statusUpdates[0] ?? latestByWorkstream.get(row.id);
-    const descendants = descendantIds(row.id, childrenMap);
+  const computeActivityMetadata = (workstreamId: string, directLatestOverride?: StatusUpdate): ActivityMetadata => {
+    const directLatest = directLatestOverride ?? latestByWorkstream.get(workstreamId);
+    const descendants = descendantIds(workstreamId, childrenMap);
     let latestSubstreamActivityAt: Date | null = null;
-    let latestSubstreamActivitySource: WorkstreamWithLatestStatus['latestSubstreamActivitySource'] = null;
+    let latestSubstreamActivitySource: LatestSubstreamActivitySource | null = null;
     for (const descendantId of descendants) {
       const update = latestByWorkstream.get(descendantId);
       const event = latestEventByWorkstream.get(descendantId);
@@ -154,6 +160,21 @@ async function enrichWorkstreams<T extends Workstream & { statusUpdates?: Status
         latestSubstreamActivitySource = candidate.source;
       }
     }
+    const lastDirectUpdateAt = directLatest?.createdAt ?? null;
+    const lastActivityAt = [lastDirectUpdateAt, latestSubstreamActivityAt].filter(Boolean).sort((a, b) => (b as Date).getTime() - (a as Date).getTime())[0] as Date | undefined;
+
+    return {
+      lastDirectUpdateAt,
+      lastSubstreamActivityAt: latestSubstreamActivityAt,
+      lastActivityAt: lastActivityAt ?? null,
+      latestSubstreamActivitySource,
+    };
+  };
+
+  return rows.map((row: any) => {
+    const statusUpdates: StatusUpdate[] = row.statusUpdates ?? [];
+    const directLatest = statusUpdates[0] ?? latestByWorkstream.get(row.id);
+    const activity = computeActivityMetadata(row.id, directLatest);
     const directChildren = childrenMap.get(row.id) ?? [];
     const depth = computeDepth(row, byId);
     const ancestors = computeAncestors(row, byId).map(a => publicParent(a, computeDepth(a, byId))!);
@@ -161,8 +182,6 @@ async function enrichWorkstreams<T extends Workstream & { statusUpdates?: Status
     const workstreamData = { ...row } as any;
     delete workstreamData.statusUpdates;
     const latestStatus = directLatest || undefined;
-    const lastDirectUpdateAt = directLatest?.createdAt ?? null;
-    const lastActivityAt = [lastDirectUpdateAt, latestSubstreamActivityAt].filter(Boolean).sort((a, b) => (b as Date).getTime() - (a as Date).getTime())[0] as Date | undefined;
     const texts = [row.context, ...(statusUpdates.length ? statusUpdates : latestStatus ? [latestStatus] : []).flatMap(su => [su.status, su.note])];
     return {
       ...workstreamData,
@@ -170,16 +189,13 @@ async function enrichWorkstreams<T extends Workstream & { statusUpdates?: Status
       allTags: extractTagsFromFields(...texts),
       parent,
       ancestors,
-      ...(includeChildren ? { children: directChildren.map(child => publicParent(child, depth + 1)) } : {}),
+      ...(includeChildren ? { children: directChildren.map(child => publicParent(child, depth + 1, computeActivityMetadata(child.id))) } : {}),
       childCount: directChildren.length,
       directChildCount: directChildren.length,
       activeChildCount: directChildren.filter(child => child.state === 'active').length,
       closedChildCount: directChildren.filter(child => child.state === 'closed').length,
       depth,
-      lastDirectUpdateAt,
-      lastSubstreamActivityAt: latestSubstreamActivityAt,
-      lastActivityAt: lastActivityAt ?? null,
-      latestSubstreamActivitySource,
+      ...activity,
     };
   });
 }
