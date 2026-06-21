@@ -123,6 +123,7 @@ describe('WorkstreamCard tile layout', () => {
     const activityRow = screen.getByText(/Self:/).parentElement?.parentElement;
     expect(activityRow).toHaveClass('flex-nowrap', 'overflow-hidden');
     expect(activityRow?.className).not.toContain('flex-wrap');
+    expect(activityRow).not.toContainElement(screen.getByText('2 active / 1 closed sub-streams'));
 
     const selfPill = screen.getByText(/Self:/).parentElement;
     expect(selfPill).toHaveClass('flex-none', 'whitespace-nowrap');
@@ -131,6 +132,12 @@ describe('WorkstreamCard tile layout', () => {
     expect(substreamPill).toHaveClass('min-w-0', 'flex-1', 'overflow-hidden');
     expect(screen.getByText('Schedule 11 English classes')).toHaveClass('min-w-0', 'flex-1', 'truncate');
     expect(screen.getByText('Schedule 11 English classes')).toHaveAttribute('title', 'Schedule 11 English classes');
+
+    const substreamCountRow = screen.getByText('2 active / 1 closed sub-streams').parentElement;
+    expect(substreamCountRow).toHaveClass('row-start-5', 'pt-2');
+    expect(substreamCountRow).not.toBe(activityRow);
+
+    expect(screen.getByTestId('workstream-tags')).toHaveClass('row-start-6');
   });
 
   it('does not render or reserve a tags region when the workstream has no tags', () => {
