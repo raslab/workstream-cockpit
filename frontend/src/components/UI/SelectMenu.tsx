@@ -148,7 +148,10 @@ export function SelectMenu<T extends string>({
 
   return (
     <div ref={rootRef} className={`relative ${className}`.trim()}>
-      <span id={labelId} className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+      <span
+        id={labelId}
+        className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+      >
         {label}
       </span>
       <button
