@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useId } from 'react';
 import { useTags } from '../../api/tags';
 
 interface TagFilterProps {
@@ -12,6 +12,8 @@ export function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const labelId = useId();
+  const selectedValueId = useId();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -61,9 +63,23 @@ export function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
     return null;
   }
 
+  const selectedTagRecords = tags.filter((tag) => selectedTags.includes(tag.name));
+  const buttonLabel = (() => {
+    if (selectedTagRecords.length === 0) return 'All tags';
+    if (selectedTagRecords.length === 1) return `#${selectedTagRecords[0].displayName}`;
+    return `${selectedTagRecords.length} tags`;
+  })();
+
   return (
     <div className="relative" ref={dropdownRef}>
+      <span id={labelId} className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+        Tags
+      </span>
       <button
+        type="button"
+        aria-labelledby={`${labelId} ${selectedValueId}`}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
         onClick={() => {
           setIsOpen((open) => {
             if (open) {
@@ -72,15 +88,26 @@ export function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
             return !open;
           });
         }}
-        className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+        className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 shadow-sm hover:bg-gray-50 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800"
       >
-        <span>Tags</span>
+        <span id={selectedValueId} className="truncate">{buttonLabel}</span>
         {selectedTags.length > 0 && (
           <span className="rounded-full bg-primary-600 px-2 py-0.5 text-xs text-white">
             {selectedTags.length}
           </span>
         )}
-        <span className="text-xs">{isOpen ? '▲' : '▼'}</span>
+        <svg
+          aria-hidden="true"
+          className={`h-4 w-4 flex-none text-gray-500 transition-transform dark:text-gray-400 ${isOpen ? 'rotate-180' : ''}`.trim()}
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+            clipRule="evenodd"
+          />
+        </svg>
       </button>
 
       {isOpen && (
@@ -109,6 +136,7 @@ export function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
                 return (
                   <button
                     key={tag.id}
+                    type="button"
                     onClick={() => toggleTag(tag.name)}
                     className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
@@ -133,6 +161,7 @@ export function TagFilter({ selectedTags, onTagsChange }: TagFilterProps) {
           {selectedTags.length > 0 && (
             <div className="border-t border-gray-200 p-2 dark:border-gray-700">
               <button
+                type="button"
                 onClick={clearAllTags}
                 className="w-full rounded px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700"
               >

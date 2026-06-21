@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { endOfDay, format, isToday, isYesterday, parseISO, startOfDay, subDays } from 'date-fns';
+import { endOfDay, endOfMonth, endOfQuarter, format, isToday, isYesterday, parseISO, startOfDay, startOfMonth, startOfQuarter, subDays, subMonths, subQuarters } from 'date-fns';
 import { useTimeline, TimelineEntry, TimelineEventType, TimelineResponse } from '../hooks/useTimeline';
 import { useWorkstreams } from '../hooks/useWorkstreams';
 import { FilterBar } from '../components/Timeline/FilterBar';
@@ -8,20 +8,37 @@ import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 import { getWorkstreamName } from '../utils/hierarchy';
 import { SelectMenu } from '../components/UI/SelectMenu';
 import { ExportButton } from '../components/Timeline/ExportButton';
+import { DateRangeQuickPreset } from '../components/Timeline/DateRangeFilter';
 
 export default function Timeline() {
-  const getQuickDateRange = (days: 7 | 14 | 30) => {
+  const getQuickDateRange = (preset: DateRangeQuickPreset) => {
     const now = new Date();
-    return {
-      startDate: startOfDay(subDays(now, days)),
-      endDate: endOfDay(now),
-    };
+    switch (preset) {
+      case 'last-7-days':
+        return { startDate: startOfDay(subDays(now, 7)), endDate: endOfDay(now) };
+      case 'last-14-days':
+        return { startDate: startOfDay(subDays(now, 14)), endDate: endOfDay(now) };
+      case 'last-30-days':
+        return { startDate: startOfDay(subDays(now, 30)), endDate: endOfDay(now) };
+      case 'this-month':
+        return { startDate: startOfMonth(now), endDate: endOfDay(now) };
+      case 'last-month': {
+        const lastMonth = subMonths(now, 1);
+        return { startDate: startOfMonth(lastMonth), endDate: endOfMonth(lastMonth) };
+      }
+      case 'this-quarter':
+        return { startDate: startOfQuarter(now), endDate: endOfDay(now) };
+      case 'last-quarter': {
+        const lastQuarter = subQuarters(now, 1);
+        return { startDate: startOfQuarter(lastQuarter), endDate: endOfQuarter(lastQuarter) };
+      }
+    }
   };
 
-  const defaultRange = getQuickDateRange(7);
+  const defaultRange = getQuickDateRange('last-7-days');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [quickDays, setQuickDays] = useState<7 | 14 | 30 | undefined>(7);
+  const [quickPreset, setQuickPreset] = useState<DateRangeQuickPreset | undefined>('last-7-days');
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(defaultRange.startDate);
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(defaultRange.endDate);
   const [streamScope, setStreamScope] = useState<'all' | 'top-level' | 'sub-streams' | 'under-parent'>('all');
@@ -39,27 +56,27 @@ export default function Timeline() {
 
   const currentCursor = pageCursors[pageIndex];
 
-  const handleQuickDaysChange = (days: 7 | 14 | 30 | undefined) => {
-    if (!days) {
-      setQuickDays(undefined);
+  const handleQuickPresetChange = (preset: DateRangeQuickPreset | undefined) => {
+    if (!preset) {
+      setQuickPreset(undefined);
       resetPagination();
       return;
     }
-    const range = getQuickDateRange(days);
-    setQuickDays(days);
+    const range = getQuickDateRange(preset);
+    setQuickPreset(preset);
     setCustomStartDate(range.startDate);
     setCustomEndDate(range.endDate);
     resetPagination();
   };
 
   const handleCustomStartDateChange = (date: Date | undefined) => {
-    setQuickDays(undefined);
+    setQuickPreset(undefined);
     setCustomStartDate(date);
     resetPagination();
   };
 
   const handleCustomEndDateChange = (date: Date | undefined) => {
-    setQuickDays(undefined);
+    setQuickPreset(undefined);
     setCustomEndDate(date);
     resetPagination();
   };
@@ -98,6 +115,49 @@ export default function Timeline() {
     if (pageIndex === 0) return;
     setPageIndex((index) => index - 1);
   };
+
+  const renderPaginationControls = (options: { includePageSize?: boolean; className?: string } = {}) => (
+    <div className={`flex flex-wrap items-center justify-between gap-3 ${options.className ?? ''}`.trim()}>
+      {options.includePageSize ? (
+        <SelectMenu
+          label="Page size"
+          value={String(pageSize) as '50' | '100' | '200'}
+          onChange={(nextPageSize) => {
+            setPageSize(Number(nextPageSize) as 50 | 100 | 200);
+            resetPagination();
+          }}
+          options={[
+            { value: '50', label: '50' },
+            { value: '100', label: '100' },
+            { value: '200', label: '200' },
+          ]}
+        />
+      ) : (
+        <span aria-hidden="true" />
+      )}
+      <nav className="flex items-center gap-3" aria-label="Timeline pagination">
+        <button
+          type="button"
+          aria-label="Previous page"
+          onClick={handlePreviousPage}
+          disabled={pageIndex === 0}
+          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          Previous
+        </button>
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Page {pageIndex + 1}</span>
+        <button
+          type="button"
+          aria-label="Next page"
+          onClick={handleNextPage}
+          disabled={!nextCursor}
+          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          Next
+        </button>
+      </nav>
+    </div>
+  );
 
   // Group timeline entries by date
   const groupedEntries = timeline?.reduce((groups, entry) => {
@@ -200,10 +260,10 @@ export default function Timeline() {
             }}
             customStartDate={customStartDate}
             customEndDate={customEndDate}
-            quickDays={quickDays}
+            quickPreset={quickPreset}
             onCustomStartDateChange={handleCustomStartDateChange}
             onCustomEndDateChange={handleCustomEndDateChange}
-            onQuickDaysChange={handleQuickDaysChange}
+            onQuickPresetChange={handleQuickPresetChange}
           />
           <div>
             <SelectMenu
@@ -275,42 +335,7 @@ export default function Timeline() {
         </div>
       </div>
 
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <SelectMenu
-          label="Page size"
-          value={String(pageSize) as '50' | '100' | '200'}
-          onChange={(nextPageSize) => {
-            setPageSize(Number(nextPageSize) as 50 | 100 | 200);
-            resetPagination();
-          }}
-          options={[
-            { value: '50', label: '50' },
-            { value: '100', label: '100' },
-            { value: '200', label: '200' },
-          ]}
-        />
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            aria-label="Previous page"
-            onClick={handlePreviousPage}
-            disabled={pageIndex === 0}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            Previous
-          </button>
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Page {pageIndex + 1}</span>
-          <button
-            type="button"
-            aria-label="Next page"
-            onClick={handleNextPage}
-            disabled={!nextCursor}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      {renderPaginationControls({ includePageSize: true, className: 'mb-4 border-b border-gray-200 pb-3 dark:border-gray-700' })}
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
@@ -416,6 +441,8 @@ export default function Timeline() {
           ))}
         </div>
       )}
+
+      {!isLoading && timeline && renderPaginationControls({ className: 'mt-6 border-t border-gray-200 pt-3 dark:border-gray-700' })}
     </div>
   );
 }

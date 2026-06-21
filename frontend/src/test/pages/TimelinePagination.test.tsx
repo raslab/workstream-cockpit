@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { startOfDay, endOfDay, subDays } from 'date-fns';
+import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, subQuarters } from 'date-fns';
 
 const useTimelineMock = vi.hoisted(() => vi.fn());
 
@@ -63,19 +63,19 @@ describe('Timeline date quick filters and pagination', () => {
       limit: 50,
       cursor: undefined,
     }));
-    expect(screen.getByRole('button', { name: /Date range.*Last 7 days/ })).toBeInTheDocument();
-    expect(screen.getByText('Page 1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Time range.*Last 7 days/ })).toBeInTheDocument();
+    expect(screen.getAllByText('Page 1')).toHaveLength(2);
   });
 
   it('applies 14 and 30 day quick filters and resets pagination', () => {
     render(<MemoryRouter><Timeline /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Next page' })[0]);
     expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
       cursor: 'cursor-page-2',
     }));
 
-    fireEvent.click(screen.getByRole('button', { name: /Date range.*Last 7 days/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Time range.*Last 7 days/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Last 14 days' }));
 
     expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
@@ -83,9 +83,9 @@ describe('Timeline date quick filters and pagination', () => {
       endDate: endOfDay(new Date('2026-06-21T12:00:00Z')),
       cursor: undefined,
     }));
-    expect(screen.getByText('Page 1')).toBeInTheDocument();
+    expect(screen.getAllByText('Page 1')).toHaveLength(2);
 
-    fireEvent.click(screen.getByRole('button', { name: /Date range.*Last 14 days/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Time range.*Last 14 days/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Last 30 days' }));
 
     expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
@@ -95,21 +95,64 @@ describe('Timeline date quick filters and pagination', () => {
     }));
   });
 
-  it('uses cursor-backed next and previous pagination and page size selector', () => {
+  it('applies month and quarter quick filters', () => {
     render(<MemoryRouter><Timeline /></MemoryRouter>);
 
-    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: /Time range.*Last 7 days/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'This month' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    expect(screen.getByText('Page 2')).toBeInTheDocument();
+    expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      startDate: startOfMonth(new Date('2026-06-21T12:00:00Z')),
+      endDate: endOfDay(new Date('2026-06-21T12:00:00Z')),
+      cursor: undefined,
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Time range.*This month/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Last month' }));
+
+    expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      startDate: startOfMonth(subMonths(new Date('2026-06-21T12:00:00Z'), 1)),
+      endDate: endOfMonth(subMonths(new Date('2026-06-21T12:00:00Z'), 1)),
+      cursor: undefined,
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Time range.*Last month/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'This quarter' }));
+
+    expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      startDate: startOfQuarter(new Date('2026-06-21T12:00:00Z')),
+      endDate: endOfDay(new Date('2026-06-21T12:00:00Z')),
+      cursor: undefined,
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Time range.*This quarter/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Last quarter' }));
+
+    expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      startDate: startOfQuarter(subQuarters(new Date('2026-06-21T12:00:00Z'), 1)),
+      endDate: endOfQuarter(subQuarters(new Date('2026-06-21T12:00:00Z'), 1)),
+      cursor: undefined,
+    }));
+  });
+
+  it('uses duplicated cursor-backed pagination and page size selector without a separate panel', () => {
+    render(<MemoryRouter><Timeline /></MemoryRouter>);
+
+    expect(screen.queryByTestId('timeline-pagination-panel')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Previous page' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Next page' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Previous page' })[0]).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: 'Next page' })[0]).toBeEnabled();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Next page' })[0]);
+    expect(screen.getAllByText('Page 2')).toHaveLength(2);
     expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
       limit: 50,
       cursor: 'cursor-page-2',
     }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Previous page' }));
-    expect(screen.getByText('Page 1')).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Previous page' })[0]);
+    expect(screen.getAllByText('Page 1')).toHaveLength(2);
     expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
       limit: 50,
       cursor: undefined,
@@ -118,7 +161,7 @@ describe('Timeline date quick filters and pagination', () => {
     fireEvent.click(screen.getByRole('button', { name: /Page size.*50/ }));
     fireEvent.click(within(screen.getByRole('listbox', { name: 'Page size' })).getByRole('option', { name: '100' }));
 
-    expect(screen.getByText('Page 1')).toBeInTheDocument();
+    expect(screen.getAllByText('Page 1')).toHaveLength(2);
     expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
       limit: 100,
       cursor: undefined,

@@ -4,7 +4,7 @@ import { DateRangeFilter } from '../../components/Timeline/DateRangeFilter';
 import '@testing-library/jest-dom';
 
 describe('DateRangeFilter', () => {
-  it('should render date range button', () => {
+  it('should render a labeled date range button with the closed selected value', () => {
     const onStartDateChange = vi.fn();
     const onEndDateChange = vi.fn();
     const onClear = vi.fn();
@@ -17,7 +17,8 @@ describe('DateRangeFilter', () => {
       />
     );
 
-    expect(screen.getByText('Date Range')).toBeInTheDocument();
+    expect(screen.getByText('Time range')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Time range.*Any time/ })).toBeInTheDocument();
   });
 
   it('should display selected date range in button label', () => {
@@ -71,7 +72,7 @@ describe('DateRangeFilter', () => {
       />
     );
 
-    const button = screen.getByText('Date Range');
+    const button = screen.getByRole('button', { name: /Time range.*Any time/ });
     fireEvent.click(button);
 
     expect(screen.getByText('Start Date')).toBeInTheDocument();
@@ -91,7 +92,7 @@ describe('DateRangeFilter', () => {
       />
     );
 
-    const button = screen.getByText('Date Range');
+    const button = screen.getByRole('button', { name: /Time range.*Any time/ });
     fireEvent.click(button);
 
     const startInput = screen.getByLabelText('Start Date') as HTMLInputElement;
@@ -113,7 +114,7 @@ describe('DateRangeFilter', () => {
       />
     );
 
-    const button = screen.getByText('Date Range');
+    const button = screen.getByRole('button', { name: /Time range.*Any time/ });
     fireEvent.click(button);
 
     const endInput = screen.getByLabelText('End Date') as HTMLInputElement;
@@ -135,12 +136,16 @@ describe('DateRangeFilter', () => {
       />
     );
 
-    const button = screen.getByText('Date Range');
+    const button = screen.getByRole('button', { name: /Time range.*Any time/ });
     fireEvent.click(button);
 
     expect(screen.getByRole('button', { name: 'Last 7 days' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Last 14 days' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Last 30 days' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'This month' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Last month' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'This quarter' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Last quarter' })).toBeInTheDocument();
   });
 
   it('should call onQuickDaysChange when a quick filter is clicked', () => {
@@ -158,12 +163,12 @@ describe('DateRangeFilter', () => {
       />
     );
 
-    const button = screen.getByText('Date Range');
+    const button = screen.getByRole('button', { name: /Time range.*Any time/ });
     fireEvent.click(button);
 
     fireEvent.click(screen.getByRole('button', { name: 'Last 14 days' }));
 
-    expect(onQuickDaysChange).toHaveBeenCalledWith(14);
+    expect(onQuickDaysChange).toHaveBeenCalledWith('last-14-days');
     expect(onStartDateChange).not.toHaveBeenCalled();
     expect(onEndDateChange).not.toHaveBeenCalled();
   });
@@ -231,7 +236,7 @@ describe('DateRangeFilter', () => {
       />
     );
 
-    const button = screen.getByText('Date Range');
+    const button = screen.getByRole('button', { name: /Time range.*Any time/ });
     fireEvent.click(button);
 
     expect(screen.getByText('Start Date')).toBeInTheDocument();

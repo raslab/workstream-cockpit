@@ -51,9 +51,9 @@ describe('Timeline filters layout', () => {
     render(<MemoryRouter><Timeline /></MemoryRouter>);
 
     const panel = screen.getByTestId('timeline-filters-panel');
-    const dateFilter = screen.getByRole('button', { name: /Date range.*Last 7 days/ });
-    const categoriesFilter = screen.getByRole('button', { name: /Categories/ });
-    const tagsFilter = screen.getByRole('button', { name: /Tags/ });
+    const dateFilter = screen.getByRole('button', { name: /Time range.*Last 7 days/ });
+    const categoriesFilter = screen.getByRole('button', { name: /Categories.*All categories/ });
+    const tagsFilter = screen.getByRole('button', { name: /Tags.*All tags/ });
     const hierarchyFilter = screen.getByRole('button', { name: /Stream scope.*All streams/ });
     const activityFilter = screen.getByRole('button', { name: /Activity type.*All activity/ });
     const includeSubstreams = screen.getByRole('checkbox', { name: /Include sub-stream activity/ });
@@ -72,6 +72,9 @@ describe('Timeline filters layout', () => {
       expect(control.closest('[data-testid="timeline-filters-panel"]')).toBe(panel);
     }
 
+    expect(screen.getByText('Time range')).toBeInTheDocument();
+    expect(screen.getByText('Categories')).toBeInTheDocument();
+    expect(screen.getByText('Tags')).toBeInTheDocument();
     expect(screen.queryByTestId('timeline-parent-stream-filters-panel')).not.toBeInTheDocument();
   });
 });
