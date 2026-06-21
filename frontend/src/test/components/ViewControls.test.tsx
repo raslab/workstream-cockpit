@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilterPanel } from '../../components/ViewManagement/FilterPanel';
 import { ViewControls } from '../../components/ViewManagement/ViewControls';
 import type { ViewConfig } from '../../types/view';
@@ -66,6 +66,10 @@ describe('ViewControls', () => {
 });
 
 describe('FilterPanel', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   function renderFilterPanel() {
     const onFiltersChange = vi.fn();
     const onClose = vi.fn();
@@ -102,6 +106,32 @@ describe('FilterPanel', () => {
     expect(scrollContainer).toHaveClass('max-h-[50vh]');
     expect(scrollContainer).toHaveClass('overflow-y-auto');
     expect(scrollContainer).not.toHaveClass('max-h-96');
+  });
+
+  it('remembers expanded filter sections after the panel is reopened', async () => {
+    const user = userEvent.setup();
+    const firstRender = renderFilterPanel();
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /categories/i }));
+      await user.click(screen.getByRole('button', { name: /tags/i }));
+      await user.click(screen.getByRole('button', { name: /parent\/sub-streams/i }));
+    });
+
+    expect(screen.getByRole('button', { name: /categories/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /tags/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /parent\/sub-streams/i })).toHaveAttribute('aria-expanded', 'true');
+
+    firstRender.unmount();
+    renderFilterPanel();
+
+    expect(screen.getByRole('button', { name: /categories/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /tags/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /other/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /parent\/sub-streams/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByText('Product')).not.toBeInTheDocument();
+    expect(screen.getByText('#Urgent')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /all streams/i })).toBeInTheDocument();
   });
 
   it('shows inline Parent/sub-streams radios without a nested dropdown and applies selected mode', async () => {
