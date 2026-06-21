@@ -51,7 +51,7 @@ describe('Timeline filters layout', () => {
     render(<MemoryRouter><Timeline /></MemoryRouter>);
 
     const panel = screen.getByTestId('timeline-filters-panel');
-    const dateFilter = screen.getByRole('button', { name: /Date Range/ });
+    const dateFilter = screen.getByRole('button', { name: /Date range.*Last 7 days/ });
     const categoriesFilter = screen.getByRole('button', { name: /Categories/ });
     const tagsFilter = screen.getByRole('button', { name: /Tags/ });
     const hierarchyFilter = screen.getByRole('button', { name: /Stream scope.*All streams/ });

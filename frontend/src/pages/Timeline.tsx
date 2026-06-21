@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useTimeline, TimelineEntry, TimelineEventType } from '../hooks/useTimeline';
+import { endOfDay, format, isToday, isYesterday, parseISO, startOfDay, subDays } from 'date-fns';
+import { useTimeline, TimelineEntry, TimelineEventType, TimelineResponse } from '../hooks/useTimeline';
 import { useWorkstreams } from '../hooks/useWorkstreams';
 import { FilterBar } from '../components/Timeline/FilterBar';
-import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 import { getWorkstreamName } from '../utils/hierarchy';
@@ -10,20 +10,67 @@ import { SelectMenu } from '../components/UI/SelectMenu';
 import { ExportButton } from '../components/Timeline/ExportButton';
 
 export default function Timeline() {
+  const getQuickDateRange = (days: 7 | 14 | 30) => {
+    const now = new Date();
+    return {
+      startDate: startOfDay(subDays(now, days)),
+      endDate: endOfDay(now),
+    };
+  };
+
+  const defaultRange = getQuickDateRange(7);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [customStartDate, setCustomStartDate] = useState<Date | undefined>();
-  const [customEndDate, setCustomEndDate] = useState<Date | undefined>();
+  const [quickDays, setQuickDays] = useState<7 | 14 | 30 | undefined>(7);
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(defaultRange.startDate);
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(defaultRange.endDate);
   const [streamScope, setStreamScope] = useState<'all' | 'top-level' | 'sub-streams' | 'under-parent'>('all');
   const [parentId, setParentId] = useState<string>('');
   const [includeSubstreams, setIncludeSubstreams] = useState(false);
   const [activityFilter, setActivityFilter] = useState<'all' | TimelineEventType>('all');
+  const [pageSize, setPageSize] = useState<50 | 100 | 200>(50);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageCursors, setPageCursors] = useState<Array<string | undefined>>([undefined]);
+
+  const resetPagination = () => {
+    setPageIndex(0);
+    setPageCursors([undefined]);
+  };
+
+  const currentCursor = pageCursors[pageIndex];
+
+  const handleQuickDaysChange = (days: 7 | 14 | 30 | undefined) => {
+    if (!days) {
+      setQuickDays(undefined);
+      resetPagination();
+      return;
+    }
+    const range = getQuickDateRange(days);
+    setQuickDays(days);
+    setCustomStartDate(range.startDate);
+    setCustomEndDate(range.endDate);
+    resetPagination();
+  };
+
+  const handleCustomStartDateChange = (date: Date | undefined) => {
+    setQuickDays(undefined);
+    setCustomStartDate(date);
+    resetPagination();
+  };
+
+  const handleCustomEndDateChange = (date: Date | undefined) => {
+    setQuickDays(undefined);
+    setCustomEndDate(date);
+    resetPagination();
+  };
 
   const { data: workstreams = [] } = useWorkstreams({ state: 'active' });
 
-  const { data: timeline, isLoading, error } = useTimeline({
+  const { data: timelineResponse, isLoading, error } = useTimeline({
     startDate: customStartDate,
     endDate: customEndDate,
+    limit: pageSize,
+    cursor: currentCursor,
     categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
     tags: selectedTags.length > 0 ? selectedTags : undefined,
     streamScope,
@@ -32,6 +79,25 @@ export default function Timeline() {
     eventTypes: activityFilter === 'all' ? undefined : [activityFilter],
     includeStructuralEvents: true,
   });
+
+  const timelineData = timelineResponse as TimelineResponse | TimelineEntry[] | undefined;
+  const timeline: TimelineEntry[] | undefined = Array.isArray(timelineData)
+    ? timelineData
+    : timelineData?.events;
+  const nextCursor = Array.isArray(timelineData)
+    ? undefined
+    : timelineData?.nextCursor ?? undefined;
+
+  const handleNextPage = () => {
+    if (!nextCursor) return;
+    setPageCursors((cursors) => [...cursors.slice(0, pageIndex + 1), nextCursor]);
+    setPageIndex((index) => index + 1);
+  };
+
+  const handlePreviousPage = () => {
+    if (pageIndex === 0) return;
+    setPageIndex((index) => index - 1);
+  };
 
   // Group timeline entries by date
   const groupedEntries = timeline?.reduce((groups, entry) => {
@@ -123,19 +189,30 @@ export default function Timeline() {
         <div className="flex flex-wrap items-end gap-4">
           <FilterBar
             selectedCategoryIds={selectedCategoryIds}
-            onCategoryIdsChange={setSelectedCategoryIds}
+            onCategoryIdsChange={(categoryIds) => {
+              setSelectedCategoryIds(categoryIds);
+              resetPagination();
+            }}
             selectedTags={selectedTags}
-            onTagsChange={setSelectedTags}
+            onTagsChange={(tags) => {
+              setSelectedTags(tags);
+              resetPagination();
+            }}
             customStartDate={customStartDate}
             customEndDate={customEndDate}
-            onCustomStartDateChange={setCustomStartDate}
-            onCustomEndDateChange={setCustomEndDate}
+            quickDays={quickDays}
+            onCustomStartDateChange={handleCustomStartDateChange}
+            onCustomEndDateChange={handleCustomEndDateChange}
+            onQuickDaysChange={handleQuickDaysChange}
           />
           <div>
             <SelectMenu
               label="Stream scope"
               value={streamScope}
-              onChange={(nextScope) => setStreamScope(nextScope)}
+              onChange={(nextScope) => {
+                setStreamScope(nextScope);
+                resetPagination();
+              }}
               options={[
                 { value: 'all', label: 'All streams' },
                 { value: 'top-level', label: 'Top-level only' },
@@ -149,7 +226,10 @@ export default function Timeline() {
               <SelectMenu
                 label="Parent stream"
                 value={parentId}
-                onChange={setParentId}
+                onChange={(nextParentId) => {
+                  setParentId(nextParentId);
+                  resetPagination();
+                }}
                 buttonClassName="min-w-64"
                 options={[
                   { value: '', label: 'Select a parent' },
@@ -162,7 +242,10 @@ export default function Timeline() {
             <SelectMenu
               label="Activity type"
               value={activityFilter}
-              onChange={(nextActivity) => setActivityFilter(nextActivity)}
+              onChange={(nextActivity) => {
+                setActivityFilter(nextActivity);
+                resetPagination();
+              }}
               options={[
                 { value: 'all', label: 'All activity' },
                 { value: 'status_update', label: 'Status updates' },
@@ -177,14 +260,55 @@ export default function Timeline() {
             <input
               type="checkbox"
               checked={includeSubstreams}
-              onChange={(event) => setIncludeSubstreams(event.target.checked)}
+              onChange={(event) => {
+                setIncludeSubstreams(event.target.checked);
+                resetPagination();
+              }}
               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
             Include sub-stream activity
           </label>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-end gap-3">
+            <span className="pb-2 text-xs text-gray-500 dark:text-gray-400">Exports current page</span>
             <ExportButton entries={timeline ?? []} />
           </div>
+        </div>
+      </div>
+
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <SelectMenu
+          label="Page size"
+          value={String(pageSize) as '50' | '100' | '200'}
+          onChange={(nextPageSize) => {
+            setPageSize(Number(nextPageSize) as 50 | 100 | 200);
+            resetPagination();
+          }}
+          options={[
+            { value: '50', label: '50' },
+            { value: '100', label: '100' },
+            { value: '200', label: '200' },
+          ]}
+        />
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            aria-label="Previous page"
+            onClick={handlePreviousPage}
+            disabled={pageIndex === 0}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            Previous
+          </button>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Page {pageIndex + 1}</span>
+          <button
+            type="button"
+            aria-label="Next page"
+            onClick={handleNextPage}
+            disabled={!nextCursor}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            Next
+          </button>
         </div>
       </div>
 

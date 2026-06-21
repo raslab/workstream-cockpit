@@ -38,9 +38,16 @@ export interface TimelineEntry {
   };
 }
 
+export interface TimelineResponse {
+  events: TimelineEntry[];
+  nextCursor?: string | null;
+}
+
 interface UseTimelineOptions {
   startDate?: Date;
   endDate?: Date;
+  limit?: number;
+  cursor?: string;
   categoryIds?: string[];
   tags?: string[];
   streamScope?: 'all' | 'top-level' | 'sub-streams' | 'under-parent';
@@ -51,16 +58,22 @@ interface UseTimelineOptions {
 }
 
 export function useTimeline(options: UseTimelineOptions = {}) {
-  return useQuery<TimelineEntry[]>({
+  return useQuery<TimelineResponse>({
     queryKey: ['timeline', options],
     queryFn: async () => {
       const params = new URLSearchParams();
-      
+
       if (options.startDate) {
         params.set('startDate', options.startDate.toISOString());
       }
       if (options.endDate) {
         params.set('endDate', options.endDate.toISOString());
+      }
+      if (options.limit) {
+        params.set('limit', String(options.limit));
+      }
+      if (options.cursor) {
+        params.set('cursor', options.cursor);
       }
       if (options.categoryIds && options.categoryIds.length > 0) {
         params.set('categoryIds', options.categoryIds.join(','));
@@ -80,10 +93,12 @@ export function useTimeline(options: UseTimelineOptions = {}) {
       if (options.eventTypes && options.eventTypes.length > 0) {
         params.set('eventTypes', options.eventTypes.join(','));
       }
-      
+
       const url = `/api/timeline${params.toString() ? `?${params.toString()}` : ''}`;
       const response = await apiClient.get(url);
-      return response.data;
+      return Array.isArray(response.data)
+        ? { events: response.data, nextCursor: null }
+        : response.data;
     },
   });
 }

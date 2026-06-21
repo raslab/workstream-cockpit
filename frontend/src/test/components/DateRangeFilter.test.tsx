@@ -138,21 +138,22 @@ describe('DateRangeFilter', () => {
     const button = screen.getByText('Date Range');
     fireEvent.click(button);
 
-    expect(screen.getByText('Today')).toBeInTheDocument();
-    expect(screen.getByText('Last 7 Days')).toBeInTheDocument();
-    expect(screen.getByText('Last 30 Days')).toBeInTheDocument();
-    expect(screen.getByText('This Month')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Last 7 days' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Last 14 days' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Last 30 days' })).toBeInTheDocument();
   });
 
-  it('should set today when "Today" is clicked', () => {
+  it('should call onQuickDaysChange when a quick filter is clicked', () => {
     const onStartDateChange = vi.fn();
     const onEndDateChange = vi.fn();
+    const onQuickDaysChange = vi.fn();
     const onClear = vi.fn();
 
     render(
       <DateRangeFilter
         onStartDateChange={onStartDateChange}
         onEndDateChange={onEndDateChange}
+        onQuickDaysChange={onQuickDaysChange}
         onClear={onClear}
       />
     );
@@ -160,11 +161,11 @@ describe('DateRangeFilter', () => {
     const button = screen.getByText('Date Range');
     fireEvent.click(button);
 
-    const todayButton = screen.getByText('Today');
-    fireEvent.click(todayButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Last 14 days' }));
 
-    expect(onStartDateChange).toHaveBeenCalled();
-    expect(onEndDateChange).toHaveBeenCalled();
+    expect(onQuickDaysChange).toHaveBeenCalledWith(14);
+    expect(onStartDateChange).not.toHaveBeenCalled();
+    expect(onEndDateChange).not.toHaveBeenCalled();
   });
 
   it('should show clear button when dates are selected', () => {

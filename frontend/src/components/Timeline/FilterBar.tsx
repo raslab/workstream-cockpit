@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useCategories } from '../../hooks/useCategories';
 import { TagFilter } from '../Tag/TagFilter';
 import { DateRangeFilter } from './DateRangeFilter';
-import { startOfDay, endOfDay, subDays, startOfWeek, endOfWeek } from 'date-fns';
+import { startOfDay, endOfDay, subDays } from 'date-fns';
 
 export type FilterPreset = 'all' | 'today' | 'week' | 'last7' | 'custom';
 
@@ -13,8 +13,10 @@ interface FilterBarProps {
   onTagsChange: (tags: string[]) => void;
   customStartDate?: Date;
   customEndDate?: Date;
+  quickDays?: 7 | 14 | 30;
   onCustomStartDateChange: (date: Date | undefined) => void;
   onCustomEndDateChange: (date: Date | undefined) => void;
+  onQuickDaysChange?: (days: 7 | 14 | 30 | undefined) => void;
 }
 
 export function FilterBar({
@@ -24,8 +26,10 @@ export function FilterBar({
   onTagsChange,
   customStartDate,
   customEndDate,
+  quickDays,
   onCustomStartDateChange,
   onCustomEndDateChange,
+  onQuickDaysChange,
 }: FilterBarProps) {
   const { data: categories } = useCategories();
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
@@ -44,8 +48,10 @@ export function FilterBar({
       <DateRangeFilter
         startDate={customStartDate}
         endDate={customEndDate}
+        quickDays={quickDays}
         onStartDateChange={onCustomStartDateChange}
         onEndDateChange={onCustomEndDateChange}
+        onQuickDaysChange={onQuickDaysChange}
         onClear={() => {
           onCustomStartDateChange(undefined);
           onCustomEndDateChange(undefined);
@@ -124,10 +130,7 @@ export function getDateRangeFromPreset(preset: FilterPreset): {
         endDate: endOfDay(now),
       };
     case 'week':
-      return {
-        startDate: startOfWeek(now),
-        endDate: endOfWeek(now),
-      };
+      return getDateRangeFromPreset('last7');
     case 'last7':
       return {
         startDate: startOfDay(subDays(now, 7)),

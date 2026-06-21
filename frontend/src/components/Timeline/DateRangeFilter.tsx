@@ -4,16 +4,20 @@ import { format, isValid, parseISO } from 'date-fns';
 interface DateRangeFilterProps {
   startDate?: Date;
   endDate?: Date;
+  quickDays?: 7 | 14 | 30;
   onStartDateChange: (date: Date | undefined) => void;
   onEndDateChange: (date: Date | undefined) => void;
+  onQuickDaysChange?: (days: 7 | 14 | 30 | undefined) => void;
   onClear: () => void;
 }
 
 export function DateRangeFilter({
   startDate,
   endDate,
+  quickDays,
   onStartDateChange,
   onEndDateChange,
+  onQuickDaysChange,
   onClear,
 }: DateRangeFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -57,12 +61,16 @@ export function DateRangeFilter({
   };
 
   const handleClear = () => {
+    onQuickDaysChange?.(undefined);
     onClear();
     setIsOpen(false);
   };
 
   // Display label for the button
   const getButtonLabel = () => {
+    if (quickDays) {
+      return `Last ${quickDays} days`;
+    }
     if (startDate && endDate) {
       return `${format(startDate, 'MMM d')} - ${format(endDate, 'MMM d, yyyy')}`;
     } else if (startDate) {
@@ -78,6 +86,7 @@ export function DateRangeFilter({
   return (
     <div className="relative" ref={dropdownRef}>
       <button
+        aria-label={`Date range: ${getButtonLabel()}`}
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
       >
@@ -126,53 +135,23 @@ export function DateRangeFilter({
             {/* Quick Presets */}
             <div>
               <div className="text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Quick Select</div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    onStartDateChange(today);
-                    onEndDateChange(new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1));
-                  }}
-                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  Today
-                </button>
-                <button
-                  onClick={() => {
-                    const today = new Date();
-                    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-                    weekAgo.setHours(0, 0, 0, 0);
-                    onStartDateChange(weekAgo);
-                    onEndDateChange(today);
-                  }}
-                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  Last 7 Days
-                </button>
-                <button
-                  onClick={() => {
-                    const today = new Date();
-                    const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-                    monthAgo.setHours(0, 0, 0, 0);
-                    onStartDateChange(monthAgo);
-                    onEndDateChange(today);
-                  }}
-                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  Last 30 Days
-                </button>
-                <button
-                  onClick={() => {
-                    const today = new Date();
-                    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-                    onStartDateChange(start);
-                    onEndDateChange(today);
-                  }}
-                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  This Month
-                </button>
+              <div className="grid grid-cols-3 gap-2">
+                {([7, 14, 30] as const).map((days) => (
+                  <button
+                    key={days}
+                    onClick={() => {
+                      onQuickDaysChange?.(days);
+                      setIsOpen(false);
+                    }}
+                    className={`rounded px-3 py-1.5 text-sm hover:bg-gray-200 dark:hover:bg-gray-700 ${
+                      quickDays === days
+                        ? 'bg-primary-100 text-primary-800 dark:bg-primary-900/40 dark:text-primary-200'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                    }`}
+                  >
+                    Last {days} days
+                  </button>
+                ))}
               </div>
             </div>
 
