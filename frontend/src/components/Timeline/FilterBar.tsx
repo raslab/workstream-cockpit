@@ -1,4 +1,4 @@
-import { useState, useId } from 'react';
+import { useEffect, useRef, useState, useId } from 'react';
 import { useCategories } from '../../hooks/useCategories';
 import { TagFilter } from '../Tag/TagFilter';
 import { DateRangeFilter, DateRangeQuickPreset } from './DateRangeFilter';
@@ -33,8 +33,20 @@ export function FilterBar({
 }: FilterBarProps) {
   const { data: categories } = useCategories();
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const categoryMenuRef = useRef<HTMLDivElement>(null);
   const categoryLabelId = useId();
   const categoryValueId = useId();
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (categoryMenuRef.current && !categoryMenuRef.current.contains(event.target as Node)) {
+        setShowCategoryMenu(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggleCategory = (categoryId: string) => {
     if (selectedCategoryIds.includes(categoryId)) {
@@ -62,13 +74,18 @@ export function FilterBar({
         onEndDateChange={onCustomEndDateChange}
         onQuickPresetChange={onQuickPresetChange}
         onClear={() => {
+          if (onQuickPresetChange) {
+            onQuickPresetChange('last-7-days');
+            return;
+          }
+
           onCustomStartDateChange(undefined);
           onCustomEndDateChange(undefined);
         }}
       />
 
       {categories && categories.length > 0 && (
-        <div className="relative">
+        <div className="relative" ref={categoryMenuRef}>
           <span id={categoryLabelId} className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Categories
           </span>

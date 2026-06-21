@@ -117,7 +117,7 @@ describe('Timeline date quick filters and pagination', () => {
     }));
 
     fireEvent.click(screen.getByRole('button', { name: /Time range.*This month/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Last month' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
 
     expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
       startDate: startOfMonth(subMonths(new Date('2026-06-21T12:00:00Z'), 1)),
@@ -125,7 +125,7 @@ describe('Timeline date quick filters and pagination', () => {
       cursor: undefined,
     }));
 
-    fireEvent.click(screen.getByRole('button', { name: /Time range.*Last month/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Time range.*Previous month/ }));
     fireEvent.click(screen.getByRole('button', { name: 'This quarter' }));
 
     expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
@@ -135,13 +135,55 @@ describe('Timeline date quick filters and pagination', () => {
     }));
 
     fireEvent.click(screen.getByRole('button', { name: /Time range.*This quarter/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Last quarter' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Previous quarter' }));
 
     expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
       startDate: startOfQuarter(subQuarters(new Date('2026-06-21T12:00:00Z'), 1)),
       endDate: endOfQuarter(subQuarters(new Date('2026-06-21T12:00:00Z'), 1)),
       cursor: undefined,
     }));
+  });
+
+  it('clear in the time range filter restores the Last 7 days preset and resets the cursor', () => {
+    render(<MemoryRouter><Timeline /></MemoryRouter>);
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Next page' })[0]);
+    expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'cursor-page-2' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Time range.*Last 7 days/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Last 14 days' }));
+    expect(screen.getByRole('button', { name: /Time range.*Last 14 days/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Time range.*Last 14 days/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+    expect(screen.getByRole('button', { name: /Time range.*Last 7 days/ })).toBeInTheDocument();
+    expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      startDate: startOfDay(subDays(new Date('2026-06-21T12:00:00Z'), 7)),
+      endDate: endOfDay(new Date('2026-06-21T12:00:00Z')),
+      limit: 50,
+      cursor: undefined,
+    }));
+  });
+
+  it('caps the rendered and exported current page to the selected page size when a sentinel item is present', () => {
+    const sentinelEntries = Array.from({ length: 51 }, (_, index) => ({
+      ...entry,
+      id: `entry-${index + 1}`,
+      status: `Timeline entry ${index + 1}`,
+      createdAt: new Date(Date.UTC(2026, 5, 21, 12, 0, 0 - index)).toISOString(),
+    }));
+    useTimelineMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: { events: sentinelEntries, nextCursor: 'cursor-page-2' },
+    });
+
+    render(<MemoryRouter><Timeline /></MemoryRouter>);
+
+    expect(screen.getByText('Timeline entry 50')).toBeInTheDocument();
+    expect(screen.queryByText('Timeline entry 51')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Export 50 timeline entries to CSV/ })).toBeInTheDocument();
   });
 
   it('uses duplicated cursor-backed pagination and page size selector without a separate panel', () => {

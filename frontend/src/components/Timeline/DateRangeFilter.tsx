@@ -29,9 +29,9 @@ const quickPresets: Array<{ value: DateRangeQuickPreset; label: string }> = [
   { value: 'last-30-days', label: 'Last 30 days' },
   { value: 'last-60-days', label: 'Last 60 days' },
   { value: 'this-month', label: 'This month' },
-  { value: 'last-month', label: 'Last month' },
+  { value: 'last-month', label: 'Previous month' },
   { value: 'this-quarter', label: 'This quarter' },
-  { value: 'last-quarter', label: 'Last quarter' },
+  { value: 'last-quarter', label: 'Previous quarter' },
 ];
 
 export function DateRangeFilter({

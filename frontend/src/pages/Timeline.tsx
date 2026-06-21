@@ -106,6 +106,7 @@ export default function Timeline() {
   const nextCursor = Array.isArray(timelineData)
     ? undefined
     : timelineData?.nextCursor ?? undefined;
+  const currentPageTimeline = timeline?.slice(0, pageSize);
 
   const handleNextPage = () => {
     if (!nextCursor) return;
@@ -168,7 +169,7 @@ export default function Timeline() {
   );
 
   // Group timeline entries by date
-  const groupedEntries = timeline?.reduce((groups, entry) => {
+  const groupedEntries = currentPageTimeline?.reduce((groups, entry) => {
     const date = format(parseISO(entry.createdAt), 'yyyy-MM-dd');
     if (!groups[date]) {
       groups[date] = [];
@@ -338,7 +339,7 @@ export default function Timeline() {
           </label>
           <div className="ml-auto flex items-end gap-3">
             <span className="pb-2 text-xs text-gray-500 dark:text-gray-400">Exports current page</span>
-            <ExportButton entries={timeline ?? []} />
+            <ExportButton entries={currentPageTimeline ?? []} />
           </div>
         </div>
       </div>
@@ -364,7 +365,7 @@ export default function Timeline() {
         </div>
       )}
 
-      {!isLoading && timeline && timeline.length === 0 && (
+      {!isLoading && currentPageTimeline && currentPageTimeline.length === 0 && (
         <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             No activity found for the selected filters.

@@ -144,9 +144,11 @@ describe('DateRangeFilter', () => {
     expect(screen.getByRole('button', { name: 'Last 30 days' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Last 60 days' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'This month' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Last month' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous month' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'This quarter' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Last quarter' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous quarter' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Last month' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Last quarter' })).not.toBeInTheDocument();
   });
 
   it('should call onQuickDaysChange when a quick filter is clicked', () => {
