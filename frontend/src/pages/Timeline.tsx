@@ -20,6 +20,8 @@ export default function Timeline() {
         return { startDate: startOfDay(subDays(now, 14)), endDate: endOfDay(now) };
       case 'last-30-days':
         return { startDate: startOfDay(subDays(now, 30)), endDate: endOfDay(now) };
+      case 'last-60-days':
+        return { startDate: startOfDay(subDays(now, 60)), endDate: endOfDay(now) };
       case 'this-month':
         return { startDate: startOfMonth(now), endDate: endOfDay(now) };
       case 'last-month': {
@@ -116,32 +118,20 @@ export default function Timeline() {
     setPageIndex((index) => index - 1);
   };
 
-  const renderPaginationControls = (options: { includePageSize?: boolean; className?: string } = {}) => (
-    <div className={`flex flex-wrap items-center justify-between gap-3 ${options.className ?? ''}`.trim()}>
-      {options.includePageSize ? (
-        <SelectMenu
-          label="Page size"
-          value={String(pageSize) as '50' | '100' | '200'}
-          onChange={(nextPageSize) => {
-            setPageSize(Number(nextPageSize) as 50 | 100 | 200);
-            resetPagination();
-          }}
-          options={[
-            { value: '50', label: '50' },
-            { value: '100', label: '100' },
-            { value: '200', label: '200' },
-          ]}
-        />
-      ) : (
-        <span aria-hidden="true" />
-      )}
+  const paginationButtonClassName = "h-9 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800";
+
+  const renderPaginationControls = (options: { className?: string; testId?: string } = {}) => (
+    <div
+      data-testid={options.testId}
+      className={`flex flex-wrap items-center justify-end gap-6 ${options.className ?? ''}`.trim()}
+    >
       <nav className="flex items-center gap-3" aria-label="Timeline pagination">
         <button
           type="button"
           aria-label="Previous page"
           onClick={handlePreviousPage}
           disabled={pageIndex === 0}
-          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+          className={paginationButtonClassName}
         >
           Previous
         </button>
@@ -151,11 +141,29 @@ export default function Timeline() {
           aria-label="Next page"
           onClick={handleNextPage}
           disabled={!nextCursor}
-          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+          className={paginationButtonClassName}
         >
           Next
         </button>
       </nav>
+      <div data-testid="timeline-page-size" className="whitespace-nowrap">
+        <SelectMenu
+          label="Page size"
+          value={String(pageSize) as '50' | '100' | '200'}
+          onChange={(nextPageSize) => {
+            setPageSize(Number(nextPageSize) as 50 | 100 | 200);
+            resetPagination();
+          }}
+          className="flex items-center gap-2 [&>span]:mb-0"
+          buttonClassName="h-9"
+          menuClassName="right-0 left-auto"
+          options={[
+            { value: '50', label: '50' },
+            { value: '100', label: '100' },
+            { value: '200', label: '200' },
+          ]}
+        />
+      </div>
     </div>
   );
 
@@ -335,7 +343,7 @@ export default function Timeline() {
         </div>
       </div>
 
-      {renderPaginationControls({ includePageSize: true, className: 'mb-4 border-b border-gray-200 pb-3 dark:border-gray-700' })}
+      {renderPaginationControls({ testId: 'timeline-pagination-top', className: 'mb-4 border-b border-gray-200 pb-3 dark:border-gray-700' })}
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
@@ -442,7 +450,7 @@ export default function Timeline() {
         </div>
       )}
 
-      {!isLoading && timeline && renderPaginationControls({ className: 'mt-6 border-t border-gray-200 pt-3 dark:border-gray-700' })}
+      {!isLoading && timeline && renderPaginationControls({ testId: 'timeline-pagination-bottom', className: 'mt-6 border-t border-gray-200 pt-3 dark:border-gray-700' })}
     </div>
   );
 }

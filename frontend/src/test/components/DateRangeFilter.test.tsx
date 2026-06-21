@@ -142,6 +142,7 @@ describe('DateRangeFilter', () => {
     expect(screen.getByRole('button', { name: 'Last 7 days' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Last 14 days' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Last 30 days' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Last 60 days' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'This month' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Last month' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'This quarter' })).toBeInTheDocument();

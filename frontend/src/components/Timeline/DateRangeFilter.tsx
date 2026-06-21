@@ -5,6 +5,7 @@ export type DateRangeQuickPreset =
   | 'last-7-days'
   | 'last-14-days'
   | 'last-30-days'
+  | 'last-60-days'
   | 'this-month'
   | 'last-month'
   | 'this-quarter'
@@ -14,7 +15,7 @@ interface DateRangeFilterProps {
   startDate?: Date;
   endDate?: Date;
   quickPreset?: DateRangeQuickPreset;
-  quickDays?: 7 | 14 | 30;
+  quickDays?: 7 | 14 | 30 | 60;
   onStartDateChange: (date: Date | undefined) => void;
   onEndDateChange: (date: Date | undefined) => void;
   onQuickPresetChange?: (preset: DateRangeQuickPreset | undefined) => void;
@@ -26,6 +27,7 @@ const quickPresets: Array<{ value: DateRangeQuickPreset; label: string }> = [
   { value: 'last-7-days', label: 'Last 7 days' },
   { value: 'last-14-days', label: 'Last 14 days' },
   { value: 'last-30-days', label: 'Last 30 days' },
+  { value: 'last-60-days', label: 'Last 60 days' },
   { value: 'this-month', label: 'This month' },
   { value: 'last-month', label: 'Last month' },
   { value: 'this-quarter', label: 'This quarter' },

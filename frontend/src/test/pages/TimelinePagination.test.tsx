@@ -67,7 +67,7 @@ describe('Timeline date quick filters and pagination', () => {
     expect(screen.getAllByText('Page 1')).toHaveLength(2);
   });
 
-  it('applies 14 and 30 day quick filters and resets pagination', () => {
+  it('applies 14, 30, and 60 day quick filters and resets pagination', () => {
     render(<MemoryRouter><Timeline /></MemoryRouter>);
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Next page' })[0]);
@@ -90,6 +90,15 @@ describe('Timeline date quick filters and pagination', () => {
 
     expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
       startDate: startOfDay(subDays(new Date('2026-06-21T12:00:00Z'), 30)),
+      endDate: endOfDay(new Date('2026-06-21T12:00:00Z')),
+      cursor: undefined,
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Time range.*Last 30 days/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Last 60 days' }));
+
+    expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      startDate: startOfDay(subDays(new Date('2026-06-21T12:00:00Z'), 60)),
       endDate: endOfDay(new Date('2026-06-21T12:00:00Z')),
       cursor: undefined,
     }));
@@ -158,7 +167,7 @@ describe('Timeline date quick filters and pagination', () => {
       cursor: undefined,
     }));
 
-    fireEvent.click(screen.getByRole('button', { name: /Page size.*50/ }));
+    fireEvent.click(screen.getAllByRole('button', { name: /Page size.*50/ })[0]);
     fireEvent.click(within(screen.getByRole('listbox', { name: 'Page size' })).getByRole('option', { name: '100' }));
 
     expect(screen.getAllByText('Page 1')).toHaveLength(2);
@@ -166,5 +175,34 @@ describe('Timeline date quick filters and pagination', () => {
       limit: 100,
       cursor: undefined,
     }));
+  });
+
+  it('renders matching right-aligned pagination groups with nav before one-line page size selector', () => {
+    render(<MemoryRouter><Timeline /></MemoryRouter>);
+
+    const topPagination = screen.getByTestId('timeline-pagination-top');
+    const bottomPagination = screen.getByTestId('timeline-pagination-bottom');
+
+    for (const pagination of [topPagination, bottomPagination]) {
+      expect(pagination).toHaveClass('justify-end');
+      expect(pagination).toHaveClass('gap-6');
+      expect(pagination).toContainElement(within(pagination).getByRole('navigation', { name: 'Timeline pagination' }));
+      expect(pagination).toContainElement(within(pagination).getByRole('button', { name: /Page size.*50/ }));
+
+      const nav = within(pagination).getByRole('navigation', { name: 'Timeline pagination' });
+      const previousButton = within(nav).getByRole('button', { name: 'Previous page' });
+      const nextButton = within(nav).getByRole('button', { name: 'Next page' });
+      const pageSize = within(pagination).getByRole('button', { name: /Page size.*50/ });
+      expect(nav.compareDocumentPosition(pageSize) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(previousButton).toHaveClass('h-9');
+      expect(nextButton).toHaveClass('h-9');
+      const pageSizeWrapper = pageSize.closest('[data-testid="timeline-page-size"]');
+      expect(pageSizeWrapper).toHaveClass('whitespace-nowrap');
+      expect(pageSizeWrapper?.querySelector('.relative')).toHaveClass('flex', 'items-center', 'gap-2', '[&>span]:mb-0');
+      expect(pageSize).toHaveClass('h-9');
+    }
+
+    expect(topPagination.querySelectorAll('nav').length).toBe(bottomPagination.querySelectorAll('nav').length);
+    expect(within(topPagination).getAllByRole('button')).toHaveLength(within(bottomPagination).getAllByRole('button').length);
   });
 });
