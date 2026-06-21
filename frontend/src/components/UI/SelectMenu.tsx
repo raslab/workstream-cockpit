@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 
 export interface SelectMenuOption<T extends string> {
   value: T;
@@ -15,7 +15,20 @@ interface SelectMenuProps<T extends string> {
   className?: string;
   buttonClassName?: string;
   menuClassName?: string;
+  hideLabel?: boolean;
 }
+
+const visuallyHiddenStyle: CSSProperties = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  borderWidth: 0,
+};
 
 export function SelectMenu<T extends string>({
   label,
@@ -25,6 +38,7 @@ export function SelectMenu<T extends string>({
   className = '',
   buttonClassName = '',
   menuClassName = '',
+  hideLabel = false,
 }: SelectMenuProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -148,7 +162,11 @@ export function SelectMenu<T extends string>({
 
   return (
     <div ref={rootRef} className={`relative ${className}`.trim()}>
-      <span id={labelId} className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+      <span
+        id={labelId}
+        className={hideLabel ? 'sr-only' : 'mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300'}
+        style={hideLabel ? visuallyHiddenStyle : undefined}
+      >
         {label}
       </span>
       <button
