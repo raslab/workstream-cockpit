@@ -216,6 +216,15 @@ describe('WorkstreamDetail reference redesign', () => {
   });
 
   it('uses relative dates with exact date-time hover titles in metadata and history', async () => {
+    const aboutTwelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+    useStatusHistoryMock.mockReturnValue({
+      data: [
+        { ...updates[0], createdAt: aboutTwelveHoursAgo, updatedAt: aboutTwelveHoursAgo },
+        updates[1],
+      ],
+      isLoading: false,
+    });
+
     apiGetMock.mockResolvedValueOnce({
       data: {
         ...workstream,
@@ -240,8 +249,9 @@ describe('WorkstreamDetail reference redesign', () => {
     expect(within(sidebar).queryByText('Jun 1, 2026 • 8:00 AM')).not.toBeInTheDocument();
 
     const substreamUpdate = screen.getByTestId('status-update-substream-update');
-    const childTime = within(substreamUpdate).getByTitle('Jun 20, 2026 • 10:15 AM');
-    expect(childTime).toHaveTextContent(/ago$/);
+    const childTime = within(substreamUpdate).getByText('12 hours ago');
+    expect(childTime.tagName).toBe('TIME');
+    expect(childTime).not.toHaveTextContent(/^about /);
 
     const ownUpdate = screen.getByTestId('status-update-self-update');
     const ownTime = within(ownUpdate).getByTitle('Jun 18, 2026 • 11:00 AM');

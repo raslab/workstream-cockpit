@@ -26,9 +26,13 @@ function formatDateTime(value: string | null | undefined): string {
   return format(parseISO(value), 'MMM d, yyyy • h:mm a');
 }
 
+function formatRelativeTime(value: string): string {
+  return formatDistanceToNow(parseISO(value), { addSuffix: true }).replace(/^about /, '');
+}
+
 function RelativeTime({ value, emptyLabel = 'No updates yet' }: { value: string | null | undefined; emptyLabel?: string }) {
   if (!value) return <span>{emptyLabel}</span>;
-  return <time dateTime={value} title={formatDateTime(value)}>{formatDistanceToNow(parseISO(value), { addSuffix: true })}</time>;
+  return <time dateTime={value} title={formatDateTime(value)}>{formatRelativeTime(value)}</time>;
 }
 
 function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: StatusEditDialogProps) {
@@ -389,7 +393,7 @@ export default function WorkstreamDetail() {
                         <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
                           <div className="grid gap-2">
                             <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                              <time dateTime={update.createdAt} title={formatDateTime(update.createdAt)}>{formatDistanceToNow(parseISO(update.createdAt), { addSuffix: true })}</time>
+                              <time dateTime={update.createdAt} title={formatDateTime(update.createdAt)}>{formatRelativeTime(update.createdAt)}</time>
                               {update.createdAt !== update.updatedAt && <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">(edited)</span>}
                               <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">• {isSubstreamUpdate ? 'from sub-stream' : 'self update'}</span>
                             </div>
