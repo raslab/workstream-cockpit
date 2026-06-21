@@ -39,6 +39,45 @@ export interface TimelineFilters {
   streamScope?: 'all' | 'top-level' | 'sub-streams' | 'under-parent';
   parentId?: string;
   includeSubstreams?: boolean;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface TimelinePage {
+  events: TimelineEntry[];
+  nextCursor: string | null;
+}
+
+interface TimelineCursor {
+  createdAt: string;
+  id: string;
+}
+
+function encodeCursor(entry: TimelineEntry): string {
+  return Buffer.from(JSON.stringify({ createdAt: entry.createdAt.toISOString(), id: entry.id })).toString('base64url');
+}
+
+function decodeCursor(cursor?: string): TimelineCursor | null {
+  if (!cursor) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as TimelineCursor;
+    if (!parsed.createdAt || !parsed.id || Number.isNaN(new Date(parsed.createdAt).getTime())) throw new Error('bad cursor');
+    return parsed;
+  } catch {
+    throw new Error('Invalid timeline cursor');
+  }
+}
+
+function isAfterCursor(entry: TimelineEntry, cursor: TimelineCursor | null): boolean {
+  if (!cursor) return true;
+  const entryTime = entry.createdAt.getTime();
+  const cursorTime = new Date(cursor.createdAt).getTime();
+  return entryTime < cursorTime || (entryTime === cursorTime && entry.id < cursor.id);
+}
+
+function compareTimelineEntries(a: TimelineEntry, b: TimelineEntry): number {
+  const byDate = b.createdAt.getTime() - a.createdAt.getTime();
+  return byDate !== 0 ? byDate : b.id.localeCompare(a.id);
 }
 
 function collectSubstreamIds(rootId: string, substreamsByParent: Map<string | null, { id: string }[]>, maxDepth = 5): string[] {
@@ -76,6 +115,30 @@ function dateWhere(filters: TimelineFilters) {
   return out;
 }
 
+function sameTimestampIdWhere(prefix: string, cursor: TimelineCursor): any | null {
+  if (cursor.id.startsWith(prefix)) return { id: { lt: cursor.id.slice(prefix.length) } };
+  return prefix.localeCompare(cursor.id) < 0 ? {} : null;
+}
+
+function applyDateCursorWhere(where: any, field: string, prefix: string, filters: TimelineFilters, cursor: TimelineCursor | null): void {
+  const range = dateWhere(filters);
+  if (!cursor) {
+    if (Object.keys(range).length > 0) where[field] = range;
+    return;
+  }
+
+  const cursorDate = new Date(cursor.createdAt);
+  const olderRange = { ...range, lt: cursorDate };
+  const sameTimeIdWhere = sameTimestampIdWhere(prefix, cursor);
+  const cursorClauses: any[] = [{ [field]: olderRange }];
+
+  if (sameTimeIdWhere !== null) {
+    cursorClauses.push({ [field]: { ...range, equals: cursorDate }, ...sameTimeIdWhere });
+  }
+
+  where.AND = [...(where.AND ?? []), { OR: cursorClauses }];
+}
+
 async function parentStreamMeta(projectId: string, workstreamId: string) {
   const breadcrumb = await getBreadcrumbForWorkstream(projectId, workstreamId);
   const self = breadcrumb[breadcrumb.length - 1];
@@ -91,11 +154,14 @@ async function parentStreamMeta(projectId: string, workstreamId: string) {
   };
 }
 
-export async function getTimeline(filters: TimelineFilters): Promise<TimelineEntry[]> {
+export async function getTimeline(filters: TimelineFilters): Promise<TimelinePage> {
   try {
+    const limit = filters.limit ?? 50;
+    const pageFetchLimit = limit + 1;
+    const cursor = decodeCursor(filters.cursor);
+    const sourceTake = filters.tags?.length ? undefined : pageFetchLimit;
     const requested = new Set(filters.eventTypes ?? ['status_update', 'workstream_created', 'workstream_closed', 'parent_changed', 'sub_stream_created']);
     const workstreamWhereClause: any = { projectId: filters.projectId };
-    const createdAtFilter = dateWhere(filters);
     if (filters.categoryIds?.length) workstreamWhereClause.categoryId = { in: filters.categoryIds };
     const scopedWorkstreamIds = await streamScopeWorkstreamIdFilter(filters);
     if (scopedWorkstreamIds) workstreamWhereClause.id = { in: scopedWorkstreamIds };
@@ -104,9 +170,11 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
 
     if (requested.has('status_update')) {
       const statusUpdateWhereClause: any = { workstream: workstreamWhereClause };
-      if (filters.startDate || filters.endDate) statusUpdateWhereClause.createdAt = createdAtFilter;
+      applyDateCursorWhere(statusUpdateWhereClause, 'createdAt', 'status-', filters, cursor);
       const statusUpdates = await prisma.statusUpdate.findMany({
         where: statusUpdateWhereClause,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: sourceTake,
         include: {
           workstream: {
             select: {
@@ -137,9 +205,11 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
 
     if (requested.has('workstream_created')) {
       const where: any = { ...workstreamWhereClause };
-      if (filters.startDate || filters.endDate) where.createdAt = createdAtFilter;
+      applyDateCursorWhere(where, 'createdAt', 'created-', filters, cursor);
       const workstreamsCreated = await prisma.workstream.findMany({
         where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: sourceTake,
         select: { id: true, name: true, context: true, createdAt: true, category: { select: { id: true, name: true, color: true, emoji: true } } },
       });
       for (const workstream of workstreamsCreated) {
@@ -149,9 +219,11 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
 
     if (requested.has('workstream_closed')) {
       const where: any = { ...workstreamWhereClause, closedAt: { not: null } };
-      if (filters.startDate || filters.endDate) where.closedAt = createdAtFilter;
+      applyDateCursorWhere(where, 'closedAt', 'closed-', filters, cursor);
       const workstreamsClosed = await prisma.workstream.findMany({
         where,
+        orderBy: [{ closedAt: 'desc' }, { id: 'desc' }],
+        take: sourceTake,
         select: { id: true, name: true, context: true, closedAt: true, category: { select: { id: true, name: true, color: true, emoji: true } } },
       });
       for (const workstream of workstreamsClosed) {
@@ -161,9 +233,9 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
 
     if (requested.has('parent_changed') || requested.has('sub_stream_created')) {
       const eventWhere: any = { eventType: { in: Array.from(requested).filter(type => type === 'parent_changed' || type === 'sub_stream_created') }, workstream: workstreamWhereClause };
-      if (filters.startDate || filters.endDate) eventWhere.createdAt = createdAtFilter;
-      const events = await prisma.workstreamEvent.findMany({ where: eventWhere, include: { workstream: { select: { id: true, name: true, context: true, category: { select: { id: true, name: true, color: true, emoji: true } } } } } });
-      for (const event of events) {
+      applyDateCursorWhere(eventWhere, 'createdAt', 'event-', filters, cursor);
+      const workstreamEvents = await prisma.workstreamEvent.findMany({ where: eventWhere, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: sourceTake, include: { workstream: { select: { id: true, name: true, context: true, category: { select: { id: true, name: true, color: true, emoji: true } } } } } });
+      for (const event of workstreamEvents) {
         const metadata = event.metadata as any;
         const meta = await parentStreamMeta(filters.projectId, event.workstreamId);
         const eventParentBreadcrumb = metadata.newParentBreadcrumb ?? null;
@@ -205,8 +277,11 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
       delete rest.workstreamContext;
       return rest as TimelineEntry;
     });
-    cleanedTimeline.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    return cleanedTimeline;
+    const cursorFilteredTimeline = cleanedTimeline.filter(entry => isAfterCursor(entry, cursor));
+    cursorFilteredTimeline.sort(compareTimelineEntries);
+    const events = cursorFilteredTimeline.slice(0, limit);
+    const nextCursor = cursorFilteredTimeline.length > limit ? encodeCursor(events[events.length - 1]) : null;
+    return { events, nextCursor };
   } catch (error) {
     logger.error('Error getting timeline:', error);
     throw error;

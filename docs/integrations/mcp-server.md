@@ -248,19 +248,22 @@ Input:
 {
   "startDate": "optional ISO timestamp/date, inclusive",
   "endDate": "optional ISO timestamp/date, inclusive",
-  "relativeDays": "optional integer shorthand; 7 means from now minus 7 days through now",
+  "relativeDays": "optional integer shorthand, 1-366; defaults to 7 when no dates are supplied",
   "tagNames": ["optional tag IDs such as alan_awake"],
   "categoryIds": ["optional category UUIDs"],
   "eventTypes": ["status_update", "workstream_created", "workstream_closed"],
-  "limit": 100,
+  "limit": 50,
   "cursor": "optional opaque cursor"
 }
 ```
 
 Rules:
 
-- `relativeDays` is convenience input for clients; if present, the handler converts it to `startDate`/`endDate`.
-- If both explicit dates and `relativeDays` are provided, explicit dates win.
+- `timeline_query` is always bounded; when neither `startDate`, `endDate`, nor `relativeDays` is supplied, it defaults to the last 7 days.
+- `relativeDays` is convenience input for clients; if present without explicit dates, the handler converts it to `startDate`/`endDate`. It must be 1-366 days.
+- If either explicit date is provided, explicit dates win over `relativeDays`. A single explicit boundary is completed to a 366-day effective range (`endDate - 366 days` or `startDate + 366 days`) so the query remains bounded.
+- Effective timeline ranges must be 366 days or fewer, and `startDate` must be before or equal to `endDate`.
+- `limit` defaults to 50 and may not exceed 200.
 - `tagNames` filters against tags extracted from workstream context, update status, and update note, matching current timeline behavior.
 - Results are sorted newest first.
 

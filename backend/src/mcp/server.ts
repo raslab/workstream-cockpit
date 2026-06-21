@@ -6,7 +6,7 @@ import { createStatusUpdate, updateStatusUpdate, deleteStatusUpdate, getStatusUp
 import { getCategoriesByProjectId, createCategory, updateCategory, deleteCategory, reorderCategories } from '../services/categoryService';
 import { getTagsByProjectId, createTag, updateTag, deleteTag } from '../services/tagService';
 import { viewService } from '../services/viewService';
-import { getTimeline, TimelineEventType } from '../services/timelineService';
+import { getTimeline } from '../services/timelineService';
 import { logger } from '../utils/logger';
 
 interface McpContext extends VerifiedPersonalAccessToken { projectId: string }
@@ -22,6 +22,9 @@ const UUID_PATTERN = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB
 const ISO_DATE_OR_TIMESTAMP_PATTERN = '^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?(?:Z|[+-]\\d{2}:\\d{2})?)?$';
 const DEFAULT_RATE_LIMIT_PER_MINUTE = 120;
 const DEFAULT_AUTH_FAILURE_LIMIT_PER_MINUTE = 20;
+const DEFAULT_TIMELINE_RELATIVE_DAYS = 7;
+const MAX_TIMELINE_RANGE_DAYS = 366;
+const DAY_MS = 86_400_000;
 const SUPPORTED_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
 const text = (value: unknown) => JSON.stringify(value, (_k, v) => v instanceof Date ? v.toISOString() : v);
@@ -83,6 +86,29 @@ function dateArg(value: unknown, key: string): Date | undefined {
 }
 function validateDateRange(start?: Date, end?: Date) {
   if (start && end && start.getTime() > end.getTime()) throw new ToolError('startDate must be before or equal to endDate');
+}
+function validateTimelineDateRange(start: Date, end: Date) {
+  validateDateRange(start, end);
+  if (end.getTime() - start.getTime() > MAX_TIMELINE_RANGE_DAYS * DAY_MS) throw new ToolError(`timeline date range must be ${MAX_TIMELINE_RANGE_DAYS} days or fewer`);
+}
+function resolveTimelineDateRange(args: Record<string, any>): { startDate: Date; endDate: Date } {
+  const explicitStartDate = dateArg(args.startDate, 'startDate');
+  const explicitEndDate = dateArg(args.endDate, 'endDate');
+
+  if (explicitStartDate || explicitEndDate) {
+    const startDate = explicitStartDate ?? new Date(explicitEndDate!.getTime() - MAX_TIMELINE_RANGE_DAYS * DAY_MS);
+    const endDate = explicitEndDate ?? new Date(explicitStartDate!.getTime() + MAX_TIMELINE_RANGE_DAYS * DAY_MS);
+    validateTimelineDateRange(startDate, endDate);
+    return { startDate, endDate };
+  }
+
+  const days = args.relativeDays === undefined
+    ? DEFAULT_TIMELINE_RELATIVE_DAYS
+    : integerArg(args, 'relativeDays', 1, MAX_TIMELINE_RANGE_DAYS);
+  const endDate = new Date();
+  const startDate = new Date(endDate.getTime() - days * DAY_MS);
+  validateTimelineDateRange(startDate, endDate);
+  return { startDate, endDate };
 }
 function requireConfirm(args: Record<string, any>) { if (args.confirm !== true) throw new ToolError('confirm: true is required'); }
 function normalizeColor(color: string) { if (!/^#[0-9A-Fa-f]{6}$/.test(color)) throw new ToolError('color must be #RRGGBB'); return color.toUpperCase(); }
@@ -372,17 +398,18 @@ const tools: ToolDef[] = [
   { name: 'settings_view_update', description: 'Update view', scope: 'mcp:write', inputSchema: schema({ id: uuidProp(), name: stringProp(1,100), isDefault: { type: 'boolean' }, config: { type: 'object' } }, ['id']), handler: async (args, ctx) => { const data: any = {}; if (args.name !== undefined) data.name = requireString(args, 'name', 100); if (args.isDefault !== undefined) data.isDefault = Boolean(args.isDefault); if (args.config !== undefined) data.config = args.config; return ok({ view: await viewService.updateView(requireString(args, 'id'), ctx.projectId, data) }); }},
   { name: 'settings_view_delete', description: 'Delete view', scope: 'mcp:write', inputSchema: schema({ id: uuidProp(), confirm: { type: 'boolean' } }, ['id','confirm']), annotations: { destructiveHint: true }, handler: async (args, ctx) => { requireConfirm(args); const id = requireString(args, 'id'); await viewService.deleteView(id, ctx.projectId); return ok({ deletedId: id }); }},
 
-  { name: 'timeline_query', description: 'Query timeline', scope: 'mcp:read', inputSchema: schema({ startDate: dateProp(), endDate: dateProp(), relativeDays: { type: 'integer', minimum: 1, maximum: 366, default: 7 }, tagNames: arrayProp(stringProp(1,100)), categoryIds: arrayProp(uuidProp()), eventTypes: arrayProp({ enum: ['status_update','workstream_created','workstream_closed','parent_changed','sub_stream_created'] }, 5), streamScope: { enum: ['all','top-level','sub-streams','under-parent'] }, parentId: uuidProp(), includeSubstreams: { type: 'boolean', default: false }, limit: limitProp(), cursor: stringProp(1, 2048) }), handler: async (args, ctx) => {
-    let startDate = dateArg(args.startDate, 'startDate'); let endDate = dateArg(args.endDate, 'endDate');
-    if (!startDate && !endDate && args.relativeDays !== undefined) { const days = integerArg(args, 'relativeDays', 1, 366); endDate = new Date(); startDate = new Date(endDate.getTime() - days * 86400000); }
-    validateDateRange(startDate, endDate);
-    const pageLimit = limit(args);
+  { name: 'timeline_query', description: 'Query timeline', scope: 'mcp:read', inputSchema: schema({ startDate: dateProp(), endDate: dateProp(), relativeDays: { type: 'integer', minimum: 1, maximum: 366, default: 7 }, tagNames: arrayProp(stringProp(1,100)), categoryIds: arrayProp(uuidProp()), eventTypes: arrayProp({ enum: ['status_update','workstream_created','workstream_closed','parent_changed','sub_stream_created'] }, 5), streamScope: { enum: ['all','top-level','sub-streams','under-parent'] }, parentId: uuidProp(), includeSubstreams: { type: 'boolean', default: false }, limit: limitProp(50, 200), cursor: stringProp(1, 2048) }), handler: async (args, ctx) => {
+    const { startDate, endDate } = resolveTimelineDateRange(args);
+    const pageLimit = limit(args, 50, 200);
     const cursor = decodeCursor(args.cursor, 'timeline_query');
-    let events = await getTimeline({ projectId: ctx.projectId, startDate, endDate, tags: args.tagNames, categoryIds: args.categoryIds, eventTypes: args.eventTypes, streamScope: args.streamScope, parentId: args.parentId, includeSubstreams: args.includeSubstreams });
-    if (Array.isArray(args.eventTypes) && args.eventTypes.length) events = events.filter(e => args.eventTypes.includes(e.eventType as TimelineEventType));
-    const sorted = afterCursor(events.sort(compareDesc), cursor);
-    const { page, nextCursor } = paginate(sorted, pageLimit, 'timeline_query');
-    return ok({ events: page, nextCursor });
+    const timelineCursor = cursor ? encodeCursor({ v: 1, kind: 'timeline_query', createdAt: cursor.createdAt, id: cursor.id }) : undefined;
+    const timeline = await getTimeline({ projectId: ctx.projectId, startDate, endDate, tags: args.tagNames, categoryIds: args.categoryIds, eventTypes: args.eventTypes, streamScope: args.streamScope, parentId: args.parentId, includeSubstreams: args.includeSubstreams, limit: pageLimit, cursor: timelineCursor });
+    const events = Array.isArray(timeline) ? timeline : timeline.events;
+    const last = events[events.length - 1];
+    const nextCursor = !Array.isArray(timeline) && timeline.nextCursor && last
+      ? encodeCursor({ v: 1, kind: 'timeline_query', createdAt: new Date(last.createdAt).toISOString(), id: last.id })
+      : null;
+    return ok({ events, nextCursor });
   }},
 ];
 

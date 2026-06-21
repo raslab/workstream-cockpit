@@ -400,6 +400,40 @@ describe('MCP endpoint', () => {
     expect((await prisma.workstream.findUniqueOrThrow({ where: { id: root.id } })).state).toBe('active');
   });
 
+  it('applies timeline_query safety defaults and validates effective ranges', async () => {
+    const person = await createTestPerson();
+    const project = await createTestProject(person.id);
+    const token = await pat(person.id, ['mcp:read']);
+    const workstream = await createTestWorkstream(project.id, { name: 'Timeline Safety' });
+
+    const oldUpdate = await createTestStatusUpdate(workstream.id, { status: 'Old default-window event' });
+    await prisma.statusUpdate.update({ where: { id: oldUpdate.id }, data: { createdAt: new Date(Date.now() - 8 * 86400000) } });
+    const recentUpdate = await createTestStatusUpdate(workstream.id, { status: 'Recent default-window event' });
+
+    const defaultWindow = await callTool(app, token, 'timeline_query', { eventTypes: ['status_update'] }).expect(200);
+    const defaultIds = defaultWindow.body.result.structuredContent.events.map((event: any) => event.id);
+    expect(defaultIds).toContain(`status-${recentUpdate.id}`);
+    expect(defaultIds).not.toContain(`status-${oldUpdate.id}`);
+
+    const explicitRange = await callTool(app, token, 'timeline_query', {
+      startDate: new Date(Date.now() - 9 * 86400000).toISOString(),
+      endDate: new Date(Date.now() - 7 * 86400000).toISOString(),
+      relativeDays: 1,
+      eventTypes: ['status_update'],
+    }).expect(200);
+    const explicitIds = explicitRange.body.result.structuredContent.events.map((event: any) => event.id);
+    expect(explicitIds).toContain(`status-${oldUpdate.id}`);
+    expect(explicitIds).not.toContain(`status-${recentUpdate.id}`);
+
+    const manyUpdates = await Promise.all(Array.from({ length: 55 }, (_, i) => createTestStatusUpdate(workstream.id, { status: `Recent page ${i}` })));
+    const defaultLimit = await callTool(app, token, 'timeline_query', { eventTypes: ['status_update'] }).expect(200);
+    expect(defaultLimit.body.result.structuredContent.events).toHaveLength(50);
+    expect(defaultLimit.body.result.structuredContent.nextCursor).toEqual(expect.any(String));
+    const returnedIds = defaultLimit.body.result.structuredContent.events.map((event: any) => event.id);
+    expect(returnedIds).not.toContain(`status-${oldUpdate.id}`);
+    expect(returnedIds).toEqual(expect.arrayContaining(manyUpdates.slice(-10).map((update: any) => `status-${update.id}`)));
+  });
+
   it('uses opaque stable cursors for workstreams, updates, and timeline pages', async () => {
     const person = await createTestPerson();
     const project = await createTestProject(person.id);
@@ -432,10 +466,10 @@ describe('MCP endpoint', () => {
     const updatesPage2 = await callTool(app, token, 'updates_list', { workstreamId: w3.id, limit: 2, cursor: updatesPage1.body.result.structuredContent.nextCursor }).expect(200);
     expect(updatesPage2.body.result.structuredContent.updates.map((u: any) => u.id)).toEqual([u1.id]);
 
-    const timelinePage1 = await callTool(app, token, 'timeline_query', { eventTypes: ['status_update'], tagNames: ['page'], limit: 2 }).expect(200);
+    const timelinePage1 = await callTool(app, token, 'timeline_query', { startDate: '2024-02-01', endDate: '2024-02-04', eventTypes: ['status_update'], tagNames: ['page'], limit: 2 }).expect(200);
     expect(timelinePage1.body.result.structuredContent.events.map((e: any) => e.id)).toEqual([`status-${u3.id}`, `status-${u2.id}`]);
     expect(timelinePage1.body.result.structuredContent.nextCursor).toEqual(expect.any(String));
-    const timelinePage2 = await callTool(app, token, 'timeline_query', { eventTypes: ['status_update'], tagNames: ['page'], limit: 2, cursor: timelinePage1.body.result.structuredContent.nextCursor }).expect(200);
+    const timelinePage2 = await callTool(app, token, 'timeline_query', { startDate: '2024-02-01', endDate: '2024-02-04', eventTypes: ['status_update'], tagNames: ['page'], limit: 2, cursor: timelinePage1.body.result.structuredContent.nextCursor }).expect(200);
     expect(timelinePage2.body.result.structuredContent.events.map((e: any) => e.id)).toEqual([`status-${u1.id}`]);
   });
 
@@ -606,6 +640,12 @@ describe('MCP endpoint', () => {
 
     const badRelativeDays = await callTool(app, token, 'timeline_query', { relativeDays: 0 }).expect(200);
     expect(badRelativeDays.body.error.message).toMatch(/relativeDays.*at least 1/i);
+
+    const reversedTimelineRange = await callTool(app, token, 'timeline_query', { startDate: '2024-02-02', endDate: '2024-02-01' }).expect(200);
+    expect(reversedTimelineRange.body.error.message).toMatch(/startDate.*before or equal to endDate/i);
+
+    const tooWideTimelineRange = await callTool(app, token, 'timeline_query', { startDate: '2024-01-01', endDate: '2025-01-02' }).expect(200);
+    expect(tooWideTimelineRange.body.error.message).toMatch(/date range.*366 days or fewer/i);
 
     const badDate = await callTool(app, token, 'updates_list', { workstreamId: workstream.id, startDate: '2024-02-31' }).expect(200);
     expect(badDate.body.error.message).toMatch(/startDate.*valid ISO date/i);

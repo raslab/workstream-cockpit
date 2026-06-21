@@ -37,6 +37,7 @@ describe('TagFilter', () => {
     });
 
     expect(screen.getByText('Tags')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tags.*All tags/ })).toBeInTheDocument();
   });
 
   it('should show count badge when tags are selected', () => {
@@ -46,6 +47,7 @@ describe('TagFilter', () => {
     });
 
     expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tags.*2 tags/ })).toBeInTheDocument();
   });
 
   it('should open dropdown on button click', () => {
@@ -54,7 +56,7 @@ describe('TagFilter', () => {
       wrapper: createWrapper(),
     });
 
-    const button = screen.getByText('Tags');
+    const button = screen.getByRole('button', { name: /Tags/ });
     fireEvent.click(button);
 
     expect(screen.getByPlaceholderText('Search tags...')).toBeInTheDocument();
@@ -66,7 +68,7 @@ describe('TagFilter', () => {
       wrapper: createWrapper(),
     });
 
-    const button = screen.getByText('Tags');
+    const button = screen.getByRole('button', { name: /Tags/ });
     fireEvent.click(button);
 
     expect(screen.getByText('#Frontend')).toBeInTheDocument();
@@ -81,7 +83,7 @@ describe('TagFilter', () => {
       wrapper: createWrapper(),
     });
 
-    const button = screen.getByText('Tags');
+    const button = screen.getByRole('button', { name: /Tags/ });
     fireEvent.click(button);
 
     const searchInput = screen.getByPlaceholderText('Search tags...');
@@ -101,7 +103,7 @@ describe('TagFilter', () => {
       wrapper: createWrapper(),
     });
 
-    const button = screen.getByText('Tags');
+    const button = screen.getByRole('button', { name: /Tags/ });
     fireEvent.click(button);
 
     const searchInput = screen.getByPlaceholderText('Search tags...');
@@ -118,7 +120,7 @@ describe('TagFilter', () => {
       wrapper: createWrapper(),
     });
 
-    const button = screen.getByText('Tags');
+    const button = screen.getByRole('button', { name: /Tags/ });
     fireEvent.click(button);
 
     const frontendTag = screen.getByText('#Frontend');
@@ -133,10 +135,11 @@ describe('TagFilter', () => {
       wrapper: createWrapper(),
     });
 
-    const button = screen.getByText('Tags');
+    const button = screen.getByRole('button', { name: /Tags/ });
     fireEvent.click(button);
 
-    const frontendTag = screen.getByText('#Frontend');
+    const frontendTags = screen.getAllByText('#Frontend');
+    const frontendTag = frontendTags[frontendTags.length - 1];
     fireEvent.click(frontendTag);
 
     expect(onTagsChange).toHaveBeenCalledWith([]);
@@ -148,7 +151,7 @@ describe('TagFilter', () => {
       wrapper: createWrapper(),
     });
 
-    const button = screen.getByText('Tags');
+    const button = screen.getByRole('button', { name: /Tags/ });
     fireEvent.click(button);
 
     const clearButton = screen.getByText('Clear all');
@@ -163,7 +166,7 @@ describe('TagFilter', () => {
       wrapper: createWrapper(),
     });
 
-    const button = screen.getByText('Tags');
+    const button = screen.getByRole('button', { name: /Tags/ });
     fireEvent.click(button);
 
     const searchInput = screen.getByPlaceholderText('Search tags...');
@@ -185,7 +188,7 @@ describe('TagFilter', () => {
       wrapper: createWrapper(),
     });
 
-    const button = screen.getByText('Tags');
+    const button = screen.getByRole('button', { name: /Tags/ });
     fireEvent.click(button);
 
     const searchInput = screen.getByPlaceholderText('Search tags...');

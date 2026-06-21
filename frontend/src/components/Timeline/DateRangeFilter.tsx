@@ -1,23 +1,56 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import { format, isValid, parseISO } from 'date-fns';
+
+export type DateRangeQuickPreset =
+  | 'last-7-days'
+  | 'last-14-days'
+  | 'last-30-days'
+  | 'last-60-days'
+  | 'this-month'
+  | 'last-month'
+  | 'this-quarter'
+  | 'last-quarter';
 
 interface DateRangeFilterProps {
   startDate?: Date;
   endDate?: Date;
+  quickPreset?: DateRangeQuickPreset;
+  quickDays?: 7 | 14 | 30 | 60;
   onStartDateChange: (date: Date | undefined) => void;
   onEndDateChange: (date: Date | undefined) => void;
+  onQuickPresetChange?: (preset: DateRangeQuickPreset | undefined) => void;
+  onQuickDaysChange?: (preset: DateRangeQuickPreset | undefined) => void;
   onClear: () => void;
 }
+
+const quickPresets: Array<{ value: DateRangeQuickPreset; label: string }> = [
+  { value: 'last-7-days', label: 'Last 7 days' },
+  { value: 'last-14-days', label: 'Last 14 days' },
+  { value: 'last-30-days', label: 'Last 30 days' },
+  { value: 'last-60-days', label: 'Last 60 days' },
+  { value: 'this-month', label: 'This month' },
+  { value: 'last-month', label: 'Previous month' },
+  { value: 'this-quarter', label: 'This quarter' },
+  { value: 'last-quarter', label: 'Previous quarter' },
+];
 
 export function DateRangeFilter({
   startDate,
   endDate,
+  quickPreset,
+  quickDays,
   onStartDateChange,
   onEndDateChange,
+  onQuickPresetChange,
+  onQuickDaysChange,
   onClear,
 }: DateRangeFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const labelId = useId();
+  const selectedValueId = useId();
+  const selectedPreset = quickPreset ?? (quickDays ? (`last-${quickDays}-days` as DateRangeQuickPreset) : undefined);
+  const handleQuickPresetChange = onQuickPresetChange ?? onQuickDaysChange;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -57,12 +90,16 @@ export function DateRangeFilter({
   };
 
   const handleClear = () => {
+    handleQuickPresetChange?.(undefined);
     onClear();
     setIsOpen(false);
   };
 
   // Display label for the button
   const getButtonLabel = () => {
+    if (selectedPreset) {
+      return quickPresets.find((preset) => preset.value === selectedPreset)?.label ?? 'Custom range';
+    }
     if (startDate && endDate) {
       return `${format(startDate, 'MMM d')} - ${format(endDate, 'MMM d, yyyy')}`;
     } else if (startDate) {
@@ -70,32 +107,51 @@ export function DateRangeFilter({
     } else if (endDate) {
       return `Until ${format(endDate, 'MMM d, yyyy')}`;
     }
-    return 'Date Range';
+    return 'Any time';
   };
 
-  const hasSelection = startDate || endDate;
+  const buttonLabel = getButtonLabel();
+  const hasSelection = startDate || endDate || selectedPreset;
 
   return (
     <div className="relative" ref={dropdownRef}>
+      <span id={labelId} className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+        Time range
+      </span>
       <button
+        type="button"
+        aria-labelledby={`${labelId} ${selectedValueId}`}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+        className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 shadow-sm hover:bg-gray-50 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800"
       >
-        <span>{getButtonLabel()}</span>
+        <span id={selectedValueId} className="truncate">{buttonLabel}</span>
         {hasSelection && (
-          <span className="rounded-full bg-primary-600 px-2 py-0.5 text-xs text-white">
+          <span aria-hidden="true" className="rounded-full bg-primary-600 px-1.5 py-0.5 text-[10px] leading-none text-white">
             ✓
           </span>
         )}
-        <span className="text-xs">{isOpen ? '▲' : '▼'}</span>
+        <svg
+          aria-hidden="true"
+          className={`h-4 w-4 flex-none text-gray-500 transition-transform dark:text-gray-400 ${isOpen ? 'rotate-180' : ''}`.trim()}
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+            clipRule="evenodd"
+          />
+        </svg>
       </button>
 
       {isOpen && (
         <div className="absolute left-0 top-full z-10 mt-1 w-80 rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
-          <div className="p-4 space-y-4">
+          <div className="space-y-4 p-4">
             {/* Start Date */}
             <div>
-              <label htmlFor="timeline-start-date" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
+              <label htmlFor="timeline-start-date" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Start Date
               </label>
               <input
@@ -110,7 +166,7 @@ export function DateRangeFilter({
 
             {/* End Date */}
             <div>
-              <label htmlFor="timeline-end-date" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
+              <label htmlFor="timeline-end-date" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 End Date
               </label>
               <input
@@ -125,54 +181,25 @@ export function DateRangeFilter({
 
             {/* Quick Presets */}
             <div>
-              <div className="text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Quick Select</div>
+              <div className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Quick Select</div>
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    onStartDateChange(today);
-                    onEndDateChange(new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1));
-                  }}
-                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  Today
-                </button>
-                <button
-                  onClick={() => {
-                    const today = new Date();
-                    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-                    weekAgo.setHours(0, 0, 0, 0);
-                    onStartDateChange(weekAgo);
-                    onEndDateChange(today);
-                  }}
-                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  Last 7 Days
-                </button>
-                <button
-                  onClick={() => {
-                    const today = new Date();
-                    const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-                    monthAgo.setHours(0, 0, 0, 0);
-                    onStartDateChange(monthAgo);
-                    onEndDateChange(today);
-                  }}
-                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  Last 30 Days
-                </button>
-                <button
-                  onClick={() => {
-                    const today = new Date();
-                    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-                    onStartDateChange(start);
-                    onEndDateChange(today);
-                  }}
-                  className="rounded bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  This Month
-                </button>
+                {quickPresets.map((preset) => (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    onClick={() => {
+                      handleQuickPresetChange?.(preset.value);
+                      setIsOpen(false);
+                    }}
+                    className={`rounded px-3 py-1.5 text-sm hover:bg-gray-200 dark:hover:bg-gray-700 ${
+                      selectedPreset === preset.value
+                        ? 'bg-primary-100 text-primary-800 dark:bg-primary-900/40 dark:text-primary-200'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -180,6 +207,7 @@ export function DateRangeFilter({
             <div className="flex justify-between border-t border-gray-200 pt-3 dark:border-gray-700">
               {hasSelection && (
                 <button
+                  type="button"
                   onClick={handleClear}
                   className="rounded px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700"
                 >
@@ -187,6 +215,7 @@ export function DateRangeFilter({
                 </button>
               )}
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
                 className="ml-auto rounded bg-primary-600 px-4 py-1.5 text-sm text-white hover:bg-primary-700"
               >

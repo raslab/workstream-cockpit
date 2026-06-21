@@ -1,4 +1,4 @@
-export interface DatabaseUrlEnv {
+export interface DatabaseUrlEnv extends NodeJS.ProcessEnv {
   DATABASE_URL?: string;
   POSTGRES_HOST?: string;
   POSTGRES_PORT?: string;

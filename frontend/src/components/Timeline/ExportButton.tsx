@@ -4,9 +4,10 @@ import { exportTimelineToCSV } from '../../utils/exportTimeline';
 
 interface ExportButtonProps {
   entries: TimelineEntry[];
+  scopeLabel?: string;
 }
 
-export function ExportButton({ entries }: ExportButtonProps) {
+export function ExportButton({ entries, scopeLabel }: ExportButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async () => {
@@ -24,16 +25,17 @@ export function ExportButton({ entries }: ExportButtonProps) {
   };
 
   const disabled = entries.length === 0 || isExporting;
+  const exportTarget = scopeLabel ? `${scopeLabel} timeline entries` : 'timeline entries';
   const ariaLabel = disabled
     ? 'Export timeline to CSV (no entries to export)'
-    : `Export ${entries.length} timeline entries to CSV`;
+    : `Export ${entries.length} ${exportTarget} to CSV`;
 
   return (
     <button
       onClick={handleExport}
       disabled={disabled}
       aria-label={ariaLabel}
-      title={disabled ? 'No entries to export' : `Export ${entries.length} entries`}
+      title={disabled ? 'No entries to export' : `Export ${entries.length} ${scopeLabel ? `${scopeLabel} ` : ''}entries`}
       className={`
         flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium
         ${
