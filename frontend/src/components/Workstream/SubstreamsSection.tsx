@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import type { Workstream } from '../../types/workstream';
-import { getDirectChildCount, getLatestSubstreamActivityAt, getLatestSubstreamActivitySourceId, getWorkstreamName } from '../../utils/hierarchy';
+import { getDirectSubstreamCount, getLatestSubstreamActivityAt, getLatestSubstreamActivitySourceId, getWorkstreamName } from '../../utils/hierarchy';
 
 interface SubstreamsSectionProps {
   workstream: Workstream;
@@ -9,10 +9,10 @@ interface SubstreamsSectionProps {
 }
 
 export function SubstreamsSection({ workstream, onCreateSubstream }: SubstreamsSectionProps) {
-  const children = workstream.children || [];
-  const active = workstream.activeChildCount ?? children.filter((child) => child.state !== 'closed').length;
-  const closed = workstream.closedChildCount ?? children.filter((child) => child.state === 'closed').length;
-  const direct = getDirectChildCount(workstream);
+  const substreams = workstream.substreams || [];
+  const active = workstream.activeSubstreamCount ?? substreams.filter((substream) => substream.state !== 'closed').length;
+  const closed = workstream.closedSubstreamCount ?? substreams.filter((substream) => substream.state === 'closed').length;
+  const direct = getDirectSubstreamCount(workstream);
 
   return (
     <section className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -26,25 +26,25 @@ export function SubstreamsSection({ workstream, onCreateSubstream }: SubstreamsS
         </button>
       </div>
 
-      {children.length === 0 ? (
+      {substreams.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">No direct sub-streams yet.</p>
       ) : (
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {children.map((child) => {
-            const activityAt = getLatestSubstreamActivityAt(child);
-            const source = child.latestSubstreamActivitySource;
+          {substreams.map((substream) => {
+            const activityAt = getLatestSubstreamActivityAt(substream);
+            const source = substream.latestSubstreamActivitySource;
             const sourceId = getLatestSubstreamActivitySourceId(source);
 
             return (
-              <div key={child.id} className="flex items-center justify-between gap-3 py-2">
+              <div key={substream.id} className="flex items-center justify-between gap-3 py-2">
                 <div className="min-w-0">
-                  <Link to={`/workstreams/${child.id}`} className="text-sm font-medium text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400">
-                    {getWorkstreamName(child)}
+                  <Link to={`/workstreams/${substream.id}`} className="text-sm font-medium text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400">
+                    {getWorkstreamName(substream)}
                   </Link>
                   {activityAt && (
                     <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                       <span>Last activity</span> {formatDistanceToNow(parseISO(activityAt), { addSuffix: true })}
-                      {source && sourceId && sourceId !== child.id && (
+                      {source && sourceId && sourceId !== substream.id && (
                         <>
                           {' '}from <Link to={`/workstreams/${sourceId}`} className="font-medium text-primary-700 hover:underline dark:text-primary-300">{getWorkstreamName(source)}</Link>
                         </>
@@ -53,7 +53,7 @@ export function SubstreamsSection({ workstream, onCreateSubstream }: SubstreamsS
                   )}
                 </div>
                 <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-900 dark:text-gray-300">
-                  {child.state || 'active'}
+                  {substream.state || 'active'}
                 </span>
               </div>
             );

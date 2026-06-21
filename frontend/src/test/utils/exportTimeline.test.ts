@@ -81,20 +81,20 @@ describe('exportTimeline', () => {
       expect(removeChildSpy).toHaveBeenCalled();
     });
 
-    it('should generate CSV with hierarchy headers and values', async () => {
+    it('should generate CSV with parent stream headers and values', async () => {
       const entries: TimelineEntry[] = [
         {
           id: 'event-1',
           eventType: 'parent_changed',
           workstreamId: 'ws-1',
-          workstreamName: 'Child',
+          workstreamName: 'Sub-stream',
           status: undefined,
           note: null,
           createdAt: '2026-02-16T14:30:00Z',
           parentId: 'parent-1',
           parent: { id: 'parent-1', name: 'Parent' },
-          ancestors: [{ id: 'root-1', name: 'Root' }],
-          hierarchyPath: 'Root > Parent > Child',
+          parentStreams: [{ id: 'root-1', name: 'Root' }],
+          parentStreamPath: 'Root > Parent > Sub-stream',
           metadata: { oldParentId: 'old-parent-1', oldParentName: 'Old Parent', newParentId: 'parent-1', newParentName: 'Parent' },
           category: null,
         },
@@ -103,22 +103,22 @@ describe('exportTimeline', () => {
       await exportTimelineToCSV(entries);
 
       const csv = await readCsvFromLastBlob();
-      expect(csv).toContain('Parent ID,Parent Workstream,Ancestor Path,Hierarchy Path,old_parent_id,new_parent_id,Old Parent,New Parent');
-      expect(csv).toContain('Parent Changed,Child');
-      expect(csv).toContain('parent-1,Parent,Root,Root > Parent > Child,old-parent-1,parent-1,Old Parent,Parent');
+      expect(csv).toContain('Parent ID,Parent Workstream,Parent Streams Path,Parent Stream Path,old_parent_id,new_parent_id,Old Parent,New Parent');
+      expect(csv).toContain('Parent Changed,Sub-stream');
+      expect(csv).toContain('parent-1,Parent,Root,Root > Parent > Sub-stream,old-parent-1,parent-1,Old Parent,Parent');
     });
 
-    it('should export backend-shaped flat hierarchy fields and escape breadcrumb content', async () => {
+    it('should export backend-shaped flat parent stream fields and escape breadcrumb content', async () => {
       const entries: TimelineEntry[] = [
         {
           id: 'event-1',
           eventType: 'parent_changed',
           workstreamId: 'ws-1',
-          workstreamName: 'Child',
+          workstreamName: 'Sub-stream',
           createdAt: '2026-02-16T14:30:00Z',
           parentId: 'parent-1',
           parentName: 'Parent, Team',
-          breadcrumb: 'Root > "Quoted, Parent" > Child',
+          breadcrumb: 'Root > "Quoted, Parent" > Sub-stream',
           oldParentId: 'old-parent-1',
           oldParentName: 'Old "Parent"',
           newParentId: 'parent-1',
@@ -131,8 +131,8 @@ describe('exportTimeline', () => {
 
       const csv = await readCsvFromLastBlob();
       const header = csv.split('\n')[0].replace(/^\ufeff/, '');
-      expect(header).toBe('Date,Time,Event Type,Workstream,Category,Status,Note,Tags,Parent ID,Parent Workstream,Ancestor Path,Hierarchy Path,old_parent_id,new_parent_id,Old Parent,New Parent,Category Color,Category Emoji,Workstream ID,Event ID');
-      expect(csv).toContain('parent-1,"Parent, Team","Root > ""Quoted, Parent""","Root > ""Quoted, Parent"" > Child",old-parent-1,parent-1,"Old ""Parent""","Parent, Team"');
+      expect(header).toBe('Date,Time,Event Type,Workstream,Category,Status,Note,Tags,Parent ID,Parent Workstream,Parent Streams Path,Parent Stream Path,old_parent_id,new_parent_id,Old Parent,New Parent,Category Color,Category Emoji,Workstream ID,Event ID');
+      expect(csv).toContain('parent-1,"Parent, Team","Root > ""Quoted, Parent""","Root > ""Quoted, Parent"" > Sub-stream",old-parent-1,parent-1,"Old ""Parent""","Parent, Team"');
     });
 
     it('should create filename with timestamp', async () => {

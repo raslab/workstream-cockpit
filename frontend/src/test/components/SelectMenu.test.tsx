@@ -13,14 +13,14 @@ describe('SelectMenu', () => {
 
     render(
       <SelectMenu
-        label="Hierarchy scope"
+        label="Stream scope"
         value="all"
         options={options}
         onChange={onChange}
       />
     );
 
-    const button = screen.getByRole('button', { name: /Hierarchy scope.*All streams/ });
+    const button = screen.getByRole('button', { name: /Stream scope.*All streams/ });
     expect(button.tagName).toBe('BUTTON');
     expect(button).toHaveAttribute('aria-haspopup', 'listbox');
     expect(button).not.toHaveClass('justify-between');
@@ -29,7 +29,7 @@ describe('SelectMenu', () => {
 
     fireEvent.click(button);
 
-    const listbox = screen.getByRole('listbox', { name: 'Hierarchy scope' });
+    const listbox = screen.getByRole('listbox', { name: 'Stream scope' });
     expect(listbox).toHaveClass('dark:bg-gray-800');
     expect(listbox).toHaveClass('dark:text-gray-100');
     expect(listbox).toHaveClass('dark:border-gray-700');
@@ -61,7 +61,7 @@ describe('SelectMenu', () => {
 
     render(
       <SelectMenu
-        label="Hierarchy scope"
+        label="Stream scope"
         value="all"
         options={[
           { value: 'all', label: 'All streams' },
@@ -72,7 +72,7 @@ describe('SelectMenu', () => {
       />
     );
 
-    fireEvent.keyDown(screen.getByRole('button', { name: /Hierarchy scope.*All streams/ }), { key: 'ArrowDown' });
+    fireEvent.keyDown(screen.getByRole('button', { name: /Stream scope.*All streams/ }), { key: 'ArrowDown' });
     expect(screen.getByRole('option', { name: 'All streams' })).toHaveFocus();
 
     fireEvent.keyDown(screen.getByRole('option', { name: 'All streams' }), { key: 'ArrowDown' });

@@ -66,9 +66,9 @@ function entryToCSVRow(entry: TimelineEntry): string {
   const date = parseISO(entry.createdAt);
   const tags = extractEntryTags(entry);
   const parentName = entry.parent?.name || entry.parent?.workstreamName || entry.parentName || '';
-  const hierarchyPath = entry.hierarchyPath || entry.breadcrumb || '';
-  const ancestorPath = entry.ancestors?.map((ancestor) => ancestor.name || ancestor.workstreamName || '').join(' > ') ||
-    (hierarchyPath ? hierarchyPath.split(' > ').slice(0, -1).join(' > ') : '');
+  const parentStreamPath = entry.parentStreamPath || entry.breadcrumb || '';
+  const parentStreamsPath = (entry.parentStreams)?.map((parentStream) => parentStream.name || parentStream.workstreamName || '').join(' > ') ||
+    (parentStreamPath ? parentStreamPath.split(' > ').slice(0, -1).join(' > ') : '');
   const oldParentName = entry.metadata?.oldParentName || entry.oldParentName || '';
   const newParentName = entry.metadata?.newParentName || entry.newParentName || '';
   const oldParentId = entry.metadata?.oldParentId || entry.oldParentId || '';
@@ -95,8 +95,8 @@ function entryToCSVRow(entry: TimelineEntry): string {
     tags.join(';'),                       // Semicolon separator
     entry.parentId || '',
     parentName,
-    ancestorPath,
-    hierarchyPath,
+    parentStreamsPath,
+    parentStreamPath,
     oldParentId,
     newParentId,
     oldParentName,
@@ -125,8 +125,8 @@ function generateCSV(entries: TimelineEntry[]): string {
     'Tags',
     'Parent ID',
     'Parent Workstream',
-    'Ancestor Path',
-    'Hierarchy Path',
+    'Parent Streams Path',
+    'Parent Stream Path',
     'old_parent_id',
     'new_parent_id',
     'Old Parent',

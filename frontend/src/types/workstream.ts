@@ -53,12 +53,12 @@ export interface Workstream {
 
   parentId?: string | null;
   parent?: WorkstreamSummary | null;
-  ancestors?: WorkstreamSummary[];
-  children?: WorkstreamSummary[];
-  childCount?: number;
-  directChildCount?: number;
-  activeChildCount?: number;
-  closedChildCount?: number;
+  parentStreams?: WorkstreamSummary[];
+  substreams?: WorkstreamSummary[];
+  substreamCount?: number;
+  directSubstreamCount?: number;
+  activeSubstreamCount?: number;
+  closedSubstreamCount?: number;
   depth?: number;
   lastDirectUpdateAt?: string | null;
   lastSubstreamActivityAt?: string | null;

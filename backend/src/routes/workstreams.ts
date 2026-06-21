@@ -176,7 +176,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ error: 'Parent workstream not found' });
       return;
     }
-    if (error instanceof Error && /parent|depth|cycle|descendant/i.test(error.message)) {
+    if (error instanceof Error && /parent|depth|cycle|sub-stream/i.test(error.message)) {
       res.status(400).json({ error: error.message });
       return;
     }
@@ -247,7 +247,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ error: 'Parent workstream not found' });
       return;
     }
-    if (/parent|depth|cycle|descendant/i.test(error.message)) {
+    if (/parent|depth|cycle|sub-stream/i.test(error.message)) {
       res.status(400).json({ error: error.message });
       return;
     }
@@ -282,7 +282,7 @@ router.put('/:id/close', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ error: 'Workstream not found' });
       return;
     }
-    if (/active descendants/i.test(error.message)) {
+    if (/active sub-streams/i.test(error.message)) {
       res.status(400).json({ error: error.message });
       return;
     }
@@ -352,7 +352,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ error: 'Workstream not found' });
       return;
     }
-    if (/descendants/i.test(error.message)) {
+    if (/sub-streams/i.test(error.message)) {
       res.status(409).json({ error: error.message });
       return;
     }

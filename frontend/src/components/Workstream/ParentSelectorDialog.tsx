@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useWorkstreams } from '../../hooks/useWorkstreams';
 import type { Workstream } from '../../types/workstream';
-import { getBreadcrumbLabel, getWorkstreamName, hierarchyErrorMessage, isObviousDescendant } from '../../utils/hierarchy';
+import { getBreadcrumbLabel, getWorkstreamName, hierarchyErrorMessage, isObviousSubstream } from '../../utils/hierarchy';
 
 function normalizeSearch(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -44,10 +44,10 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
   }, [isOpen, workstream.parentId]);
 
   const candidates = workstreams.filter((candidate) => {
-    if (isObviousDescendant(candidate, workstream)) return false;
+    if (isObviousSubstream(candidate, workstream)) return false;
     if (candidate.state === 'closed') return false;
     if ((candidate.depth || 1) >= 5) return false;
-    if ((workstream.ancestors || []).some((ancestor) => ancestor.id === candidate.id)) return false;
+    if ((workstream.parentStreams || []).some((parentStream) => parentStream.id === candidate.id)) return false;
     return true;
   });
 
@@ -132,7 +132,7 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
 
         {hasChange && (
           <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
-            <div className="font-medium">Preview hierarchy change</div>
+            <div className="font-medium">Preview parent stream change</div>
             <div className="mt-1">Current parent: {workstream.parentId ? currentParentName : 'Top level / no parent'}</div>
             <div>New parent: {nextParentName}</div>
             {!parentId && <div className="mt-1">This will detach the stream and make it top-level.</div>}

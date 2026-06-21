@@ -49,7 +49,7 @@ function ClockIcon() {
   );
 }
 
-function ChildIcon() {
+function SubstreamIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" className="h-3.5 w-3.5 flex-none">
       <path d="M8 7h8M8 12h8M8 17h8" />
@@ -202,11 +202,12 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
   const categoryEmoji = category?.emoji || DEFAULT_CATEGORY_EMOJI;
   const directActivityAt = workstream.lastDirectUpdateAt || latestStatus?.updatedAt;
   const sourceName = getSourceName(workstream);
-  const childActivityText = workstream.lastSubstreamActivityAt
+  const substreamActivityText = workstream.lastSubstreamActivityAt
     ? `${formatActivity(workstream.lastSubstreamActivityAt)}${sourceName ? ` via ${sourceName}` : ''}`
     : null;
-  const childCountsText = (workstream.childCount ?? 0) > 0
-    ? `${workstream.activeChildCount ?? 0} active / ${workstream.closedChildCount ?? 0} closed sub-streams`
+  const substreamCount = workstream.substreamCount ?? 0;
+  const substreamCountsText = substreamCount > 0
+    ? `${workstream.activeSubstreamCount ?? 0} active / ${workstream.closedSubstreamCount ?? 0} closed sub-streams`
     : null;
 
   const categoryStyle = {
@@ -298,17 +299,17 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
             {formatActivity(directActivityAt)}
           </span>
 
-          {childActivityText && (
+          {substreamActivityText && (
             <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300">
-              <ChildIcon />
-              <strong className="font-bold text-gray-700 dark:text-gray-200">Child:</strong>
-              <span className="truncate">{childActivityText}</span>
+              <SubstreamIcon />
+              <strong className="font-bold text-gray-700 dark:text-gray-200">Sub-stream:</strong>
+              <span className="truncate">{substreamActivityText}</span>
             </span>
           )}
 
-          {childCountsText && (
+          {substreamCountsText && (
             <span className="inline-flex min-w-0 items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300">
-              {childCountsText}
+              {substreamCountsText}
             </span>
           )}
         </div>

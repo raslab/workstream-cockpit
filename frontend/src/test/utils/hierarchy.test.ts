@@ -3,11 +3,11 @@ import type { Workstream } from '../../types/workstream';
 import {
   applyHierarchyFilter,
   getBreadcrumbLabel,
-  getDirectChildCount,
+  getDirectSubstreamCount,
   getHierarchyTimestamp,
   getWorkstreamName,
   groupWorkstreamsByParent,
-  isObviousDescendant,
+  isObviousSubstream,
 } from '../../utils/hierarchy';
 
 const base = (overrides: Partial<Workstream>): Workstream => ({
@@ -23,34 +23,34 @@ const base = (overrides: Partial<Workstream>): Workstream => ({
   ...overrides,
 });
 
-describe('hierarchy utilities', () => {
-  const parent = base({ id: 'parent', name: 'Parent', activeChildCount: 1, childCount: 2, parentId: null, depth: 1 });
-  const child = base({ id: 'child', name: 'Child', parentId: 'parent', parent: { id: 'parent', name: 'Parent' }, depth: 2 });
-  const closedChild = base({ id: 'closed-child', name: 'Closed Child', parentId: 'parent', state: 'closed', depth: 2 });
+describe('parent stream utilities', () => {
+  const parent = base({ id: 'parent', name: 'Parent', activeSubstreamCount: 1, substreamCount: 2, parentId: null, depth: 1 });
+  const substream = base({ id: 'substream', name: 'Sub-stream', parentId: 'parent', parent: { id: 'parent', name: 'Parent' }, depth: 2 });
+  const closedSubstream = base({ id: 'closed-substream', name: 'Closed Sub-stream', parentId: 'parent', state: 'closed', depth: 2 });
 
   it('renders breadcrumb labels from root to current stream', () => {
-    expect(getBreadcrumbLabel(base({ name: 'Leaf', ancestors: [{ id: 'root', name: 'Root' }, { id: 'parent', name: 'Parent' }] }))).toBe(
+    expect(getBreadcrumbLabel(base({ name: 'Leaf', parentStreams: [{ id: 'root', name: 'Root' }, { id: 'parent', name: 'Parent' }] }))).toBe(
       'Root > Parent > Leaf'
     );
-    expect(getBreadcrumbLabel(base({ name: 'Top', ancestors: [] }))).toBe('Top');
+    expect(getBreadcrumbLabel(base({ name: 'Top', parentStreams: [] }))).toBe('Top');
   });
 
-  it('filters top-level, sub-stream, and streams with children without recursive trees', () => {
-    const streams = [parent, child, closedChild];
+  it('filters top-level, sub-stream, and streams with substreams without recursive trees', () => {
+    const streams = [parent, substream, closedSubstream];
     expect(applyHierarchyFilter(streams, 'top-level').map((w) => w.id)).toEqual(['parent']);
-    expect(applyHierarchyFilter(streams, 'sub-streams').map((w) => w.id)).toEqual(['child', 'closed-child']);
+    expect(applyHierarchyFilter(streams, 'sub-streams').map((w) => w.id)).toEqual(['substream', 'closed-substream']);
     expect(applyHierarchyFilter(streams, 'has-substreams').map((w) => w.id)).toEqual(['parent']);
   });
 
-  it('groups direct children under their direct parent and keeps orphans top-level', () => {
-    const groups = groupWorkstreamsByParent([child, parent, base({ id: 'orphan', name: 'Orphan', parentId: 'missing' })]);
+  it('groups direct substreams under their direct parent and keeps orphans top-level', () => {
+    const groups = groupWorkstreamsByParent([substream, parent, base({ id: 'orphan', name: 'Orphan', parentId: 'missing' })]);
     expect(groups.map((g) => [g.key, g.name, g.workstreams.map((w) => w.id)])).toEqual([
-      ['parent', 'Parent', ['parent', 'child']],
+      ['parent', 'Parent', ['parent', 'substream']],
       ['top-level', 'Top level / no parent', ['orphan']],
     ]);
   });
 
-  it('uses explicit hierarchy timestamps for sorting', () => {
+  it('uses explicit parent stream timestamps for sorting', () => {
     const ws = base({
       latestStatus: { id: 's', workstreamId: 'ws', status: 'done', note: null, createdAt: '2026-01-02T00:00:00Z', updatedAt: '2026-01-02T00:00:00Z' },
       lastDirectUpdateAt: '2026-01-03T00:00:00Z',
@@ -62,16 +62,16 @@ describe('hierarchy utilities', () => {
     expect(getHierarchyTimestamp(ws, 'lastActivityAt')).toBe(Date.parse('2026-01-05T00:00:00Z'));
   });
 
-  it('normalizes backend hierarchy naming variants', () => {
+  it('normalizes backend parent stream naming variants', () => {
     expect(getWorkstreamName({ id: 'source', workstreamName: 'Source Name' })).toBe('Source Name');
-    expect(getDirectChildCount(base({ directChildCount: 4, childCount: 1, children: [] }))).toBe(4);
-    expect(applyHierarchyFilter([base({ id: 'direct', directChildCount: 2 }), base({ id: 'none', childCount: 0 })], 'has-substreams').map((w) => w.id)).toEqual(['direct']);
+    expect(getDirectSubstreamCount(base({ directSubstreamCount: 4, substreamCount: 1, substreams: [] }))).toBe(4);
+    expect(applyHierarchyFilter([base({ id: 'direct', directSubstreamCount: 2 }), base({ id: 'none', substreamCount: 0 })], 'has-substreams').map((w) => w.id)).toEqual(['direct']);
   });
 
-  it('detects obvious descendants when selecting parents', () => {
-    const root = base({ id: 'root', name: 'Root', children: [{ id: 'child', name: 'Child' }] });
-    const descendant = base({ id: 'grandchild', name: 'Grandchild', ancestors: [{ id: 'root', name: 'Root' }, { id: 'child', name: 'Child' }] });
-    expect(isObviousDescendant(descendant, root)).toBe(true);
-    expect(isObviousDescendant(base({ id: 'other', name: 'Other' }), root)).toBe(false);
+  it('detects obvious sub-streams when selecting parents', () => {
+    const root = base({ id: 'root', name: 'Root', substreams: [{ id: 'substream', name: 'Sub-stream' }] });
+    const nestedSubstream = base({ id: 'nested-substream', name: 'Nested sub-stream', parentStreams: [{ id: 'root', name: 'Root' }, { id: 'substream', name: 'Sub-stream' }] });
+    expect(isObviousSubstream(nestedSubstream, root)).toBe(true);
+    expect(isObviousSubstream(base({ id: 'other', name: 'Other' }), root)).toBe(false);
   });
 });

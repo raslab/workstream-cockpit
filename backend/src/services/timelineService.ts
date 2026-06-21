@@ -19,6 +19,8 @@ export interface TimelineEntry {
   category?: { id: string; name: string; color: string } | null;
   parentId?: string | null;
   parentName?: string | null;
+  parentStreams?: { id: string; name: string; workstreamName?: string }[];
+  parentStreamPath?: string;
   breadcrumb?: string;
   currentBreadcrumb?: string;
   oldParentId?: string | null;
@@ -34,27 +36,27 @@ export interface TimelineFilters {
   categoryIds?: string[];
   tags?: string[];
   eventTypes?: TimelineEventType[];
-  hierarchyScope?: 'all' | 'top-level' | 'sub-streams' | 'under-parent';
+  streamScope?: 'all' | 'top-level' | 'sub-streams' | 'under-parent';
   parentId?: string;
   includeSubstreams?: boolean;
 }
 
-function collectDescendantIds(rootId: string, childrenByParent: Map<string | null, { id: string }[]>, maxDepth = 5): string[] {
+function collectSubstreamIds(rootId: string, substreamsByParent: Map<string | null, { id: string }[]>, maxDepth = 5): string[] {
   const ids: string[] = [];
   const visited = new Set<string>([rootId]);
-  const queue = (childrenByParent.get(rootId) ?? []).map(child => ({ id: child.id, depth: 2 }));
+  const queue = (substreamsByParent.get(rootId) ?? []).map(substream => ({ id: substream.id, depth: 2 }));
   while (queue.length) {
     const item = queue.shift()!;
     if (item.depth > maxDepth || visited.has(item.id)) continue;
     visited.add(item.id);
     ids.push(item.id);
-    for (const child of childrenByParent.get(item.id) ?? []) queue.push({ id: child.id, depth: item.depth + 1 });
+    for (const substream of substreamsByParent.get(item.id) ?? []) queue.push({ id: substream.id, depth: item.depth + 1 });
   }
   return ids;
 }
 
-async function hierarchyWorkstreamIdFilter(filters: TimelineFilters): Promise<string[] | undefined> {
-  const scope = filters.hierarchyScope ?? (filters.parentId ? 'under-parent' : 'all');
+async function streamScopeWorkstreamIdFilter(filters: TimelineFilters): Promise<string[] | undefined> {
+  const scope = filters.streamScope ?? (filters.parentId ? 'under-parent' : 'all');
   if (scope === 'all') return undefined;
   const rows = await prisma.workstream.findMany({ where: { projectId: filters.projectId }, select: { id: true, parentId: true } });
   if (scope === 'top-level') return rows.filter(row => row.parentId === null).map(row => row.id);
@@ -62,9 +64,9 @@ async function hierarchyWorkstreamIdFilter(filters: TimelineFilters): Promise<st
   if (!filters.parentId) return [];
   if (!rows.some(row => row.id === filters.parentId)) return [];
   if (!filters.includeSubstreams) return [filters.parentId];
-  const childrenByParent = new Map<string | null, { id: string }[]>();
-  for (const row of rows) childrenByParent.set(row.parentId, [...(childrenByParent.get(row.parentId) ?? []), row]);
-  return [filters.parentId, ...collectDescendantIds(filters.parentId, childrenByParent, 5)];
+  const substreamsByParent = new Map<string | null, { id: string }[]>();
+  for (const row of rows) substreamsByParent.set(row.parentId, [...(substreamsByParent.get(row.parentId) ?? []), row]);
+  return [filters.parentId, ...collectSubstreamIds(filters.parentId, substreamsByParent, 5)];
 }
 
 function dateWhere(filters: TimelineFilters) {
@@ -74,14 +76,18 @@ function dateWhere(filters: TimelineFilters) {
   return out;
 }
 
-async function hierarchyMeta(projectId: string, workstreamId: string) {
+async function parentStreamMeta(projectId: string, workstreamId: string) {
   const breadcrumb = await getBreadcrumbForWorkstream(projectId, workstreamId);
   const self = breadcrumb[breadcrumb.length - 1];
   const parent = breadcrumb.length > 1 ? breadcrumb[breadcrumb.length - 2] : null;
+  const parentStreams = breadcrumb.slice(0, -1);
+  const parentStreamPath = breadcrumb.map(item => item.name).join(' > ');
   return {
     parentId: self?.parentId ?? null,
     parentName: parent?.name ?? null,
-    breadcrumb: breadcrumb.map(item => item.name).join(' > '),
+    parentStreams,
+    parentStreamPath,
+    breadcrumb: parentStreamPath,
   };
 }
 
@@ -91,7 +97,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
     const workstreamWhereClause: any = { projectId: filters.projectId };
     const createdAtFilter = dateWhere(filters);
     if (filters.categoryIds?.length) workstreamWhereClause.categoryId = { in: filters.categoryIds };
-    const scopedWorkstreamIds = await hierarchyWorkstreamIdFilter(filters);
+    const scopedWorkstreamIds = await streamScopeWorkstreamIdFilter(filters);
     if (scopedWorkstreamIds) workstreamWhereClause.id = { in: scopedWorkstreamIds };
 
     const timeline: any[] = [];
@@ -124,7 +130,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
           updatedAt: update.updatedAt,
           category: update.workstream.category,
           workstreamContext: update.workstream.context,
-          ...(await hierarchyMeta(filters.projectId, update.workstreamId)),
+          ...(await parentStreamMeta(filters.projectId, update.workstreamId)),
         });
       }
     }
@@ -137,7 +143,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
         select: { id: true, name: true, context: true, createdAt: true, category: { select: { id: true, name: true, color: true, emoji: true } } },
       });
       for (const workstream of workstreamsCreated) {
-        timeline.push({ id: `created-${workstream.id}`, eventType: 'workstream_created', workstreamId: workstream.id, workstreamName: workstream.name, createdAt: workstream.createdAt, category: workstream.category, workstreamContext: workstream.context, ...(await hierarchyMeta(filters.projectId, workstream.id)) });
+        timeline.push({ id: `created-${workstream.id}`, eventType: 'workstream_created', workstreamId: workstream.id, workstreamName: workstream.name, createdAt: workstream.createdAt, category: workstream.category, workstreamContext: workstream.context, ...(await parentStreamMeta(filters.projectId, workstream.id)) });
       }
     }
 
@@ -149,7 +155,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
         select: { id: true, name: true, context: true, closedAt: true, category: { select: { id: true, name: true, color: true, emoji: true } } },
       });
       for (const workstream of workstreamsClosed) {
-        timeline.push({ id: `closed-${workstream.id}`, eventType: 'workstream_closed', workstreamId: workstream.id, workstreamName: workstream.name, createdAt: workstream.closedAt!, category: workstream.category, workstreamContext: workstream.context, ...(await hierarchyMeta(filters.projectId, workstream.id)) });
+        timeline.push({ id: `closed-${workstream.id}`, eventType: 'workstream_closed', workstreamId: workstream.id, workstreamName: workstream.name, createdAt: workstream.closedAt!, category: workstream.category, workstreamContext: workstream.context, ...(await parentStreamMeta(filters.projectId, workstream.id)) });
       }
     }
 
@@ -159,7 +165,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
       const events = await prisma.workstreamEvent.findMany({ where: eventWhere, include: { workstream: { select: { id: true, name: true, context: true, category: { select: { id: true, name: true, color: true, emoji: true } } } } } });
       for (const event of events) {
         const metadata = event.metadata as any;
-        const meta = await hierarchyMeta(filters.projectId, event.workstreamId);
+        const meta = await parentStreamMeta(filters.projectId, event.workstreamId);
         const eventParentBreadcrumb = metadata.newParentBreadcrumb ?? null;
         const eventBreadcrumb = eventParentBreadcrumb
           ? `${eventParentBreadcrumb} > ${event.workstream.name}`
@@ -174,8 +180,9 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineEnt
           workstreamContext: event.workstream.context,
           parentId: meta.parentId,
           parentName: meta.parentName,
+          parentStreamPath: eventBreadcrumb,
           breadcrumb: eventBreadcrumb,
-          currentBreadcrumb: meta.breadcrumb,
+          currentBreadcrumb: meta.parentStreamPath,
           oldParentId: metadata.oldParentId ?? null,
           oldParentName: metadata.oldParentName ?? null,
           newParentId: metadata.newParentId ?? null,

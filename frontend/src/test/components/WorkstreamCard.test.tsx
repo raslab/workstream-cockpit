@@ -42,7 +42,7 @@ const baseWorkstream = (overrides: Partial<Workstream> = {}): Workstream => ({
   latestStatus: {
     id: 'status-1',
     workstreamId: 'stream-1',
-    status: 'Latest work happened in child stream: weekly lessons are moving.',
+    status: 'Latest work happened in sub-stream: weekly lessons are moving.',
     note: null,
     createdAt: '2026-06-19T10:00:00Z',
     updatedAt: '2026-06-19T10:00:00Z',
@@ -50,13 +50,13 @@ const baseWorkstream = (overrides: Partial<Workstream> = {}): Workstream => ({
   allTags: ['learning', 'English', 'speaking', 'weekly', 'practice', 'Mathew'],
   parentId: 'parent-1',
   parent: { id: 'parent-1', name: 'Goals', state: 'active' },
-  childCount: 3,
-  activeChildCount: 2,
-  closedChildCount: 1,
+  substreamCount: 3,
+  activeSubstreamCount: 2,
+  closedSubstreamCount: 1,
   lastDirectUpdateAt: '2026-06-19T10:00:00Z',
   lastSubstreamActivityAt: '2026-06-20T10:00:00Z',
   lastActivityAt: '2026-06-20T10:00:00Z',
-  latestSubstreamActivitySource: { id: 'child-1', workstreamId: 'child-1', name: 'Schedule 11 English classes' },
+  latestSubstreamActivitySource: { id: 'substream-1', workstreamId: 'substream-1', name: 'Schedule 11 English classes' },
   ...overrides,
 });
 
@@ -86,7 +86,7 @@ describe('WorkstreamCard tile layout', () => {
     rectSpy.mockRestore();
   });
 
-  it('renders the redesigned category, parent, self and child activity regions', () => {
+  it('renders the redesigned category, parent, self and sub-stream activity regions', () => {
     renderCard(baseWorkstream());
     const expectedCategoryBandBackground = getCategoryIconBandBackground('#74d84f', '#5b8ca0');
 
@@ -106,7 +106,7 @@ describe('WorkstreamCard tile layout', () => {
     expect(titleLink).toHaveAttribute('href', '/workstreams/stream-1');
     expect(titleLink.closest('article')).not.toHaveClass('gap-x-3');
     expect(screen.getByRole('heading', { name: 'English learning plan' })).toHaveClass('text-base', 'font-semibold');
-    expect(screen.getByText('Latest work happened in child stream: weekly lessons are moving.')).toHaveClass('text-sm');
+    expect(screen.getByText('Latest work happened in sub-stream: weekly lessons are moving.')).toHaveClass('text-sm');
     expect(screen.getByText('Parent: Goals')).toBeInTheDocument();
     const parentLink = screen.getByText('Parent: Goals').closest('a');
     expect(parentLink).toHaveClass('min-w-0', 'overflow-hidden', 'pr-36');
@@ -115,7 +115,7 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.getByRole('button', { name: 'Log status' })).toHaveClass('absolute', 'right-2', 'top-2');
     expect(screen.getByRole('button', { name: 'Log status' }).className).not.toContain('row-start');
     expect(screen.getByText(/Self:/)).toBeInTheDocument();
-    expect(screen.getByText(/Child:/)).toBeInTheDocument();
+    expect(screen.getByText(/Sub-stream:/)).toBeInTheDocument();
     expect(screen.getByText(/via Schedule 11 English classes/)).toBeInTheDocument();
     expect(screen.getByText('2 active / 1 closed sub-streams')).toBeInTheDocument();
   });

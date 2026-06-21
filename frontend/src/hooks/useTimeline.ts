@@ -22,8 +22,8 @@ export interface TimelineEntry {
   parentId?: string | null;
   parent?: WorkstreamSummary | null;
   parentName?: string | null;
-  ancestors?: WorkstreamSummary[];
-  hierarchyPath?: string;
+  parentStreams?: WorkstreamSummary[];
+  parentStreamPath?: string;
   breadcrumb?: string;
   oldParentName?: string | null;
   newParentName?: string | null;
@@ -43,7 +43,7 @@ interface UseTimelineOptions {
   endDate?: Date;
   categoryIds?: string[];
   tags?: string[];
-  hierarchyScope?: 'all' | 'top-level' | 'sub-streams' | 'under-parent';
+  streamScope?: 'all' | 'top-level' | 'sub-streams' | 'under-parent';
   parentId?: string | null;
   includeSubstreams?: boolean;
   includeStructuralEvents?: boolean;
@@ -68,8 +68,8 @@ export function useTimeline(options: UseTimelineOptions = {}) {
       if (options.tags && options.tags.length > 0) {
         params.set('tags', options.tags.join(','));
       }
-      if (options.hierarchyScope && options.hierarchyScope !== 'all') {
-        params.set('hierarchyScope', options.hierarchyScope);
+      if (options.streamScope && options.streamScope !== 'all') {
+        params.set('streamScope', options.streamScope);
       }
       if (options.parentId) {
         params.set('parentId', options.parentId);
