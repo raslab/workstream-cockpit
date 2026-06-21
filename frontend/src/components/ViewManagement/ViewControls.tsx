@@ -50,7 +50,10 @@ export function ViewControls({
   };
 
   return (
-    <div className="flex items-center justify-end gap-3 bg-white px-4 py-2 dark:bg-gray-800">
+    <div
+      data-testid="view-controls-bar"
+      className="relative z-40 flex items-center justify-end gap-3 bg-white px-4 py-2 dark:bg-gray-800"
+    >
       {/* Group Control */}
       <div className="relative">
         <button
