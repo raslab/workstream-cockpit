@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
-import type { FilterConfig, SortConfig, GroupConfig } from '../../types/view';
+import type { FilterConfig, SortConfig, GroupConfig, HierarchyFilter } from '../../types/view';
 import { useCategories } from '../../hooks/useCategories';
 import { useTags } from '../../api/tags';
-import { SelectMenu } from '../UI/SelectMenu';
 
 interface FilterPanelProps {
   filters: FilterConfig;
@@ -11,6 +10,13 @@ interface FilterPanelProps {
 }
 
 type FilterSectionKey = 'categories' | 'tags' | 'other' | 'hierarchy';
+
+const hierarchyModeOptions: Array<{ value: Exclude<HierarchyFilter, 'top-level'>; label: string }> = [
+  { value: 'all', label: 'All streams' },
+  { value: 'sub-streams', label: 'Sub-streams only' },
+  { value: 'no-parent', label: 'No parent' },
+  { value: 'has-substreams', label: 'Has sub-streams' },
+];
 
 interface CollapsibleFilterSectionProps {
   id: FilterSectionKey;
@@ -250,22 +256,27 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
           isExpanded={expandedSections.hierarchy}
           onToggle={toggleSection}
         >
-          <SelectMenu
-            label="Parent/sub-streams"
-            hideLabel
-            value={localFilters.hierarchy.mode}
-            onChange={(mode) => setLocalFilters({
-              ...localFilters,
-              hierarchy: { ...localFilters.hierarchy, mode },
-            })}
-            buttonClassName="w-full"
-            options={[
-              { value: 'all', label: 'All streams' },
-              { value: 'sub-streams', label: 'Sub-streams only' },
-              { value: 'no-parent', label: 'No parent' },
-              { value: 'has-substreams', label: 'Has sub-streams' },
-            ]}
-          />
+          <div role="radiogroup" aria-label="Parent/sub-streams mode" className="space-y-1">
+            {hierarchyModeOptions.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                <input
+                  type="radio"
+                  name="hierarchy-mode"
+                  value={option.value}
+                  checked={localFilters.hierarchy.mode === option.value}
+                  onChange={() => setLocalFilters({
+                    ...localFilters,
+                    hierarchy: { ...localFilters.hierarchy, mode: option.value },
+                  })}
+                  className="h-4 w-4 border-gray-300 text-primary-600 accent-primary-600 focus:ring-primary-500 dark:border-gray-500 dark:bg-gray-900 dark:text-primary-400 dark:accent-primary-400"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">{option.label}</span>
+              </label>
+            ))}
+          </div>
           <label className="mt-2 flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"

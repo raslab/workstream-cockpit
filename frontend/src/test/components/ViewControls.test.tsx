@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { FilterPanel } from '../../components/ViewManagement/FilterPanel';
@@ -67,13 +67,18 @@ describe('ViewControls', () => {
 
 describe('FilterPanel', () => {
   function renderFilterPanel() {
-    return render(
+    const onFiltersChange = vi.fn();
+    const onClose = vi.fn();
+
+    const result = render(
       <FilterPanel
         filters={baseConfig.filters}
-        onFiltersChange={vi.fn()}
-        onClose={vi.fn()}
+        onFiltersChange={onFiltersChange}
+        onClose={onClose}
       />
     );
+
+    return { ...result, onFiltersChange, onClose };
   }
 
   it('opens with Categories expanded and Tags, Other, and Parent/sub-streams collapsed', () => {
@@ -99,26 +104,35 @@ describe('FilterPanel', () => {
     expect(scrollContainer).not.toHaveClass('max-h-96');
   });
 
-  it('shows one Parent/sub-streams label and removes Top-level only while keeping No parent', async () => {
+  it('shows inline Parent/sub-streams radios without a nested dropdown and applies selected mode', async () => {
     const user = userEvent.setup();
-    renderFilterPanel();
+    const { onFiltersChange } = renderFilterPanel();
 
     await act(async () => {
       await user.click(screen.getByRole('button', { name: /parent\/sub-streams/i }));
     });
 
-    const hierarchyLabels = screen.getAllByText(/Parent\/sub-streams/i);
-    expect(hierarchyLabels).toHaveLength(2);
-    expect(hierarchyLabels.filter((element) => element.classList.contains('sr-only'))).toHaveLength(1);
-    expect(screen.getByRole('button', { name: /^parent\/sub-streams$/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /all streams/i })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /sub-streams only/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /no parent/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /has sub-streams/i })).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /top-level only/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /include sub-streams in scoped results/i })).toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: /parent\/sub-streams.*all streams/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /all streams/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('listbox', { name: /parent\/sub-streams/i })).not.toBeInTheDocument();
 
     await act(async () => {
-      await user.click(screen.getByRole('button', { name: /all streams/i }));
+      await user.click(screen.getByRole('radio', { name: /has sub-streams/i }));
     });
-    const listbox = screen.getByRole('listbox', { name: /parent\/sub-streams/i });
-    expect(within(listbox).queryByRole('option', { name: /top-level only/i })).not.toBeInTheDocument();
-    expect(within(listbox).getByRole('option', { name: /no parent/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /has sub-streams/i })).toBeChecked();
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /apply/i }));
+    });
+    expect(onFiltersChange).toHaveBeenCalledWith({
+      ...baseConfig.filters,
+      hierarchy: { ...baseConfig.filters.hierarchy, mode: 'has-substreams' },
+    });
   });
 });
