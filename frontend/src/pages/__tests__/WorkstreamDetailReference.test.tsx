@@ -146,6 +146,28 @@ describe('WorkstreamDetail reference redesign', () => {
     expect(screen.queryByText(/^#Latency$/)).not.toBeInTheDocument();
   });
 
+  it('uses the cockpit card fallback category icon and color for uncategorized streams', async () => {
+    const uncategorizedWorkstream: Workstream = {
+      ...workstream,
+      categoryId: null,
+      category: null,
+    };
+    apiGetMock.mockResolvedValueOnce({ data: uncategorizedWorkstream });
+
+    renderDetail(uncategorizedWorkstream);
+    await screen.findByTestId('workstream-detail-shell');
+
+    const expectedFallbackColor = '#5b8ca0';
+    const expectedCategoryBandBackground = getCategoryIconBandBackground(expectedFallbackColor, expectedFallbackColor);
+    const rail = screen.getByTestId('workstream-category-rail');
+    const iconBand = screen.getByTestId('workstream-category-icon-band');
+
+    expect(rail).toHaveStyle({ backgroundColor: expectedFallbackColor });
+    expect(iconBand).toHaveTextContent('🏷️');
+    expect(iconBand).toHaveStyle({ backgroundColor: expectedCategoryBandBackground });
+    expect(iconBand.firstElementChild).toHaveStyle({ backgroundColor: expectedCategoryBandBackground });
+  });
+
   it('keeps primary actions reachable as a right-side stack and exposes the include-substreams control', async () => {
     renderDetail();
     await screen.findByTestId('workstream-detail-shell');

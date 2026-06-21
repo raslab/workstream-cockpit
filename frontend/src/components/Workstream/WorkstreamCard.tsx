@@ -9,16 +9,13 @@ import { MarkdownRenderer } from '../Markdown/MarkdownRenderer';
 import { TagChip } from '../Tag/TagChip';
 import { WorkstreamCreateDialog } from './WorkstreamCreateDialog';
 import { ParentSelectorDialog } from './ParentSelectorDialog';
-import { getCategoryIconBandBackground } from '../../utils/categoryColor';
+import { DEFAULT_CATEGORY_COLOR, DEFAULT_CATEGORY_EMOJI, getCategoryIconBandBackground } from '../../utils/categoryColor';
 
 interface WorkstreamCardProps {
   workstream: Workstream;
 }
 
 const TAG_GAP_PX = 6;
-const DEFAULT_CATEGORY_COLOR = '#5b8ca0';
-const DEFAULT_CATEGORY_EMOJI = '🏷️';
-
 function formatActivity(value?: string | null) {
   if (!value) {
     return 'no updates';
