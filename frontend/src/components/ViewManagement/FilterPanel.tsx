@@ -11,6 +11,42 @@ interface FilterPanelProps {
 
 type FilterSectionKey = 'categories' | 'tags' | 'other' | 'hierarchy';
 
+type ExpandedFilterSections = Record<FilterSectionKey, boolean>;
+
+const filterSectionPreferenceKey = 'workstream-cockpit.filter-panel.expanded-sections';
+
+const defaultExpandedSections: ExpandedFilterSections = {
+  categories: true,
+  tags: false,
+  other: false,
+  hierarchy: false,
+};
+
+function readExpandedSectionPreferences(): ExpandedFilterSections {
+  try {
+    const stored = window.localStorage.getItem(filterSectionPreferenceKey);
+    if (!stored) return defaultExpandedSections;
+
+    const parsed = JSON.parse(stored) as Partial<Record<FilterSectionKey, unknown>>;
+    return {
+      categories: typeof parsed.categories === 'boolean' ? parsed.categories : defaultExpandedSections.categories,
+      tags: typeof parsed.tags === 'boolean' ? parsed.tags : defaultExpandedSections.tags,
+      other: typeof parsed.other === 'boolean' ? parsed.other : defaultExpandedSections.other,
+      hierarchy: typeof parsed.hierarchy === 'boolean' ? parsed.hierarchy : defaultExpandedSections.hierarchy,
+    };
+  } catch {
+    return defaultExpandedSections;
+  }
+}
+
+function writeExpandedSectionPreferences(sections: ExpandedFilterSections) {
+  try {
+    window.localStorage.setItem(filterSectionPreferenceKey, JSON.stringify(sections));
+  } catch {
+    // Ignore storage failures so the filter menu still works in private or restricted contexts.
+  }
+}
+
 const hierarchyModeOptions: Array<{ value: Exclude<HierarchyFilter, 'top-level'>; label: string }> = [
   { value: 'all', label: 'All streams' },
   { value: 'sub-streams', label: 'Sub-streams only' },
@@ -70,12 +106,7 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
   const { data: tags } = useTags();
   const [localFilters, setLocalFilters] = useState(filters);
   const [tagSearchQuery, setTagSearchQuery] = useState('');
-  const [expandedSections, setExpandedSections] = useState<Record<FilterSectionKey, boolean>>({
-    categories: true,
-    tags: false,
-    other: false,
-    hierarchy: false,
-  });
+  const [expandedSections, setExpandedSections] = useState<ExpandedFilterSections>(() => readExpandedSectionPreferences());
   const panelRef = useRef<HTMLDivElement>(null);
   const tagSearchRef = useRef<HTMLInputElement>(null);
 
@@ -124,10 +155,14 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
   };
 
   const toggleSection = (section: FilterSectionKey) => {
-    setExpandedSections((current) => ({
-      ...current,
-      [section]: !current[section],
-    }));
+    setExpandedSections((current) => {
+      const nextSections = {
+        ...current,
+        [section]: !current[section],
+      };
+      writeExpandedSectionPreferences(nextSections);
+      return nextSections;
+    });
   };
 
   // Filter tags based on search query
