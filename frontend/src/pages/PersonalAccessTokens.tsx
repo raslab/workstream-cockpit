@@ -250,7 +250,7 @@ export default function PersonalAccessTokens() {
                 onChange={(event) => setName(event.target.value)}
                 className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 maxLength={100}
-                placeholder="e.g., Claude Desktop"
+                placeholder="e.g., MCP client"
                 autoFocus
               />
               <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{name.length}/100 characters</div>

@@ -11,15 +11,22 @@ Start here when you need setup details, implementation references, testing instr
 ## Product reference
 
 - [Product specs](./product/README.md) — durable product behavior and feature contracts.
-- [Parent streams and sub-streams](./product/parent stream model-v1.md) — parent stream/sub-stream behavior and implementation contract.
+- [Core concepts](./product/core-concepts.md) — streams, status updates, stream types, tags, views, and timeline.
+- [Stream types](./product/stream-types.md) — primary stream classification; implemented as `Category` in the API/model.
+- [Tags](./product/tags.md) — cross-cutting context labels and hashtag behavior.
+- [Parent streams and sub-streams](./product/hierarchy-v1.md) — parent stream/sub-stream behavior and implementation contract.
+- [Views](./product/views.md) — saved cockpit angles for filters, grouping, sorting, and hierarchy scope.
+- [Timeline](./product/timeline.md) — activity log, filters, structural events, and CSV export.
 - [Requirements document](./Workstream%20Cockpit%20-%20Requirements%20Document.md) — product requirements and user stories.
-- [Changelog 002](./CHANGELOG-002.md) — timeline export feature notes.
 - [Screenshots](./screenshots/) — current UI captures used by the README and docs.
 
 ## Frontend behavior
 
-- [Frontend specs](./frontend/README.md) — browser-side behavior, UI routes, and client-only preferences.
+- [Frontend specs](./frontend/README.md) — browser-side behavior, UI routes, and interaction contracts.
 - [Appearance and theme preferences](./frontend/appearance-theme.md) — System/Light/Dark theme behavior and tests.
+- [Settings UI](./frontend/settings.md) — stream type, tag, token, and appearance settings.
+- [Filters and views UI](./frontend/filters-and-views.md) — saved view and filtering behavior.
+- [Markdown and rich text](./frontend/markdown-and-rich-text.md) — formatted context and update notes.
 
 ## Integrations
 

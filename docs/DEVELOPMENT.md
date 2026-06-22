@@ -123,6 +123,18 @@ docker run -d \
 
 `backend/.env.test` should point at that sidecar. In containerized agent environments, use `POSTGRES_HOST=host.docker.internal`; when running directly on a host where that name is unavailable, use `POSTGRES_HOST=localhost`.
 
+
+## Engineering principles
+
+These principles replace old agent-maintained constitution/state files as durable project guidance:
+
+- Keep core flows low-friction: create a stream, add a status update, review the cockpit, and scan the timeline.
+- Prefer simple, explicit implementation over speculative architecture.
+- Preserve data integrity with service-level validation and database constraints where appropriate.
+- Maintain user/project data isolation across routes, services, timeline queries, and settings.
+- Cover non-trivial behavior with automated tests, especially validation, authorization, filtering, hierarchy, and export behavior.
+- Keep operational performance targets practical: cockpit load should feel sub-second in normal use, status saves should return quickly, and timeline queries should remain responsive under common filters.
+
 ## Domain model
 
 Core data concepts:

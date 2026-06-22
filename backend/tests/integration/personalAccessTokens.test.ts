@@ -84,13 +84,13 @@ describe('Personal access token API', () => {
 
     const response = await request(app)
       .post('/api/personal-access-tokens')
-      .send({ name: '  Claude Desktop  ', scopes: ['mcp:read', 'mcp:write'] })
+      .send({ name: '  MCP client  ', scopes: ['mcp:read', 'mcp:write'] })
       .expect(201);
 
     expect(response.body.token).toMatch(/^wsc_pat_[A-Za-z0-9_-]{43,}$/);
     expect(response.body.personalAccessToken).toMatchObject({
       personId: authenticatedPerson.id,
-      name: 'Claude Desktop',
+      name: 'MCP client',
       scopes: ['mcp:read', 'mcp:write'],
       tokenPrefix: response.body.token.slice(0, 20),
     });
