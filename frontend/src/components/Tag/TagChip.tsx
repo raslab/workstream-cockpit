@@ -1,22 +1,10 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTags } from '../../api/tags';
+import { tagFilterDestination } from '../../utils/tagNavigation';
 
 interface TagChipProps {
   tagName: string;
   onClick?: () => void;
-}
-
-function addTagToSearch(search: string, tagName: string): string {
-  const params = new URLSearchParams(search);
-  const tags = new Set(
-    (params.get('tags') ?? '')
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean)
-  );
-  tags.add(tagName);
-  params.set('tags', [...tags].sort((a, b) => a.localeCompare(b)).join(','));
-  return params.toString();
 }
 
 export function TagChip({ tagName, onClick }: TagChipProps) {
@@ -32,8 +20,7 @@ export function TagChip({ tagName, onClick }: TagChipProps) {
     if (onClick) {
       onClick();
     } else {
-      const search = addTagToSearch(location.search, tagName);
-      navigate({ pathname: location.pathname === '/timeline' ? '/timeline' : '/', search: `?${search}` });
+      navigate(tagFilterDestination(location.pathname, location.search, tagName));
     }
   };
 

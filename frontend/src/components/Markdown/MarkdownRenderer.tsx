@@ -1,8 +1,9 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTags } from '../../api/tags';
+import { tagFilterDestination } from '../../utils/tagNavigation';
 import React from 'react';
 
 interface MarkdownRendererProps {
@@ -17,6 +18,7 @@ interface MarkdownRendererProps {
 function HashtagSpan({ tagName }: { tagName: string }) {
   const { data: tags } = useTags();
   const navigate = useNavigate();
+  const location = useLocation();
   // tagName is the tag ID, find tag to get displayName and color
   const tag = tags?.find(t => t.name.toLowerCase() === tagName.toLowerCase());
   
@@ -26,8 +28,8 @@ function HashtagSpan({ tagName }: { tagName: string }) {
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Navigate to cockpit with this tag filter active (using tag ID)
-    navigate('/', { state: { filterTags: [tagName] } });
+    // Add this tag to the current route's URL-backed filters.
+    navigate(tagFilterDestination(location.pathname, location.search, tagName));
   };
   
   return (
