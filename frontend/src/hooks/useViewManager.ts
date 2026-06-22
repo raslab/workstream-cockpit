@@ -78,7 +78,13 @@ export function useViewManager() {
   const updateViewMutation = useMutation({
     mutationFn: ({ viewId, input }: { viewId: string; input: viewsApi.UpdateViewDTO }) =>
       viewsApi.updateView(viewId, input),
-    onSuccess: () => {
+    onSuccess: (updatedView) => {
+      queryClient.setQueryData<ViewConfig[]>(['views'], (currentViews) =>
+        currentViews?.map((view) => (view.id === updatedView.id ? updatedView : view)) ?? currentViews
+      );
+      if (activeViewId === updatedView.id) {
+        setCurrentConfig(updatedView.config);
+      }
       queryClient.invalidateQueries({ queryKey: ['views'] });
     },
   });

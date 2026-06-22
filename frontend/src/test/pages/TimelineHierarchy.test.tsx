@@ -13,6 +13,10 @@ vi.mock('../../hooks/useWorkstreams', () => ({
   useWorkstreams: () => ({ data: [{ id: 'parent-1', name: 'Parent stream' }] }),
 }));
 
+vi.mock('../../hooks/useCategories', () => ({
+  useCategories: () => ({ data: [] }),
+}));
+
 vi.mock('../../components/Timeline/FilterBar', () => ({
   FilterBar: () => <div data-testid="filter-bar" />,
 }));

@@ -1,5 +1,6 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTags } from '../../api/tags';
+import { tagFilterDestination } from '../../utils/tagNavigation';
 
 interface TagChipProps {
   tagName: string;
@@ -9,6 +10,7 @@ interface TagChipProps {
 export function TagChip({ tagName, onClick }: TagChipProps) {
   const { data: tags } = useTags();
   const navigate = useNavigate();
+  const location = useLocation();
   // tagName is the tag ID (e.g., "alan_awake"), find the tag to get displayName
   const tag = tags?.find((t) => t.name.toLowerCase() === tagName.toLowerCase());
   const color = tag?.color || '#1DA1F2';
@@ -18,8 +20,7 @@ export function TagChip({ tagName, onClick }: TagChipProps) {
     if (onClick) {
       onClick();
     } else {
-      // Navigate to cockpit with this tag filter active (using tag ID)
-      navigate('/', { state: { filterTags: [tagName] } });
+      navigate(tagFilterDestination(location.pathname, location.search, tagName));
     }
   };
 
