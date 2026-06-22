@@ -13,6 +13,7 @@ import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 import { TagAutocomplete } from '../components/Tag/TagAutocomplete';
 import { getBreadcrumbItems, getDirectSubstreamCount, getLatestSubstreamActivityAt, getLatestSubstreamActivitySourceId, getStatusUpdateSource, getWorkstreamName, hierarchyErrorMessage } from '../utils/hierarchy';
 import { DEFAULT_CATEGORY_COLOR, DEFAULT_CATEGORY_EMOJI, getCategoryIconBandBackground } from '../utils/categoryColor';
+import { handleRichHtmlTextareaPaste } from '../utils/richPasteTextarea';
 
 interface StatusEditDialogProps {
   statusUpdate: StatusUpdate;
@@ -35,7 +36,7 @@ function RelativeTime({ value, emptyLabel = 'No updates yet' }: { value: string 
   return <time dateTime={value} title={formatDateTime(value)}>{formatRelativeTime(value)}</time>;
 }
 
-function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: StatusEditDialogProps) {
+export function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: StatusEditDialogProps) {
   const [status, setStatus] = useState(statusUpdate.status);
   const [note, setNote] = useState(statusUpdate.note || '');
   const queryClient = useQueryClient();
@@ -85,6 +86,7 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
                 id="status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
+                onPaste={(e) => handleRichHtmlTextareaPaste(e, status, setStatus, 500)}
                 className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={3}
                 maxLength={500}
@@ -105,6 +107,7 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
                 id="note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
+                onPaste={(e) => handleRichHtmlTextareaPaste(e, note, setNote, 2000)}
                 className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={3}
                 maxLength={2000}

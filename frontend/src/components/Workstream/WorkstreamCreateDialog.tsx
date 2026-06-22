@@ -6,6 +6,7 @@ import { TagAutocomplete } from '../Tag/TagAutocomplete';
 import type { WorkstreamSummary } from '../../types/workstream';
 import { CLOSED_PARENT_SUBSTREAM_MESSAGE, hierarchyErrorMessage } from '../../utils/hierarchy';
 import { SelectMenu } from '../UI/SelectMenu';
+import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
 
 interface WorkstreamCreateDialogProps {
   isOpen: boolean;
@@ -157,6 +158,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
                 id="context"
                 value={context}
                 onChange={(e) => setContext(e.target.value)}
+                onPaste={(e) => handleRichHtmlTextareaPaste(e, context, setContext, 2000)}
                 className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={3}
                 maxLength={2000}
@@ -181,6 +183,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
                 id="initialStatus"
                 value={initialStatus}
                 onChange={(e) => setInitialStatus(e.target.value)}
+                onPaste={(e) => handleRichHtmlTextareaPaste(e, initialStatus, setInitialStatus, 500)}
                 className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={2}
                 maxLength={500}
@@ -207,6 +210,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
                 id="initialNote"
                 value={initialNote}
                 onChange={(e) => setInitialNote(e.target.value)}
+                onPaste={(e) => handleRichHtmlTextareaPaste(e, initialNote, setInitialNote, 2000)}
                 className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={2}
                 maxLength={2000}

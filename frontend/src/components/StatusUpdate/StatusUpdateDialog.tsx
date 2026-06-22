@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { TagAutocomplete } from '../Tag/TagAutocomplete';
+import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
 
 interface StatusUpdateDialogProps {
   workstreamId: string;
@@ -84,6 +85,7 @@ export function StatusUpdateDialog({
               ref={statusRef}
               value={status}
               onChange={(e) => setStatus(e.target.value)}
+              onPaste={(e) => handleRichHtmlTextareaPaste(e, status, setStatus, 500)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               rows={3}
               maxLength={500}
@@ -109,6 +111,7 @@ export function StatusUpdateDialog({
               ref={noteRef}
               value={note}
               onChange={(e) => setNote(e.target.value)}
+              onPaste={(e) => handleRichHtmlTextareaPaste(e, note, setNote, 2000)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               rows={3}
               maxLength={2000}
