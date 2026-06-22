@@ -65,7 +65,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isClosedParent) return;
+    if (isClosedParent || createWorkstreamMutation.isPending) return;
     if (name.trim()) {
       createWorkstreamMutation.mutate({
         name: name.trim(),
@@ -75,6 +75,13 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
         initialNote: initialNote.trim() || undefined,
         parentId: parent?.id,
       });
+    }
+  };
+
+  const handleShortcutSubmit = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      e.currentTarget.requestSubmit();
     }
   };
 
@@ -96,7 +103,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>
           <div className="mb-4">
             <label htmlFor="name" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Name <span className="text-red-500">*</span>
@@ -260,6 +267,9 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
               )}
               Create
             </button>
+          </div>
+          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Enter adds a new line • Ctrl/Cmd+Enter submits
           </div>
         </form>
       </div>

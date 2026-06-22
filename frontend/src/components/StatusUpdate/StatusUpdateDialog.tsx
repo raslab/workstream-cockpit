@@ -48,6 +48,7 @@ export function StatusUpdateDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (createStatusMutation.isPending) return;
     if (status.trim()) {
       createStatusMutation.mutate({
         workstreamId,
@@ -57,9 +58,10 @@ export function StatusUpdateDialog({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleShortcutSubmit = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      handleSubmit(e);
+      e.preventDefault();
+      e.currentTarget.requestSubmit();
     }
   };
 
@@ -72,7 +74,7 @@ export function StatusUpdateDialog({
           Update Status: {workstreamName}
         </h2>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>
           <div className="mb-4">
             <label htmlFor="status" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Status <span className="text-red-500">*</span>
@@ -82,7 +84,6 @@ export function StatusUpdateDialog({
               ref={statusRef}
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              onKeyDown={handleKeyDown}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               rows={3}
               maxLength={500}
@@ -108,7 +109,6 @@ export function StatusUpdateDialog({
               ref={noteRef}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              onKeyDown={handleKeyDown}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               rows={3}
               maxLength={2000}
@@ -171,7 +171,7 @@ export function StatusUpdateDialog({
           </div>
 
           <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Tip: Press Cmd/Ctrl+Enter to save quickly
+            Enter adds a new line • Ctrl/Cmd+Enter submits
           </div>
         </form>
       </div>
