@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { Workstream, StatusUpdate } from '../types/workstream';
@@ -146,13 +146,14 @@ function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: Statu
 export default function WorkstreamDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [showNewStatusDialog, setShowNewStatusDialog] = useState(false);
   const [editingStatus, setEditingStatus] = useState<StatusUpdate | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showCreateSubstreamDialog, setShowCreateSubstreamDialog] = useState(false);
   const [showParentDialog, setShowParentDialog] = useState(false);
-  const [includeSubstreams, setIncludeSubstreams] = useState(false);
+  const includeSubstreams = searchParams.get('includeSubstreams') === '1' || searchParams.get('includeSubstreams') === 'true';
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [closeConfirm, setCloseConfirm] = useState(false);
   const [reopenConfirm, setReopenConfirm] = useState(false);
@@ -167,6 +168,13 @@ export default function WorkstreamDetail() {
   });
 
   const { data: statusUpdates, isLoading: historyLoading } = useStatusHistory(id!, { includeSubstreams });
+
+  const setIncludeSubstreams = (nextInclude: boolean) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextInclude) nextParams.set('includeSubstreams', '1');
+    else nextParams.delete('includeSubstreams');
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (statusUpdateId: string) => {

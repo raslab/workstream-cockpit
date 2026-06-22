@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useWorkstreams } from '../hooks/useWorkstreams';
 import { useViewManager } from '../hooks/useViewManager';
 import { WorkstreamCard } from '../components/Workstream/WorkstreamCard';
@@ -10,6 +10,7 @@ import { ViewControls } from '../components/ViewManagement/ViewControls';
 import { ViewCreateDialog } from '../components/ViewManagement/ViewCreateDialog';
 import { Workstream } from '../types/workstream';
 import { applyHierarchyFilter, getHierarchyTimestamp, groupWorkstreamsByParent } from '../utils/hierarchy';
+import { applyCockpitSearchToConfig, serializeCockpitConfigSearch } from '../utils/urlState';
 
 function softCategoryColor(color?: string | null) {
   if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) return '#c5dae4';
@@ -23,7 +24,7 @@ function softCategoryColor(color?: string | null) {
 }
 
 export default function Cockpit() {
-  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showSaveAsDialog, setShowSaveAsDialog] = useState(false);
 
@@ -42,21 +43,68 @@ export default function Cockpit() {
     renameView,
   } = useViewManager();
 
-  // Check if we have filterTags from navigation state (from clicking a tag chip)
+  // Apply URL view selection and filter overrides, then canonicalize the URL to the actual screen state.
   useEffect(() => {
-    const state = location.state as { filterTags?: string[] } | null;
-    if (state?.filterTags) {
-      setCurrentConfig({
-        ...currentConfig,
-        filters: {
-          ...currentConfig.filters,
-          tags: state.filterTags,
-        },
-      });
-      // Clear the state so it doesn't persist on page reload
-      window.history.replaceState({}, document.title);
+    if (views.length === 0) return;
+    const urlViewId = searchParams.get('view');
+    const view =
+      (urlViewId && views.find((candidate) => candidate.id === urlViewId)) ||
+      views.find((candidate) => candidate.id === activeViewId) ||
+      views.find((candidate) => candidate.isDefault) ||
+      views[0];
+    if (!view) return;
+
+    const nextConfig = applyCockpitSearchToConfig(view.config, searchParams);
+    const canonicalParams = serializeCockpitConfigSearch(view.id, nextConfig, view.config);
+
+    if (canonicalParams.toString() !== searchParams.toString()) {
+      setSearchParams(canonicalParams, { replace: true });
     }
-  }, [location]);
+    if (view.id !== activeViewId) switchView(view.id);
+    setCurrentConfig(nextConfig);
+  }, [views, activeViewId, searchParams, setSearchParams, switchView, setCurrentConfig]);
+
+  const activeView = views.find((view) => view.id === activeViewId);
+
+  const handleViewChange = (id: string) => {
+    if (switchView(id)) {
+      const params = new URLSearchParams();
+      params.set('view', id);
+      setSearchParams(params, { replace: false });
+    }
+  };
+
+  const handleCreateView = async (name: string) => {
+    const id = await createView(name);
+    if (id) {
+      const params = new URLSearchParams();
+      params.set('view', id);
+      setSearchParams(params, { replace: false });
+    }
+  };
+
+  const handleConfigChange = (nextConfig: typeof currentConfig) => {
+    setCurrentConfig(nextConfig);
+    setSearchParams(serializeCockpitConfigSearch(activeViewId, nextConfig, activeView?.config), { replace: true });
+  };
+
+  const handleSaveCurrentView = async () => {
+    await saveCurrentView();
+    if (activeViewId) {
+      const params = new URLSearchParams();
+      params.set('view', activeViewId);
+      setSearchParams(params, { replace: true });
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    discardChanges();
+    if (activeViewId) {
+      const params = new URLSearchParams();
+      params.set('view', activeViewId);
+      setSearchParams(params, { replace: true });
+    }
+  };
 
   // Fetch workstreams with current filter config
   const { data: workstreams, isLoading, error } = useWorkstreams({
@@ -152,8 +200,8 @@ export default function Cockpit() {
         <ViewTabs
           views={views}
           activeViewId={activeViewId}
-          onViewChange={switchView}
-          onViewCreate={createView}
+          onViewChange={handleViewChange}
+          onViewCreate={handleCreateView}
           onViewDelete={deleteView}
           onViewRename={renameView}
           onNewWorkstream={() => setShowCreateDialog(true)}
@@ -162,11 +210,11 @@ export default function Cockpit() {
         {/* View Controls */}
         <ViewControls
           config={currentConfig}
-          onConfigChange={setCurrentConfig}
+          onConfigChange={handleConfigChange}
           hasUnsavedChanges={hasUnsavedChanges}
-          onSave={saveCurrentView}
+          onSave={handleSaveCurrentView}
           onSaveAs={handleSaveAs}
-          onDiscard={discardChanges}
+          onDiscard={handleDiscardChanges}
         />
 
         {/* Content */}
@@ -235,8 +283,8 @@ export default function Cockpit() {
 
       {showSaveAsDialog && (
         <ViewCreateDialog
-          onSave={(name) => {
-            createView(name);
+          onSave={async (name) => {
+            await handleCreateView(name);
             setShowSaveAsDialog(false);
           }}
           onCancel={() => setShowSaveAsDialog(false)}

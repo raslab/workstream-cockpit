@@ -19,7 +19,7 @@ export function TagChip({ tagName, onClick }: TagChipProps) {
       onClick();
     } else {
       // Navigate to cockpit with this tag filter active (using tag ID)
-      navigate('/', { state: { filterTags: [tagName] } });
+      navigate(`/?tags=${encodeURIComponent(tagName)}`);
     }
   };
 

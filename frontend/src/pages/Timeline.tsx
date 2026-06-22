@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { endOfDay, endOfMonth, endOfQuarter, format, isToday, isYesterday, parseISO, startOfDay, startOfMonth, startOfQuarter, subDays, subMonths, subQuarters } from 'date-fns';
 import { useTimeline, TimelineEntry, TimelineEventType, TimelineResponse } from '../hooks/useTimeline';
 import { useWorkstreams } from '../hooks/useWorkstreams';
 import { FilterBar } from '../components/Timeline/FilterBar';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 import { getWorkstreamName } from '../utils/hierarchy';
 import { SelectMenu } from '../components/UI/SelectMenu';
 import { ExportButton } from '../components/Timeline/ExportButton';
 import { DateRangeQuickPreset } from '../components/Timeline/DateRangeFilter';
+import { dateToUrlDate, parseTimelineSearch, serializeTimelineSearch, TimelineUrlState, urlDateToDate } from '../utils/urlState';
 
 export default function Timeline() {
   const getQuickDateRange = (preset: DateRangeQuickPreset) => {
@@ -37,16 +38,18 @@ export default function Timeline() {
     }
   };
 
-  const defaultRange = getQuickDateRange('last-7-days');
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [quickPreset, setQuickPreset] = useState<DateRangeQuickPreset | undefined>('last-7-days');
-  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(defaultRange.startDate);
-  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(defaultRange.endDate);
-  const [streamScope, setStreamScope] = useState<'all' | 'top-level' | 'sub-streams' | 'under-parent'>('all');
-  const [parentId, setParentId] = useState<string>('');
-  const [includeSubstreams, setIncludeSubstreams] = useState(false);
-  const [activityFilter, setActivityFilter] = useState<'all' | TimelineEventType>('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlState = useMemo(() => parseTimelineSearch(searchParams), [searchParams]);
+  const quickPreset = urlState.quickPreset as DateRangeQuickPreset | undefined;
+  const quickRange = quickPreset ? getQuickDateRange(quickPreset) : undefined;
+  const selectedCategoryIds = urlState.categoryIds;
+  const selectedTags = urlState.tags;
+  const customStartDate = quickRange?.startDate ?? urlDateToDate(urlState.startDate);
+  const customEndDate = quickRange?.endDate ?? urlDateToDate(urlState.endDate);
+  const streamScope = urlState.streamScope;
+  const parentId = urlState.parentId || '';
+  const includeSubstreams = urlState.includeSubstreams;
+  const activityFilter = urlState.activity;
   const [pageSize, setPageSize] = useState<50 | 100 | 200>(50);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageCursors, setPageCursors] = useState<Array<string | undefined>>([undefined]);
@@ -56,31 +59,30 @@ export default function Timeline() {
     setPageCursors([undefined]);
   };
 
+  const writeTimelineSearch = (patch: Partial<TimelineUrlState>) => {
+    setSearchParams(serializeTimelineSearch({ ...urlState, ...patch }), { replace: true });
+    resetPagination();
+  };
+
+  const setSelectedCategoryIds = (categoryIds: string[]) => writeTimelineSearch({ categoryIds });
+  const setSelectedTags = (tags: string[]) => writeTimelineSearch({ tags });
+  const setStreamScope = (nextScope: 'all' | 'top-level' | 'sub-streams' | 'under-parent') => writeTimelineSearch({ streamScope: nextScope });
+  const setParentId = (nextParentId: string) => writeTimelineSearch({ parentId: nextParentId || undefined });
+  const setIncludeSubstreams = (nextInclude: boolean) => writeTimelineSearch({ includeSubstreams: nextInclude });
+  const setActivityFilter = (nextActivity: 'all' | TimelineEventType) => writeTimelineSearch({ activity: nextActivity });
+
   const currentCursor = pageCursors[pageIndex];
 
   const handleQuickPresetChange = (preset: DateRangeQuickPreset | undefined) => {
-    if (!preset) {
-      setQuickPreset(undefined);
-      resetPagination();
-      return;
-    }
-    const range = getQuickDateRange(preset);
-    setQuickPreset(preset);
-    setCustomStartDate(range.startDate);
-    setCustomEndDate(range.endDate);
-    resetPagination();
+    writeTimelineSearch({ quickPreset: preset ?? 'last-7-days', startDate: undefined, endDate: undefined });
   };
 
   const handleCustomStartDateChange = (date: Date | undefined) => {
-    setQuickPreset(undefined);
-    setCustomStartDate(date);
-    resetPagination();
+    writeTimelineSearch({ quickPreset: undefined, startDate: dateToUrlDate(date), endDate: dateToUrlDate(customEndDate) });
   };
 
   const handleCustomEndDateChange = (date: Date | undefined) => {
-    setQuickPreset(undefined);
-    setCustomEndDate(date);
-    resetPagination();
+    writeTimelineSearch({ quickPreset: undefined, startDate: dateToUrlDate(customStartDate), endDate: dateToUrlDate(date) });
   };
 
   const { data: workstreams = [] } = useWorkstreams({ state: 'active' });
