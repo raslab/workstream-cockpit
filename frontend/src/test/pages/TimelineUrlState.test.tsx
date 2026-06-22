@@ -40,7 +40,7 @@ describe('Timeline URL state', () => {
 
   it('initializes filters from URL params and writes changed controls back to the URL', async () => {
     render(
-      <MemoryRouter initialEntries={['/timeline?tags=priority&scope=under-parent&parentId=parent-1&includeSubstreams=1&activity=parent_changed']}>
+      <MemoryRouter initialEntries={['/timeline?tags=priority&scope=under-parent&parentId=parent-1&includeSubstreams=1&activity=parent_changed&categories=operations']}>
         <Routes>
           <Route path="/timeline" element={<><Timeline /><LocationProbe /></>} />
         </Routes>
@@ -49,6 +49,7 @@ describe('Timeline URL state', () => {
 
     await waitFor(() => expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
       tags: ['priority'],
+      categoryIds: ['cat-1'],
       streamScope: 'under-parent',
       parentId: 'parent-1',
       includeSubstreams: true,

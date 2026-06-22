@@ -1,5 +1,6 @@
 import type { TimelineEventType } from '../hooks/useTimeline';
 import type { HierarchyFilter, SortConfig, ViewConfig } from '../types/view';
+import type { Category } from '../types/workstream';
 
 const hierarchyModes = new Set<HierarchyFilter>(['all', 'top-level', 'sub-streams', 'no-parent', 'has-substreams']);
 const timelineScopes = new Set(['all', 'top-level', 'sub-streams', 'under-parent'] as const);
@@ -16,6 +17,70 @@ function splitList(value: string | null): string[] {
 
 function stableList(values: string[]): string {
   return [...values].sort((a, b) => a.localeCompare(b)).join(',');
+}
+
+export function slugifyUrlPart(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function slugForEntity(entity: { id: string; name: string }): string {
+  return slugifyUrlPart(entity.name) || entity.id;
+}
+
+function slugById(entities: Array<{ id: string; name: string }> = []): Map<string, string> {
+  const counts = new Map<string, number>();
+  const result = new Map<string, string>();
+  for (const entity of entities) {
+    const base = slugForEntity(entity);
+    const count = counts.get(base) ?? 0;
+    counts.set(base, count + 1);
+    result.set(entity.id, count === 0 ? base : `${base}-${count + 1}`);
+  }
+  return result;
+}
+
+function idBySlug(entities: Array<{ id: string; name: string }> = []): Map<string, string> {
+  const byId = slugById(entities);
+  return new Map(Array.from(byId.entries()).map(([id, slug]) => [slug, id]));
+}
+
+export function resolveEntityParam(value: string | null | undefined, entities: Array<{ id: string; name: string }> = []): string | undefined {
+  if (!value) return undefined;
+  return entities.find((entity) => entity.id === value)?.id ?? idBySlug(entities).get(value);
+}
+
+function resolveCategoryValues(values: string[], categories: Category[] = []): string[] {
+  return values
+    .map((value) => categories.find((category) => category.id === value)?.id ?? idBySlug(categories).get(value))
+    .filter((value): value is string => Boolean(value));
+}
+
+function categoryValuesFromSearch(searchParams: URLSearchParams, categories: Category[] = []): string[] {
+  if (searchParams.has('categories')) return resolveCategoryValues(splitList(searchParams.get('categories')), categories);
+  if (searchParams.has('categoryIds')) {
+    const values = splitList(searchParams.get('categoryIds'));
+    return categories.length > 0 ? resolveCategoryValues(values, categories) : values;
+  }
+  return [];
+}
+
+function categorySearchValue(categoryIds: string[], categories: Category[] = []): string {
+  const slugs = slugById(categories);
+  return stableList(categoryIds.map((id) => slugs.get(id) ?? id));
+}
+
+function setCategoryListIfDifferent(params: URLSearchParams, current: string[], base: string[], categories: Category[] = []) {
+  if (stableList(current) !== stableList(base)) {
+    params.set('categories', categorySearchValue(current, categories));
+  }
+}
+
+export function viewUrlValue(view: Pick<ViewConfig, 'id' | 'name'> | null | undefined): string | null {
+  return view ? slugForEntity(view) : null;
 }
 
 function isTrue(value: string | null): boolean {
@@ -41,18 +106,19 @@ function setListIfDifferent(params: URLSearchParams, key: string, current: strin
 
 export function applyCockpitSearchToConfig(
   baseConfig: ViewConfig['config'],
-  searchParams: URLSearchParams
+  searchParams: URLSearchParams,
+  options: { categories?: Category[] } = {}
 ): ViewConfig['config'] {
   const next: ViewConfig['config'] = structuredClone(baseConfig);
   const tags = splitList(searchParams.get('tags'));
-  const categoryIds = splitList(searchParams.get('categoryIds'));
+  const categoryIds = categoryValuesFromSearch(searchParams, options.categories);
   const hierarchy = searchParams.get('hierarchy');
   const sort = searchParams.get('sort');
   const group = searchParams.get('group');
   const parentId = searchParams.get('parentId');
 
   if (searchParams.has('tags')) next.filters.tags = tags;
-  if (searchParams.has('categoryIds')) next.filters.categoryIds = categoryIds;
+  if (searchParams.has('categories') || searchParams.has('categoryIds')) next.filters.categoryIds = categoryIds;
   if (searchParams.has('notUpdatedToday')) next.filters.temporal.notUpdatedToday = isTrue(searchParams.get('notUpdatedToday'));
   if (hierarchyModes.has(hierarchy as HierarchyFilter)) next.filters.hierarchy.mode = hierarchy as HierarchyFilter;
   if (searchParams.has('includeSubstreams')) next.filters.hierarchy.includeSubstreams = isTrue(searchParams.get('includeSubstreams'));
@@ -75,10 +141,12 @@ export function applyCockpitSearchToConfig(
 export function serializeCockpitConfigSearch(
   viewId: string | null | undefined,
   currentConfig: ViewConfig['config'],
-  baseConfig?: ViewConfig['config']
+  baseConfig?: ViewConfig['config'],
+  options: { viewValue?: string | null; categories?: Category[] } = {}
 ): URLSearchParams {
   const params = new URLSearchParams();
-  if (viewId) params.set('view', viewId);
+  const viewValue = options.viewValue ?? viewId;
+  if (viewValue) params.set('view', viewValue);
 
   const base = baseConfig ?? {
     filters: {
@@ -92,7 +160,7 @@ export function serializeCockpitConfigSearch(
   } as ViewConfig['config'];
 
   setListIfDifferent(params, 'tags', currentConfig.filters.tags, base.filters.tags);
-  setListIfDifferent(params, 'categoryIds', currentConfig.filters.categoryIds, base.filters.categoryIds);
+  setCategoryListIfDifferent(params, currentConfig.filters.categoryIds, base.filters.categoryIds, options.categories);
   if (currentConfig.filters.temporal.notUpdatedToday !== base.filters.temporal.notUpdatedToday) {
     params.set('notUpdatedToday', booleanParam(currentConfig.filters.temporal.notUpdatedToday));
   }
@@ -124,7 +192,7 @@ export interface TimelineUrlState {
   activity: 'all' | TimelineEventType;
 }
 
-export function parseTimelineSearch(searchParams: URLSearchParams): TimelineUrlState {
+export function parseTimelineSearch(searchParams: URLSearchParams, options: { categories?: Category[] } = {}): TimelineUrlState {
   const scope = searchParams.get('scope');
   const activity = searchParams.get('activity');
   const range = searchParams.get('range');
@@ -138,7 +206,7 @@ export function parseTimelineSearch(searchParams: URLSearchParams): TimelineUrlS
 
   return {
     tags: splitList(searchParams.get('tags')),
-    categoryIds: splitList(searchParams.get('categoryIds')),
+    categoryIds: categoryValuesFromSearch(searchParams, options.categories),
     quickPreset,
     startDate,
     endDate,
@@ -149,10 +217,10 @@ export function parseTimelineSearch(searchParams: URLSearchParams): TimelineUrlS
   };
 }
 
-export function serializeTimelineSearch(state: TimelineUrlState): URLSearchParams {
+export function serializeTimelineSearch(state: TimelineUrlState, options: { categories?: Category[] } = {}): URLSearchParams {
   const params = new URLSearchParams();
   if (state.tags.length > 0) params.set('tags', stableList(state.tags));
-  if (state.categoryIds.length > 0) params.set('categoryIds', stableList(state.categoryIds));
+  if (state.categoryIds.length > 0) params.set('categories', categorySearchValue(state.categoryIds, options.categories));
   if (state.quickPreset && state.quickPreset !== 'last-7-days') {
     params.set('range', state.quickPreset);
   } else if (!state.quickPreset) {

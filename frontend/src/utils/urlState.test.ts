@@ -60,7 +60,7 @@ describe('urlState cockpit helpers', () => {
     };
 
     expect(serializeCockpitConfigSearch('view-1', customized, baseConfig).toString()).toBe(
-      'view=view-1&tags=backend%2Cfrontend&categoryIds=cat-1%2Ccat-2&notUpdatedToday=1&hierarchy=top-level&includeSubstreams=1&sort=name%3Aasc&group=parent'
+      'view=view-1&tags=backend%2Cfrontend&categories=cat-1%2Ccat-2&notUpdatedToday=1&hierarchy=top-level&includeSubstreams=1&sort=name%3Aasc&group=parent'
     );
     expect(serializeCockpitConfigSearch('view-1', baseConfig, baseConfig).toString()).toBe('view=view-1');
   });
@@ -88,7 +88,7 @@ describe('urlState cockpit helpers', () => {
     };
 
     const serialized = serializeCockpitConfigSearch('view-1', clearedConfig, savedViewConfig);
-    expect(serialized.toString()).toBe('view=view-1&tags=&categoryIds=&notUpdatedToday=0&parentId=&includeSubstreams=0');
+    expect(serialized.toString()).toBe('view=view-1&tags=&categories=&notUpdatedToday=0&parentId=&includeSubstreams=0');
     expect(applyCockpitSearchToConfig(savedViewConfig, serialized)).toEqual(clearedConfig);
   });
 });
@@ -110,7 +110,7 @@ describe('urlState timeline helpers', () => {
     });
 
     expect(serializeTimelineSearch(parsed).toString()).toBe(
-      'tags=backend%2Cfrontend&categoryIds=cat-1&startDate=2026-06-01&endDate=2026-06-22&scope=under-parent&parentId=parent-1&includeSubstreams=1&activity=parent_changed'
+      'tags=backend%2Cfrontend&categories=cat-1&startDate=2026-06-01&endDate=2026-06-22&scope=under-parent&parentId=parent-1&includeSubstreams=1&activity=parent_changed'
     );
     expect(parseTimelineSearch(new URLSearchParams('scope=nope&activity=nope&includeSubstreams=0'))).toEqual({
       tags: [],

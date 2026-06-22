@@ -6,10 +6,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ViewConfig } from '../../types/view';
 
 const useWorkstreamsMock = vi.hoisted(() => vi.fn());
+const useCategoriesMock = vi.hoisted(() => vi.fn());
 const viewsApiMock = vi.hoisted(() => ({ getViews: vi.fn() }));
 
 vi.mock('../../hooks/useWorkstreams', () => ({
   useWorkstreams: useWorkstreamsMock,
+}));
+
+vi.mock('../../hooks/useCategories', () => ({
+  useCategories: useCategoriesMock,
 }));
 
 vi.mock('../../api/views', () => ({
@@ -42,9 +47,9 @@ vi.mock('../../components/ViewManagement/ViewTabs', () => ({
 
 import Cockpit from '../../pages/Cockpit';
 
-const config = (tags: string[] = []): ViewConfig['config'] => ({
+const config = (tags: string[] = [], categoryIds: string[] = []): ViewConfig['config'] => ({
   filters: {
-    categoryIds: [],
+    categoryIds,
     tags,
     temporal: { notUpdatedToday: false },
     hierarchy: { mode: 'all', parentId: null, includeSubstreams: false, timelineScope: 'all', includeStructuralEvents: true },
@@ -54,8 +59,8 @@ const config = (tags: string[] = []): ViewConfig['config'] => ({
 });
 
 const views: ViewConfig[] = [
-  { id: 'default-view', name: 'Default', isDefault: true, createdAt: new Date(), updatedAt: new Date(), config: config() },
-  { id: 'tagged-view', name: 'Tagged', isDefault: false, createdAt: new Date(), updatedAt: new Date(), config: config(['backend']) },
+  { id: 'view-default-id', name: 'Default View', isDefault: true, createdAt: new Date(), updatedAt: new Date(), config: config() },
+  { id: 'view-tagged-id', name: 'Tagged View', isDefault: false, createdAt: new Date(), updatedAt: new Date(), config: config(['backend'], ['cat-1']) },
 ];
 
 function LocationProbe() {
@@ -78,32 +83,35 @@ describe('Cockpit URL state', () => {
   beforeEach(() => {
     viewsApiMock.getViews.mockResolvedValue(views);
     useWorkstreamsMock.mockReturnValue({ data: [], isLoading: false, error: null });
+    useCategoriesMock.mockReturnValue({ data: [{ id: 'cat-1', name: 'Platform Team', color: '#2563eb', sortOrder: 1 }] });
   });
 
   it('selects view from URL, applies query overrides, and writes clean view/custom filter URLs', async () => {
-    renderCockpit('/?view=tagged-view&tags=frontend');
+    renderCockpit('/?view=tagged-view&tags=frontend&categories=platform-team');
 
-    await waitFor(() => expect(screen.getByTestId('active-view')).toHaveTextContent('tagged-view'));
-    await waitFor(() => expect(useWorkstreamsMock).toHaveBeenLastCalledWith(expect.objectContaining({ tags: ['frontend'] })));
+    await waitFor(() => expect(screen.getByTestId('active-view')).toHaveTextContent('view-tagged-id'));
+    await waitFor(() => expect(useWorkstreamsMock).toHaveBeenLastCalledWith(expect.objectContaining({ tags: ['frontend'], categoryIds: ['cat-1'] })));
     expect(screen.getByTestId('unsaved')).toHaveTextContent('true');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Default' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Default View' }));
     expect(screen.getByTestId('location')).toHaveTextContent('?view=default-view');
 
     await userEvent.click(screen.getByRole('button', { name: 'Set frontend tag' }));
     expect(screen.getByTestId('location')).toHaveTextContent('?view=default-view&tags=frontend');
   });
 
-  it('canonicalizes missing or invalid view params to the actual selected view', async () => {
+  it('leaves missing view params omitted and removes invalid view params from the URL', async () => {
     const first = renderCockpit('/');
 
-    await waitFor(() => expect(screen.getByTestId('active-view')).toHaveTextContent('default-view'));
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('?view=default-view'));
+    await waitFor(() => expect(screen.getByTestId('active-view')).toHaveTextContent('view-default-id'));
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(''));
+    expect(screen.getByTestId('location')).not.toHaveTextContent('view=');
 
     first.unmount();
     renderCockpit('/?view=missing-view&tags=frontend');
 
-    await waitFor(() => expect(screen.getByTestId('active-view')).toHaveTextContent('default-view'));
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('?view=default-view&tags=frontend'));
+    await waitFor(() => expect(screen.getByTestId('active-view')).toHaveTextContent('view-default-id'));
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('?tags=frontend'));
+    expect(screen.getByTestId('location')).not.toHaveTextContent('view=');
   });
 });

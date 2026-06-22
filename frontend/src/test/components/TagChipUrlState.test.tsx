@@ -12,18 +12,30 @@ function LocationProbe() {
   return <div data-testid="location">{location.pathname}{location.search}|state:{JSON.stringify(location.state)}</div>;
 }
 
+function renderAt(initialEntry: string) {
+  render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <Routes>
+        <Route path="*" element={<><TagChip tagName="frontend" /><LocationProbe /></>} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
 describe('TagChip URL navigation', () => {
-  it('navigates to cockpit with a tags search param instead of location state', () => {
-    render(
-      <MemoryRouter initialEntries={['/timeline']}>
-        <Routes>
-          <Route path="*" element={<><TagChip tagName="frontend" /><LocationProbe /></>} />
-        </Routes>
-      </MemoryRouter>
-    );
+  it('adds the tag to existing cockpit URL filters without dropping other params or using location state', () => {
+    renderAt('/?view=platform&tags=backend&categories=operations&sort=name%3Aasc');
 
     fireEvent.click(screen.getByRole('button', { name: '#Frontend' }));
 
-    expect(screen.getByTestId('location')).toHaveTextContent('/?tags=frontend|state:null');
+    expect(screen.getByTestId('location')).toHaveTextContent('/?view=platform&tags=backend%2Cfrontend&categories=operations&sort=name%3Aasc|state:null');
+  });
+
+  it('adds the tag to timeline filters while staying on the timeline page', () => {
+    renderAt('/timeline?tags=priority&scope=under-parent&parentId=parent-1');
+
+    fireEvent.click(screen.getByRole('button', { name: '#Frontend' }));
+
+    expect(screen.getByTestId('location')).toHaveTextContent('/timeline?tags=frontend%2Cpriority&scope=under-parent&parentId=parent-1|state:null');
   });
 });

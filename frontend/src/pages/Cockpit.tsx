@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useWorkstreams } from '../hooks/useWorkstreams';
+import { useCategories } from '../hooks/useCategories';
 import { useViewManager } from '../hooks/useViewManager';
 import { WorkstreamCard } from '../components/Workstream/WorkstreamCard';
 import { WorkstreamSkeleton } from '../components/Workstream/WorkstreamSkeleton';
@@ -10,7 +11,7 @@ import { ViewControls } from '../components/ViewManagement/ViewControls';
 import { ViewCreateDialog } from '../components/ViewManagement/ViewCreateDialog';
 import { Workstream } from '../types/workstream';
 import { applyHierarchyFilter, getHierarchyTimestamp, groupWorkstreamsByParent } from '../utils/hierarchy';
-import { applyCockpitSearchToConfig, serializeCockpitConfigSearch } from '../utils/urlState';
+import { applyCockpitSearchToConfig, resolveEntityParam, serializeCockpitConfigSearch, viewUrlValue } from '../utils/urlState';
 
 function softCategoryColor(color?: string | null) {
   if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) return '#c5dae4';
@@ -27,6 +28,7 @@ export default function Cockpit() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showSaveAsDialog, setShowSaveAsDialog] = useState(false);
+  const { data: categories = [], isLoading: categoriesLoading } = useCategories();
 
   // View management
   const {
@@ -46,30 +48,40 @@ export default function Cockpit() {
   // Apply URL view selection and filter overrides, then canonicalize the URL to the actual screen state.
   useEffect(() => {
     if (views.length === 0) return;
-    const urlViewId = searchParams.get('view');
+    if (searchParams.has('categories') && categoriesLoading) return;
+    const urlViewParam = searchParams.get('view');
+    const resolvedViewId = resolveEntityParam(urlViewParam, views);
     const view =
-      (urlViewId && views.find((candidate) => candidate.id === urlViewId)) ||
+      (resolvedViewId && views.find((candidate) => candidate.id === resolvedViewId)) ||
       views.find((candidate) => candidate.id === activeViewId) ||
       views.find((candidate) => candidate.isDefault) ||
       views[0];
     if (!view) return;
 
-    const nextConfig = applyCockpitSearchToConfig(view.config, searchParams);
-    const canonicalParams = serializeCockpitConfigSearch(view.id, nextConfig, view.config);
+    const nextConfig = applyCockpitSearchToConfig(view.config, searchParams, { categories });
+    const validUrlView = Boolean(resolvedViewId);
+    const canonicalParams = serializeCockpitConfigSearch(
+      validUrlView ? view.id : null,
+      nextConfig,
+      view.config,
+      { viewValue: validUrlView ? viewUrlValue(view) : null, categories }
+    );
 
     if (canonicalParams.toString() !== searchParams.toString()) {
       setSearchParams(canonicalParams, { replace: true });
     }
     if (view.id !== activeViewId) switchView(view.id);
     setCurrentConfig(nextConfig);
-  }, [views, activeViewId, searchParams, setSearchParams, switchView, setCurrentConfig]);
+  }, [views, activeViewId, searchParams, setSearchParams, switchView, setCurrentConfig, categories, categoriesLoading]);
 
   const activeView = views.find((view) => view.id === activeViewId);
 
   const handleViewChange = (id: string) => {
     if (switchView(id)) {
+      const nextView = views.find((view) => view.id === id);
       const params = new URLSearchParams();
-      params.set('view', id);
+      const value = viewUrlValue(nextView);
+      if (value) params.set('view', value);
       setSearchParams(params, { replace: false });
     }
   };
@@ -77,22 +89,25 @@ export default function Cockpit() {
   const handleCreateView = async (name: string) => {
     const id = await createView(name);
     if (id) {
+      const nextView = views.find((view) => view.id === id);
       const params = new URLSearchParams();
-      params.set('view', id);
+      const value = viewUrlValue(nextView);
+      if (value) params.set('view', value);
       setSearchParams(params, { replace: false });
     }
   };
 
   const handleConfigChange = (nextConfig: typeof currentConfig) => {
     setCurrentConfig(nextConfig);
-    setSearchParams(serializeCockpitConfigSearch(activeViewId, nextConfig, activeView?.config), { replace: true });
+    setSearchParams(serializeCockpitConfigSearch(activeViewId, nextConfig, activeView?.config, { viewValue: viewUrlValue(activeView), categories }), { replace: true });
   };
 
   const handleSaveCurrentView = async () => {
     await saveCurrentView();
     if (activeViewId) {
       const params = new URLSearchParams();
-      params.set('view', activeViewId);
+      const value = viewUrlValue(activeView);
+      if (value) params.set('view', value);
       setSearchParams(params, { replace: true });
     }
   };
@@ -101,7 +116,8 @@ export default function Cockpit() {
     discardChanges();
     if (activeViewId) {
       const params = new URLSearchParams();
-      params.set('view', activeViewId);
+      const value = viewUrlValue(activeView);
+      if (value) params.set('view', value);
       setSearchParams(params, { replace: true });
     }
   };

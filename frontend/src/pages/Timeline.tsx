@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { endOfDay, endOfMonth, endOfQuarter, format, isToday, isYesterday, parseISO, startOfDay, startOfMonth, startOfQuarter, subDays, subMonths, subQuarters } from 'date-fns';
 import { useTimeline, TimelineEntry, TimelineEventType, TimelineResponse } from '../hooks/useTimeline';
 import { useWorkstreams } from '../hooks/useWorkstreams';
+import { useCategories } from '../hooks/useCategories';
 import { FilterBar } from '../components/Timeline/FilterBar';
 import { Link, useSearchParams } from 'react-router-dom';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
@@ -39,7 +40,8 @@ export default function Timeline() {
   };
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const urlState = useMemo(() => parseTimelineSearch(searchParams), [searchParams]);
+  const { data: categories = [] } = useCategories();
+  const urlState = useMemo(() => parseTimelineSearch(searchParams, { categories }), [searchParams, categories]);
   const quickPreset = urlState.quickPreset as DateRangeQuickPreset | undefined;
   const quickRange = quickPreset ? getQuickDateRange(quickPreset) : undefined;
   const selectedCategoryIds = urlState.categoryIds;
@@ -60,7 +62,7 @@ export default function Timeline() {
   };
 
   const writeTimelineSearch = (patch: Partial<TimelineUrlState>) => {
-    setSearchParams(serializeTimelineSearch({ ...urlState, ...patch }), { replace: true });
+    setSearchParams(serializeTimelineSearch({ ...urlState, ...patch }, { categories }), { replace: true });
     resetPagination();
   };
 
