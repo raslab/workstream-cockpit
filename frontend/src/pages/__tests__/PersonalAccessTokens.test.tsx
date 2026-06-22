@@ -51,7 +51,7 @@ describe('Personal access tokens settings', () => {
       personalAccessTokens: [
         {
           id: 'pat_1',
-          name: 'Claude Desktop',
+          name: 'MCP client',
           scopes: ['mcp:read', 'mcp:write'],
           createdAt: '2026-06-01T10:00:00.000Z',
           lastUsedAt: '2026-06-03T11:12:13.000Z',
@@ -68,7 +68,7 @@ describe('Personal access tokens settings', () => {
       'href',
       '/settings/personal-access-tokens',
     );
-    expect(await screen.findByText('Claude Desktop')).toBeInTheDocument();
+    expect(await screen.findByText('MCP client')).toBeInTheDocument();
     expect(screen.getByText(/Read and write/i)).toBeInTheDocument();
     expect(screen.getByText(/Created:/i)).toHaveTextContent('Jun 1, 2026');
     expect(screen.getByText(/Last used:/i)).toHaveTextContent('Jun 3, 2026');

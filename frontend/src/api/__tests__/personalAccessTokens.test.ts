@@ -22,7 +22,7 @@ describe('personal access tokens api client', () => {
     const metadata = [
       {
         id: 'pat_1',
-        name: 'Claude Desktop',
+        name: 'MCP client',
         scopes: ['mcp:read'],
         createdAt: '2026-06-01T10:00:00.000Z',
         lastUsedAt: null,
