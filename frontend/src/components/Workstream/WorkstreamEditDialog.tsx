@@ -44,12 +44,20 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (updateMutation.isPending) return;
     if (name.trim()) {
       updateMutation.mutate({
         name: name.trim(),
         categoryId: categoryId || null,
         context: context.trim() || null,
       });
+    }
+  };
+
+  const handleShortcutSubmit = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      e.currentTarget.requestSubmit();
     }
   };
 
@@ -60,7 +68,7 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
         <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Edit Workstream</h2>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>
           <div className="mb-4">
             <label htmlFor="name" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Name <span className="text-red-500">*</span>
@@ -135,6 +143,9 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
             >
               {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
             </button>
+          </div>
+          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Enter adds a new line • Ctrl/Cmd+Enter submits
           </div>
         </form>
       </div>
