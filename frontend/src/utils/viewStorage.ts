@@ -7,6 +7,7 @@ const MAX_VIEWS = 50;
 const DEFAULT_HIERARCHY_FILTER = {
   mode: 'all' as const,
   parentId: null,
+  parentIds: [],
   includeSubstreams: false,
   timelineScope: 'all' as const,
   includeStructuralEvents: true,
@@ -80,6 +81,7 @@ function deserializeStorage(serialized: SerializedViewStorage): ViewStorage {
           hierarchy: {
             ...DEFAULT_HIERARCHY_FILTER,
             ...view.config.filters.hierarchy,
+            parentIds: view.config.filters.hierarchy?.parentIds ?? (view.config.filters.hierarchy?.parentId ? [view.config.filters.hierarchy.parentId] : []),
           },
         },
         sort: normalizeSort(view.config.sort),

@@ -16,6 +16,7 @@ describe('viewStorage hierarchy config', () => {
     expect(storage.views[0].config.filters.hierarchy).toEqual({
       mode: 'all',
       parentId: null,
+      parentIds: [],
       includeSubstreams: false,
       timelineScope: 'all',
       includeStructuralEvents: true,
@@ -61,6 +62,7 @@ describe('viewStorage hierarchy config', () => {
     expect(loadedView?.config.filters.hierarchy).toEqual({
       mode: 'sub-streams',
       parentId: 'parent-1',
+      parentIds: ['parent-1'],
       includeSubstreams: true,
       timelineScope: 'under-parent',
       includeStructuralEvents: false,
@@ -100,6 +102,7 @@ describe('viewStorage hierarchy config', () => {
     expect(loaded.views[0].config.filters.hierarchy).toEqual({
       mode: 'sub-streams',
       parentId: 'parent-1',
+      parentIds: ['parent-1'],
       includeSubstreams: true,
       timelineScope: 'all',
       includeStructuralEvents: true,

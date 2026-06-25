@@ -9,6 +9,7 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig['config'] = {
     hierarchy: {
       mode: 'all',
       parentId: null,
+      parentIds: [],
       includeSubstreams: false,
       timelineScope: 'all',
       includeStructuralEvents: true,
@@ -50,6 +51,7 @@ export function normalizeViewConfig(config?: ApiViewConfig | null): ViewConfig['
       hierarchy: {
         ...DEFAULT_VIEW_CONFIG.filters.hierarchy,
         ...config?.filters?.hierarchy,
+        parentIds: config?.filters?.hierarchy?.parentIds ?? (config?.filters?.hierarchy?.parentId ? [config.filters.hierarchy.parentId] : []),
       },
     },
     sort: normalizeSort(config?.sort),

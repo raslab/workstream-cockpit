@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Workstream } from '../../types/workstream';
 import {
+  applyCockpitHierarchyFilter,
   applyHierarchyFilter,
   getBreadcrumbLabel,
   getDirectSubstreamCount,
@@ -45,9 +46,53 @@ describe('parent stream utilities', () => {
   it('groups direct substreams under their direct parent and keeps orphans top-level', () => {
     const groups = groupWorkstreamsByParent([substream, parent, base({ id: 'orphan', name: 'Orphan', parentId: 'missing' })]);
     expect(groups.map((g) => [g.key, g.name, g.workstreams.map((w) => w.id)])).toEqual([
-      ['parent', 'Parent', ['parent', 'substream']],
+      ['parent', 'Parent', ['substream']],
       ['top-level', 'Top level / no parent', ['orphan']],
     ]);
+  });
+
+  it('groups filtered sub-streams by their parent metadata when the parent row is filtered out', () => {
+    const groups = groupWorkstreamsByParent([
+      substream,
+      base({
+        id: 'second-substream',
+        name: 'Second sub-stream',
+        parentId: 'parent',
+        parent: { id: 'parent', name: 'Parent' },
+        depth: 2,
+      }),
+    ]);
+
+    expect(groups.map((g) => [g.key, g.name, g.workstreams.map((w) => w.id)])).toEqual([
+      ['parent', 'Parent', ['substream', 'second-substream']],
+    ]);
+  });
+
+  it('filters streams under multiple selected parents with optional nested sub-streams', () => {
+    const nestedSubstream = base({
+      id: 'nested-substream',
+      name: 'Nested sub-stream',
+      parentId: 'substream',
+      parent: { id: 'substream', name: 'Sub-stream' },
+      parentStreams: [{ id: 'parent', name: 'Parent' }, { id: 'substream', name: 'Sub-stream' }],
+      depth: 3,
+    });
+    const otherParent = base({ id: 'other-parent', name: 'Other parent', parentId: null, depth: 1 });
+    const otherSubstream = base({ id: 'other-substream', name: 'Other sub-stream', parentId: 'other-parent', parent: { id: 'other-parent', name: 'Other parent' }, depth: 2 });
+
+    expect(applyCockpitHierarchyFilter([parent, substream, nestedSubstream, otherParent, otherSubstream], {
+      mode: 'under-parent',
+      parentId: null,
+      parentIds: ['parent', 'other-parent'],
+      includeSubstreams: false,
+    }).map((w) => w.id)).toEqual(['parent', 'other-parent']);
+
+    expect(applyCockpitHierarchyFilter([parent, substream, nestedSubstream, otherParent, otherSubstream], {
+      mode: 'under-parent',
+      parentId: null,
+      parentIds: ['parent'],
+      includeSubstreams: true,
+    }).map((w) => w.id)).toEqual(['parent', 'substream', 'nested-substream']);
   });
 
   it('uses explicit parent stream timestamps for sorting', () => {

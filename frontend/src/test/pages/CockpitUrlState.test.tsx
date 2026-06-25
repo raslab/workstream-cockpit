@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ViewConfig } from '../../types/view';
+import type { Workstream } from '../../types/workstream';
 
 const useWorkstreamsMock = vi.hoisted(() => vi.fn());
 const useCategoriesMock = vi.hoisted(() => vi.fn());
@@ -24,7 +25,14 @@ vi.mock('../../api/views', () => ({
   deleteView: vi.fn(),
 }));
 
-vi.mock('../../components/Workstream/WorkstreamCard', () => ({ WorkstreamCard: () => <div /> }));
+vi.mock('../../components/Workstream/WorkstreamCard', () => ({
+  WorkstreamCard: ({ workstream }: { workstream: Workstream }) => (
+    <article data-testid="workstream-card">
+      {workstream.name}
+      {workstream.parent ? ` Parent: ${workstream.parent.name}` : ''}
+    </article>
+  ),
+}));
 vi.mock('../../components/Workstream/WorkstreamSkeleton', () => ({ WorkstreamSkeleton: () => <div /> }));
 vi.mock('../../components/Workstream/WorkstreamCreateDialog', () => ({ WorkstreamCreateDialog: () => null }));
 vi.mock('../../components/ViewManagement/ViewCreateDialog', () => ({ ViewCreateDialog: () => null }));
@@ -52,7 +60,7 @@ const config = (tags: string[] = [], categoryIds: string[] = []): ViewConfig['co
     categoryIds,
     tags,
     temporal: { notUpdatedToday: false },
-    hierarchy: { mode: 'all', parentId: null, includeSubstreams: false, timelineScope: 'all', includeStructuralEvents: true },
+    hierarchy: { mode: 'all', parentId: null, parentIds: [], includeSubstreams: false, timelineScope: 'all', includeStructuralEvents: true },
   },
   sort: { field: 'lastActivityAt', direction: 'desc' },
   group: { by: 'category' },
@@ -113,5 +121,113 @@ describe('Cockpit URL state', () => {
     await waitFor(() => expect(screen.getByTestId('active-view')).toHaveTextContent('view-default-id'));
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('?tags=frontend'));
     expect(screen.getByTestId('location')).not.toHaveTextContent('view=');
+  });
+
+  it('renders parent-group titles as parent links and excludes the parent stream card from the group', async () => {
+    useWorkstreamsMock.mockReturnValue({
+      data: [
+        {
+          id: 'parent-1',
+          projectId: 'project-1',
+          name: 'Parent stream',
+          categoryId: null,
+          context: null,
+          state: 'active',
+          createdAt: '2026-05-31T00:00:00Z',
+          closedAt: null,
+          allTags: [],
+          parentId: null,
+        },
+        {
+          id: 'substream-1',
+          projectId: 'project-1',
+          name: 'Sub-stream one',
+          categoryId: null,
+          context: null,
+          state: 'active',
+          createdAt: '2026-06-01T00:00:00Z',
+          closedAt: null,
+          allTags: [],
+          parentId: 'parent-1',
+          parent: { id: 'parent-1', name: 'Parent stream' },
+        },
+      ] satisfies Workstream[],
+      isLoading: false,
+      error: null,
+    });
+
+    renderCockpit('/?group=parent');
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Parent stream' })).toHaveAttribute('href', '/workstreams/parent-1'));
+    expect(screen.getByText('(1)')).toBeInTheDocument();
+    expect(screen.getAllByTestId('workstream-card')).toHaveLength(1);
+    expect(screen.getByText(/Sub-stream one Parent: Parent stream/)).toBeInTheDocument();
+    expect(screen.queryByTestId('workstream-card')).not.toHaveTextContent(/^Parent stream$/);
+  });
+
+  it('filters cockpit streams under multiple selected parents and nested sub-streams', async () => {
+    useWorkstreamsMock.mockReturnValue({
+      data: [
+        { id: 'parent-1', projectId: 'project-1', name: 'Parent one', categoryId: null, context: null, state: 'active', createdAt: '2026-06-01T00:00:00Z', closedAt: null, allTags: [], parentId: null },
+        { id: 'substream-1', projectId: 'project-1', name: 'Direct sub-stream', categoryId: null, context: null, state: 'active', createdAt: '2026-06-02T00:00:00Z', closedAt: null, allTags: [], parentId: 'parent-1', parent: { id: 'parent-1', name: 'Parent one' } },
+        { id: 'nested-substream', projectId: 'project-1', name: 'Nested sub-stream', categoryId: null, context: null, state: 'active', createdAt: '2026-06-03T00:00:00Z', closedAt: null, allTags: [], parentId: 'substream-1', parent: { id: 'substream-1', name: 'Direct sub-stream' }, parentStreams: [{ id: 'parent-1', name: 'Parent one' }, { id: 'substream-1', name: 'Direct sub-stream' }] },
+        { id: 'other-substream', projectId: 'project-1', name: 'Other sub-stream', categoryId: null, context: null, state: 'active', createdAt: '2026-06-04T00:00:00Z', closedAt: null, allTags: [], parentId: 'parent-2', parent: { id: 'parent-2', name: 'Parent two' } },
+      ] satisfies Workstream[],
+      isLoading: false,
+      error: null,
+    });
+
+    renderCockpit('/?hierarchy=under-parent&parentIds=parent-1&includeSubstreams=1&group=none');
+
+    await waitFor(() => expect(screen.getAllByTestId('workstream-card')).toHaveLength(3));
+    const cardText = screen.getAllByTestId('workstream-card').map((card) => card.textContent).join(' | ');
+    expect(cardText).toContain('Parent one');
+    expect(cardText).toContain('Direct sub-stream Parent: Parent one');
+    expect(cardText).toContain('Nested sub-stream Parent: Direct sub-stream');
+    expect(cardText).not.toContain('Other sub-stream');
+  });
+
+  it('keeps parent grouping when not-updated-today filtering returns sub-streams without their parent row', async () => {
+    useWorkstreamsMock.mockReturnValue({
+      data: [
+        {
+          id: 'substream-1',
+          projectId: 'project-1',
+          name: 'Sub-stream one',
+          categoryId: null,
+          context: null,
+          state: 'active',
+          createdAt: '2026-06-01T00:00:00Z',
+          closedAt: null,
+          allTags: [],
+          parentId: 'parent-1',
+          parent: { id: 'parent-1', name: 'Parent stream' },
+        },
+        {
+          id: 'substream-2',
+          projectId: 'project-1',
+          name: 'Sub-stream two',
+          categoryId: null,
+          context: null,
+          state: 'active',
+          createdAt: '2026-06-02T00:00:00Z',
+          closedAt: null,
+          allTags: [],
+          parentId: 'parent-1',
+          parent: { id: 'parent-1', name: 'Parent stream' },
+        },
+      ] satisfies Workstream[],
+      isLoading: false,
+      error: null,
+    });
+
+    renderCockpit('/?notUpdatedToday=1&group=parent');
+
+    await waitFor(() => expect(useWorkstreamsMock).toHaveBeenLastCalledWith(expect.objectContaining({ notUpdatedToday: true })));
+    expect(screen.getByRole('heading', { name: 'Parent stream' })).toBeInTheDocument();
+    expect(screen.getByText('(2)')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Top level / no parent' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Sub-stream one Parent: Parent stream/)).toBeInTheDocument();
+    expect(screen.getByText(/Sub-stream two Parent: Parent stream/)).toBeInTheDocument();
   });
 });

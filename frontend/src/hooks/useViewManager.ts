@@ -12,6 +12,7 @@ const FALLBACK_VIEW_CONFIG: ViewConfig['config'] = {
     hierarchy: {
       mode: 'all',
       parentId: null,
+      parentIds: [],
       includeSubstreams: false,
       timelineScope: 'all',
       includeStructuralEvents: true,

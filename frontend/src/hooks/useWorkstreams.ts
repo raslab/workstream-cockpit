@@ -7,7 +7,7 @@ interface UseWorkstreamsOptions {
   tags?: string[];
   categoryIds?: string[];
   notUpdatedToday?: boolean;
-  hierarchy?: 'all' | 'top-level' | 'sub-streams' | 'no-parent' | 'has-substreams';
+  hierarchy?: 'all' | 'top-level' | 'sub-streams' | 'no-parent' | 'has-substreams' | 'under-parent';
   parentId?: string | null;
   includeSubstreams?: boolean;
 }
