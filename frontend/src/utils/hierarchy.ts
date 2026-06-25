@@ -58,6 +58,43 @@ export function applyHierarchyFilter(workstreams: Workstream[], filter: Hierarch
   }
 }
 
+function collectSubstreamIds(parentIds: Set<string>, workstreams: Workstream[]): Set<string> {
+  const childrenByParentId = new Map<string, Workstream[]>();
+  workstreams.forEach((workstream) => {
+    if (!workstream.parentId) return;
+    const children = childrenByParentId.get(workstream.parentId) ?? [];
+    children.push(workstream);
+    childrenByParentId.set(workstream.parentId, children);
+  });
+
+  const scopedIds = new Set(parentIds);
+  const queue = [...parentIds];
+  while (queue.length > 0) {
+    const parentId = queue.shift()!;
+    for (const child of childrenByParentId.get(parentId) ?? []) {
+      if (scopedIds.has(child.id)) continue;
+      scopedIds.add(child.id);
+      queue.push(child.id);
+    }
+  }
+  return scopedIds;
+}
+
+export function applyCockpitHierarchyFilter(workstreams: Workstream[], hierarchy: { mode: HierarchyFilter; parentId?: string | null; parentIds?: string[]; includeSubstreams?: boolean }): Workstream[] {
+  if (hierarchy.mode !== 'under-parent') return applyHierarchyFilter(workstreams, hierarchy.mode);
+
+  const selectedParentIds = hierarchy.parentIds?.length
+    ? hierarchy.parentIds
+    : hierarchy.parentId
+      ? [hierarchy.parentId]
+      : [];
+  const parentIds = new Set(selectedParentIds.filter(Boolean));
+  if (parentIds.size === 0) return [];
+
+  const scopedIds = hierarchy.includeSubstreams ? collectSubstreamIds(parentIds, workstreams) : parentIds;
+  return workstreams.filter((workstream) => scopedIds.has(workstream.id));
+}
+
 export function getHierarchyTimestamp(workstream: Workstream, field: SortConfig['field']): number {
   let value: string | null | undefined;
   switch (field) {
@@ -84,28 +121,37 @@ export function getHierarchyTimestamp(workstream: Workstream, field: SortConfig[
 
 export function groupWorkstreamsByParent(workstreams: Workstream[]): ParentGroup[] {
   const byId = new Map(workstreams.map((ws) => [ws.id, ws]));
-  const parentIds = new Set<string>();
+  const parentsById = new Map<string, Workstream | WorkstreamSummary>();
+  const substreamsByParentId = new Map<string, Workstream[]>();
   const topLevel: Workstream[] = [];
 
   workstreams.forEach((ws) => {
-    if (ws.parentId && byId.has(ws.parentId)) {
-      parentIds.add(ws.parentId);
-    } else if (!ws.parentId || !byId.has(ws.parentId)) {
+    if (!ws.parentId) {
+      topLevel.push(ws);
+      return;
+    }
+
+    const parent = byId.get(ws.parentId) || ws.parent;
+    if (parent) {
+      if (!parentsById.has(ws.parentId)) parentsById.set(ws.parentId, parent);
+      if (!substreamsByParentId.has(ws.parentId)) substreamsByParentId.set(ws.parentId, []);
+      substreamsByParentId.get(ws.parentId)!.push(ws);
+    } else {
       topLevel.push(ws);
     }
   });
 
-  const groups: ParentGroup[] = Array.from(parentIds).map((parentId) => {
-    const parent = byId.get(parentId)!;
+  const groups: ParentGroup[] = Array.from(parentsById.entries()).map(([parentId, parent]) => {
+    const substreams = (substreamsByParentId.get(parentId) ?? []).filter((ws) => ws.id !== parentId);
     return {
-      key: parent.id,
-      name: parent.name,
+      key: parentId,
+      name: getWorkstreamName(parent),
       parent,
-      workstreams: [parent, ...workstreams.filter((ws) => ws.parentId === parent.id && ws.id !== parent.id)],
+      workstreams: substreams,
     };
   });
 
-  const groupedIds = new Set(groups.flatMap((group) => group.workstreams.map((ws) => ws.id)));
+  const groupedIds = new Set(groups.flatMap((group) => [group.key, ...group.workstreams.map((ws) => ws.id)]));
   const ungroupedTopLevel = topLevel.filter((ws) => !groupedIds.has(ws.id));
   if (ungroupedTopLevel.length > 0) {
     groups.push({ key: 'top-level', name: 'Top level / no parent', parent: null, workstreams: ungroupedTopLevel });

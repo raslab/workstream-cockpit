@@ -2,7 +2,7 @@ import type { TimelineEventType } from '../hooks/useTimeline';
 import type { HierarchyFilter, SortConfig, ViewConfig } from '../types/view';
 import type { Category } from '../types/workstream';
 
-const hierarchyModes = new Set<HierarchyFilter>(['all', 'top-level', 'sub-streams', 'no-parent', 'has-substreams']);
+const hierarchyModes = new Set<HierarchyFilter>(['all', 'top-level', 'sub-streams', 'no-parent', 'has-substreams', 'under-parent']);
 const timelineScopes = new Set(['all', 'top-level', 'sub-streams', 'under-parent'] as const);
 const timelineQuickPresets = new Set(['last-7-days', 'last-14-days', 'last-30-days', 'last-60-days', 'this-month', 'last-month', 'this-quarter', 'last-quarter'] as const);
 const activityTypes = new Set<TimelineEventType>(['status_update', 'workstream_created', 'workstream_closed', 'parent_changed', 'sub_stream_created']);
@@ -116,13 +116,20 @@ export function applyCockpitSearchToConfig(
   const sort = searchParams.get('sort');
   const group = searchParams.get('group');
   const parentId = searchParams.get('parentId');
+  const parentIds = splitList(searchParams.get('parentIds'));
 
   if (searchParams.has('tags')) next.filters.tags = tags;
   if (searchParams.has('categories') || searchParams.has('categoryIds')) next.filters.categoryIds = categoryIds;
   if (searchParams.has('notUpdatedToday')) next.filters.temporal.notUpdatedToday = isTrue(searchParams.get('notUpdatedToday'));
   if (hierarchyModes.has(hierarchy as HierarchyFilter)) next.filters.hierarchy.mode = hierarchy as HierarchyFilter;
   if (searchParams.has('includeSubstreams')) next.filters.hierarchy.includeSubstreams = isTrue(searchParams.get('includeSubstreams'));
-  if (searchParams.has('parentId')) next.filters.hierarchy.parentId = parentId || null;
+  if (searchParams.has('parentIds')) {
+    next.filters.hierarchy.parentIds = parentIds;
+    next.filters.hierarchy.parentId = parentIds[0] || null;
+  } else if (searchParams.has('parentId')) {
+    next.filters.hierarchy.parentId = parentId || null;
+    next.filters.hierarchy.parentIds = parentId ? [parentId] : [];
+  }
 
   if (sort) {
     const [field, direction] = sort.split(':');
@@ -153,7 +160,7 @@ export function serializeCockpitConfigSearch(
       categoryIds: [],
       tags: [],
       temporal: { notUpdatedToday: false },
-      hierarchy: { mode: 'all', parentId: null, includeSubstreams: false },
+      hierarchy: { mode: 'all', parentId: null, parentIds: [], includeSubstreams: false },
     },
     sort: { field: 'lastActivityAt', direction: 'desc' },
     group: { by: 'category' },
@@ -165,8 +172,10 @@ export function serializeCockpitConfigSearch(
     params.set('notUpdatedToday', booleanParam(currentConfig.filters.temporal.notUpdatedToday));
   }
   if (currentConfig.filters.hierarchy.mode !== base.filters.hierarchy.mode) params.set('hierarchy', currentConfig.filters.hierarchy.mode);
-  if ((currentConfig.filters.hierarchy.parentId || null) !== (base.filters.hierarchy.parentId || null)) {
-    params.set('parentId', currentConfig.filters.hierarchy.parentId || '');
+  const currentParentIds = currentConfig.filters.hierarchy.parentIds ?? (currentConfig.filters.hierarchy.parentId ? [currentConfig.filters.hierarchy.parentId] : []);
+  const baseParentIds = base.filters.hierarchy.parentIds ?? (base.filters.hierarchy.parentId ? [base.filters.hierarchy.parentId] : []);
+  if (stableList(currentParentIds) !== stableList(baseParentIds)) {
+    params.set('parentIds', stableList(currentParentIds));
   }
   if (currentConfig.filters.hierarchy.includeSubstreams !== base.filters.hierarchy.includeSubstreams) {
     params.set('includeSubstreams', booleanParam(currentConfig.filters.hierarchy.includeSubstreams));

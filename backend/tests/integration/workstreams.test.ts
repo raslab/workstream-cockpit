@@ -101,6 +101,27 @@ describe('Workstreams API Integration Tests', () => {
       expect(response.body[0].latestStatus).toBeDefined();
       expect(response.body[0].latestStatus.status).toBe('Latest status');
     });
+
+    it('should preserve parent metadata when not-updated-today filters out the parent row', async () => {
+      const parent = await createTestWorkstream(project.id, { name: 'Parent stream' });
+      const substream = await createTestWorkstream(project.id, { name: 'Sub-stream', parentId: parent.id });
+      const parentStatus = await createTestStatusUpdate(parent.id, { status: 'Updated today' });
+      const substreamStatus = await createTestStatusUpdate(substream.id, { status: 'Not updated today' });
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+      await prisma.statusUpdate.update({ where: { id: parentStatus.id }, data: { createdAt: new Date(), updatedAt: new Date() } });
+      await prisma.statusUpdate.update({ where: { id: substreamStatus.id }, data: { createdAt: yesterday, updatedAt: yesterday } });
+
+      const response = await request(app).get('/?notUpdatedToday=true');
+
+      expect(response.status).toBe(200);
+      expect(response.body.map((workstream: any) => workstream.id)).toEqual([substream.id]);
+      expect(response.body[0].parentId).toBe(parent.id);
+      expect(response.body[0].parent).toMatchObject({ id: parent.id, name: 'Parent stream' });
+      expect(response.body[0].parentStreams).toEqual([
+        expect.objectContaining({ id: parent.id, name: 'Parent stream', state: 'active', parentId: null, depth: 1 }),
+      ]);
+    });
   });
 
   describe('GET /workstreams/:id', () => {

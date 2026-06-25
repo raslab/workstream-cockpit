@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
 import type { FilterConfig, SortConfig, GroupConfig, HierarchyFilter } from '../../types/view';
 import { useCategories } from '../../hooks/useCategories';
 import { useTags } from '../../api/tags';
+import { useWorkstreams } from '../../hooks/useWorkstreams';
+import { getWorkstreamName } from '../../utils/hierarchy';
 
 interface FilterPanelProps {
   filters: FilterConfig;
@@ -52,6 +54,7 @@ const hierarchyModeOptions: Array<{ value: Exclude<HierarchyFilter, 'top-level'>
   { value: 'sub-streams', label: 'Sub-streams only' },
   { value: 'no-parent', label: 'No parent' },
   { value: 'has-substreams', label: 'Has sub-streams' },
+  { value: 'under-parent', label: 'Under the parent' },
 ];
 
 interface CollapsibleFilterSectionProps {
@@ -104,11 +107,14 @@ function CollapsibleFilterSection({
 export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelProps) {
   const { data: categories } = useCategories();
   const { data: tags } = useTags();
+  const { data: parentCandidates = [] } = useWorkstreams({ state: 'active' });
   const [localFilters, setLocalFilters] = useState(filters);
   const [tagSearchQuery, setTagSearchQuery] = useState('');
+  const [parentSearchQuery, setParentSearchQuery] = useState('');
   const [expandedSections, setExpandedSections] = useState<ExpandedFilterSections>(() => readExpandedSectionPreferences());
   const panelRef = useRef<HTMLDivElement>(null);
   const tagSearchRef = useRef<HTMLInputElement>(null);
+  const parentSearchRef = useRef<HTMLInputElement>(null);
 
   // Close on outside click
   useEffect(() => {
@@ -131,7 +137,7 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
       categoryIds: [],
       tags: [],
       temporal: { notUpdatedToday: false },
-      hierarchy: { mode: 'all', parentId: null, includeSubstreams: false, timelineScope: 'all', includeStructuralEvents: true },
+      hierarchy: { mode: 'all', parentId: null, parentIds: [], includeSubstreams: false, timelineScope: 'all', includeStructuralEvents: true },
     };
     setLocalFilters(clearedFilters);
   };
@@ -152,6 +158,27 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
         ? localFilters.tags.filter((t) => t !== tagName)
         : [...localFilters.tags, tagName],
     });
+  };
+
+  const selectedParentIds = localFilters.hierarchy.parentIds ?? (localFilters.hierarchy.parentId ? [localFilters.hierarchy.parentId] : []);
+
+  const setSelectedParentIds = (parentIds: string[]) => {
+    setLocalFilters({
+      ...localFilters,
+      hierarchy: {
+        ...localFilters.hierarchy,
+        parentIds,
+        parentId: parentIds[0] || null,
+      },
+    });
+  };
+
+  const toggleParent = (parentId: string) => {
+    setSelectedParentIds(
+      selectedParentIds.includes(parentId)
+        ? selectedParentIds.filter((id) => id !== parentId)
+        : [...selectedParentIds, parentId]
+    );
   };
 
   const toggleSection = (section: FilterSectionKey) => {
@@ -177,6 +204,15 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
         tag.name.toLowerCase().includes(query)
     );
   }, [tags, tagSearchQuery]);
+
+  const filteredParentCandidates = useMemo(() => {
+    const query = parentSearchQuery.trim().toLowerCase();
+    const activeCandidates = parentCandidates.filter((workstream) => workstream.state === 'active');
+    if (!query) return activeCandidates;
+    return activeCandidates.filter((workstream) => getWorkstreamName(workstream).toLowerCase().includes(query));
+  }, [parentCandidates, parentSearchQuery]);
+
+  const selectedParents = parentCandidates.filter((workstream) => selectedParentIds.includes(workstream.id));
 
   return (
     <div
@@ -312,6 +348,56 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
               </label>
             ))}
           </div>
+          {localFilters.hierarchy.mode === 'under-parent' && (
+            <div className="mt-3 space-y-2 rounded-md border border-gray-200 p-2 dark:border-gray-700">
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400" htmlFor="cockpit-parent-search">
+                Search parent streams
+              </label>
+              <input
+                id="cockpit-parent-search"
+                ref={parentSearchRef}
+                type="text"
+                value={parentSearchQuery}
+                onChange={(e) => setParentSearchQuery(e.target.value)}
+                placeholder="Search parents..."
+                className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+              />
+              {selectedParents.length > 0 && (
+                <div className="flex flex-wrap gap-1" aria-label="Selected parent streams">
+                  {selectedParents.map((parent) => (
+                    <button
+                      key={parent.id}
+                      type="button"
+                      onClick={() => toggleParent(parent.id)}
+                      className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700 hover:bg-primary-100 dark:bg-primary-950 dark:text-primary-200 dark:hover:bg-primary-900"
+                    >
+                      {getWorkstreamName(parent)} ×
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="max-h-40 space-y-1 overflow-y-auto dark-scrollbar" role="listbox" aria-label="Parent streams">
+                {filteredParentCandidates.length === 0 ? (
+                  <p className="py-2 text-center text-sm text-gray-500 dark:text-gray-400">No parent streams found</p>
+                ) : (
+                  filteredParentCandidates.map((parent) => (
+                    <label
+                      key={parent.id}
+                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedParentIds.includes(parent.id)}
+                        onChange={() => toggleParent(parent.id)}
+                        className="h-4 w-4 rounded border-gray-300 text-primary-600 accent-primary-600 focus:ring-primary-500 dark:border-gray-500 dark:bg-gray-900 dark:text-primary-400 dark:accent-primary-400"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{getWorkstreamName(parent)}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
           <label className="mt-2 flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"

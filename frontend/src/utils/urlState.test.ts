@@ -17,6 +17,7 @@ const baseConfig: ViewConfig['config'] = {
     hierarchy: {
       mode: 'all',
       parentId: null,
+      parentIds: [],
       includeSubstreams: false,
       timelineScope: 'all',
       includeStructuralEvents: true,
@@ -53,14 +54,14 @@ describe('urlState cockpit helpers', () => {
         tags: ['frontend', 'backend'],
         categoryIds: ['cat-2', 'cat-1'],
         temporal: { notUpdatedToday: true },
-        hierarchy: { ...baseConfig.filters.hierarchy, mode: 'top-level', includeSubstreams: true },
+        hierarchy: { ...baseConfig.filters.hierarchy, mode: 'under-parent', parentId: 'parent-1', parentIds: ['parent-2', 'parent-1'], includeSubstreams: true },
       },
       sort: { field: 'name', direction: 'asc' },
       group: { by: 'parent' },
     };
 
     expect(serializeCockpitConfigSearch('view-1', customized, baseConfig).toString()).toBe(
-      'view=view-1&tags=backend%2Cfrontend&categories=cat-1%2Ccat-2&notUpdatedToday=1&hierarchy=top-level&includeSubstreams=1&sort=name%3Aasc&group=parent'
+      'view=view-1&tags=backend%2Cfrontend&categories=cat-1%2Ccat-2&notUpdatedToday=1&hierarchy=under-parent&parentIds=parent-1%2Cparent-2&includeSubstreams=1&sort=name%3Aasc&group=parent'
     );
     expect(serializeCockpitConfigSearch('view-1', baseConfig, baseConfig).toString()).toBe('view=view-1');
   });
@@ -73,7 +74,7 @@ describe('urlState cockpit helpers', () => {
         tags: ['backend'],
         categoryIds: ['cat-1'],
         temporal: { notUpdatedToday: true },
-        hierarchy: { ...baseConfig.filters.hierarchy, includeSubstreams: true, parentId: 'parent-1' },
+        hierarchy: { ...baseConfig.filters.hierarchy, includeSubstreams: true, parentId: 'parent-1', parentIds: ['parent-1'] },
       },
     };
     const clearedConfig: ViewConfig['config'] = {
@@ -83,12 +84,12 @@ describe('urlState cockpit helpers', () => {
         tags: [],
         categoryIds: [],
         temporal: { notUpdatedToday: false },
-        hierarchy: { ...savedViewConfig.filters.hierarchy, includeSubstreams: false, parentId: null },
+        hierarchy: { ...savedViewConfig.filters.hierarchy, includeSubstreams: false, parentId: null, parentIds: [] },
       },
     };
 
     const serialized = serializeCockpitConfigSearch('view-1', clearedConfig, savedViewConfig);
-    expect(serialized.toString()).toBe('view=view-1&tags=&categories=&notUpdatedToday=0&parentId=&includeSubstreams=0');
+    expect(serialized.toString()).toBe('view=view-1&tags=&categories=&notUpdatedToday=0&parentIds=&includeSubstreams=0');
     expect(applyCockpitSearchToConfig(savedViewConfig, serialized)).toEqual(clearedConfig);
   });
 });

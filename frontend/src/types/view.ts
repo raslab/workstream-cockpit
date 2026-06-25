@@ -1,6 +1,6 @@
 // View configuration types for saved views feature
 
-export type HierarchyFilter = 'all' | 'top-level' | 'sub-streams' | 'no-parent' | 'has-substreams';
+export type HierarchyFilter = 'all' | 'top-level' | 'sub-streams' | 'no-parent' | 'has-substreams' | 'under-parent';
 export type TimelineHierarchyScope = 'all' | 'top-level' | 'sub-streams' | 'under-parent';
 
 export interface ViewConfig {
@@ -25,6 +25,7 @@ export interface FilterConfig {
   hierarchy: {
     mode: HierarchyFilter;
     parentId: string | null;
+    parentIds?: string[];
     includeSubstreams: boolean;
     timelineScope?: TimelineHierarchyScope;
     includeStructuralEvents?: boolean;

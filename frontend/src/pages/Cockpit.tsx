@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useWorkstreams } from '../hooks/useWorkstreams';
 import { useCategories } from '../hooks/useCategories';
 import { useViewManager } from '../hooks/useViewManager';
@@ -10,7 +10,7 @@ import { ViewTabs } from '../components/ViewManagement/ViewTabs';
 import { ViewControls } from '../components/ViewManagement/ViewControls';
 import { ViewCreateDialog } from '../components/ViewManagement/ViewCreateDialog';
 import { Workstream } from '../types/workstream';
-import { applyHierarchyFilter, getHierarchyTimestamp, groupWorkstreamsByParent } from '../utils/hierarchy';
+import { applyCockpitHierarchyFilter, getHierarchyTimestamp, groupWorkstreamsByParent } from '../utils/hierarchy';
 import { applyCockpitSearchToConfig, resolveEntityParam, serializeCockpitConfigSearch, viewUrlValue } from '../utils/urlState';
 
 function softCategoryColor(color?: string | null) {
@@ -161,14 +161,14 @@ export default function Cockpit() {
   // Group workstreams by category and sort within each group
   const groupedWorkstreams = useMemo(() => {
     if (!workstreams) return [];
-    const filteredWorkstreams = applyHierarchyFilter(workstreams, currentConfig.filters.hierarchy.mode);
+    const filteredWorkstreams = applyCockpitHierarchyFilter(workstreams, currentConfig.filters.hierarchy);
 
     if (currentConfig.group.by === 'none') {
       // Sort all workstreams
       const sorted = [...filteredWorkstreams].sort(
         getSortComparator(currentConfig.sort.field, currentConfig.sort.direction)
       );
-      return [{ key: 'all', name: null, color: null, emoji: null, sortOrder: 0, workstreams: sorted }];
+      return [{ key: 'all', name: null, color: null, emoji: null, sortOrder: 0, parent: null, workstreams: sorted }];
     }
 
     if (currentConfig.group.by === 'parent') {
@@ -198,12 +198,13 @@ export default function Cockpit() {
       color: key === 'untagged' ? null : wsList[0].category?.color || null,
       emoji: key === 'untagged' ? null : wsList[0].category?.emoji || null,
       sortOrder: key === 'untagged' ? 999999 : (wsList[0].category?.sortOrder ?? 999999),
+      parent: null,
       workstreams: wsList.sort(getSortComparator(currentConfig.sort.field, currentConfig.sort.direction)),
     }));
 
     // Sort groups by category sortOrder
     return result.sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [workstreams, currentConfig.sort.field, currentConfig.sort.direction, currentConfig.group.by, currentConfig.filters.hierarchy.mode]);
+  }, [workstreams, currentConfig.sort.field, currentConfig.sort.direction, currentConfig.group.by, currentConfig.filters.hierarchy]);
 
   const handleSaveAs = () => {
     setShowSaveAsDialog(true);
@@ -271,7 +272,16 @@ export default function Cockpit() {
                         {group.emoji || (currentConfig.group.by === 'category' ? '🏷️' : '↳')}
                       </div>
                       <h2 className="text-xl font-bold leading-none text-gray-900 dark:text-gray-100">
-                        {group.name || (currentConfig.group.by === 'category' ? 'Untagged' : 'Top level / no parent')}
+                        {currentConfig.group.by === 'parent' && group.parent ? (
+                          <Link
+                            to={`/workstreams/${group.parent.id}`}
+                            className="hover:text-primary-600 dark:hover:text-primary-400"
+                          >
+                            {group.name}
+                          </Link>
+                        ) : (
+                          group.name || (currentConfig.group.by === 'category' ? 'Untagged' : 'Top level / no parent')
+                        )}
                       </h2>
                       <span className="text-base font-medium text-gray-500 dark:text-gray-400">
                         ({group.workstreams.length})

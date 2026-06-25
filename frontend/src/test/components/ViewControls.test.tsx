@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilterPanel } from '../../components/ViewManagement/FilterPanel';
@@ -9,6 +9,15 @@ vi.mock('../../hooks/useCategories', () => ({
   useCategories: () => ({
     data: [
       { id: 'cat-1', name: 'Product', color: '#ef4444', emoji: '🚀', sortOrder: 0 },
+    ],
+  }),
+}));
+
+vi.mock('../../hooks/useWorkstreams', () => ({
+  useWorkstreams: () => ({
+    data: [
+      { id: 'parent-1', projectId: 'project-1', name: 'Parent Alpha', categoryId: null, context: null, state: 'active', createdAt: '2026-01-01T00:00:00Z', closedAt: null, allTags: [] },
+      { id: 'parent-2', projectId: 'project-1', name: 'Ops Beta', categoryId: null, context: null, state: 'active', createdAt: '2026-01-02T00:00:00Z', closedAt: null, allTags: [] },
     ],
   }),
 }));
@@ -37,6 +46,7 @@ const baseConfig: ViewConfig['config'] = {
     hierarchy: {
       mode: 'all',
       parentId: null,
+      parentIds: [],
       includeSubstreams: false,
       timelineScope: 'all',
       includeStructuralEvents: true,
@@ -163,6 +173,48 @@ describe('FilterPanel', () => {
     expect(onFiltersChange).toHaveBeenCalledWith({
       ...baseConfig.filters,
       hierarchy: { ...baseConfig.filters.hierarchy, mode: 'has-substreams' },
+    });
+  });
+
+  it('selects multiple under-parent filters with fuzzy parent search', async () => {
+    const user = userEvent.setup();
+    const { onFiltersChange } = renderFilterPanel();
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /parent\/sub-streams/i }));
+    });
+    await waitFor(() => expect(screen.getByRole('radio', { name: /under the parent/i })).toBeInTheDocument());
+    await act(async () => {
+      await user.click(screen.getByRole('radio', { name: /under the parent/i }));
+    });
+
+    expect(screen.getByLabelText(/search parent streams/i)).toBeInTheDocument();
+    expect(screen.getByRole('listbox', { name: /parent streams/i })).toBeInTheDocument();
+
+    await act(async () => {
+      await user.type(screen.getByLabelText(/search parent streams/i), 'alpha');
+    });
+    expect(screen.getByText('Parent Alpha')).toBeInTheDocument();
+    expect(screen.queryByText('Ops Beta')).not.toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(screen.getByRole('checkbox', { name: /parent alpha/i }));
+      await user.clear(screen.getByLabelText(/search parent streams/i));
+      await user.type(screen.getByLabelText(/search parent streams/i), 'beta');
+      await user.click(screen.getByRole('checkbox', { name: /ops beta/i }));
+      await user.click(screen.getByRole('checkbox', { name: /include sub-streams in scoped results/i }));
+      await user.click(screen.getByRole('button', { name: /apply/i }));
+    });
+
+    expect(onFiltersChange).toHaveBeenCalledWith({
+      ...baseConfig.filters,
+      hierarchy: {
+        ...baseConfig.filters.hierarchy,
+        mode: 'under-parent',
+        parentId: 'parent-1',
+        parentIds: ['parent-1', 'parent-2'],
+        includeSubstreams: true,
+      },
     });
   });
 });
