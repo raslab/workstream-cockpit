@@ -57,13 +57,14 @@ model Project {
 }
 
 model Category {
-  id        String   @id @default(uuid())
-  projectId String   @map("project_id")
-  name      String
-  color     String
-  emoji     String?
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at")
+  id          String   @id @default(uuid())
+  projectId   String   @map("project_id")
+  name        String
+  color       String
+  emoji       String?
+  description String   @default("") @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   workstreams Workstream[]
@@ -76,7 +77,7 @@ model Category {
 model Tag {
   id          String   @id @default(uuid())
   projectId   String   @map("project_id")
-  name        String   // Tag ID: lowercase with underscores (e.g., "alan_awake")
+  name        String // Tag ID: lowercase with underscores (e.g., "alan_awake")
   displayName String   @map("display_name") // User-friendly name with spaces (e.g., "Alan Awake")
   color       String
   createdAt   DateTime @default(now()) @map("created_at")
@@ -100,10 +101,10 @@ model Workstream {
   createdAt  DateTime  @default(now()) @map("created_at")
   closedAt   DateTime? @map("closed_at")
 
-  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  parent        Workstream?    @relation("WorkstreamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  substreams    Workstream[]   @relation("WorkstreamHierarchy")
+  project       Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  category      Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  parent        Workstream?       @relation("WorkstreamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  substreams    Workstream[]      @relation("WorkstreamHierarchy")
   statusUpdates StatusUpdate[]
   events        WorkstreamEvent[]
 
