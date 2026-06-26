@@ -9,12 +9,14 @@ import {
   closeWorkstream,
   reopenWorkstream,
   deleteWorkstream,
+  type WorkstreamHierarchyFilter,
 } from '../services/workstreamService';
 import { getStatusUpdatesByWorkstream } from '../services/statusUpdateService';
 import { logger } from '../utils/logger';
 
 const router = Router();
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+const HIERARCHY_FILTERS = new Set<WorkstreamHierarchyFilter>(['all', 'top-level', 'sub-streams', 'no-parent', 'has-substreams', 'under-parent']);
 
 function validateNullableUuid(value: unknown, field: string, res: Response): value is string | null | undefined {
   if (value === undefined || value === null) return true;
@@ -44,9 +46,23 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     const tagsQuery = req.query.tags as string | undefined;
     const categoryIdsQuery = req.query.categoryIds as string | undefined;
     const notUpdatedToday = req.query.notUpdatedToday === 'true';
+    const hierarchyQuery = req.query.hierarchy as string | undefined;
+    const parentIdQuery = req.query.parentId as string | undefined;
+    const parentIdsQuery = req.query.parentIds as string | undefined;
+    const includeSubstreamsQuery = req.query.includeSubstreams as string | undefined;
 
     if (state !== undefined && !['active', 'closed', 'all'].includes(state)) {
       res.status(400).json({ error: 'state must be active, closed, or all' });
+      return;
+    }
+
+    if (hierarchyQuery !== undefined && !HIERARCHY_FILTERS.has(hierarchyQuery as WorkstreamHierarchyFilter)) {
+      res.status(400).json({ error: 'hierarchy must be all, top-level, sub-streams, no-parent, has-substreams, or under-parent' });
+      return;
+    }
+
+    if (includeSubstreamsQuery !== undefined && !['true', 'false'].includes(includeSubstreamsQuery)) {
+      res.status(400).json({ error: 'includeSubstreams must be true or false' });
       return;
     }
 
@@ -60,6 +76,29 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       ? categoryIdsQuery.split(',').map(id => id.trim()).filter(Boolean)
       : undefined;
 
+    const parentId = parentIdQuery?.trim() || undefined;
+    if (parentId && !UUID_RE.test(parentId)) {
+      res.status(400).json({ error: 'parentId must be a valid UUID' });
+      return;
+    }
+
+    const parentIds = parentIdsQuery
+      ? parentIdsQuery.split(',').map(id => id.trim()).filter(Boolean)
+      : undefined;
+    if (parentIds?.some(id => !UUID_RE.test(id))) {
+      res.status(400).json({ error: 'parentIds must be comma-separated valid UUIDs' });
+      return;
+    }
+
+    const hierarchy = hierarchyQuery || parentId || parentIds?.length || includeSubstreamsQuery !== undefined
+      ? {
+          mode: (hierarchyQuery as WorkstreamHierarchyFilter | undefined) ?? 'all',
+          parentId,
+          parentIds,
+          includeSubstreams: includeSubstreamsQuery === 'true',
+        }
+      : undefined;
+
     // Get user's projects (for Phase 1, we'll use the first/default project)
     const projects = await getProjectsByPersonId(personId);
     
@@ -69,7 +108,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     const projectId = projects[0].id;
-    const workstreams = await getWorkstreams(projectId, state, tags, categoryIds, notUpdatedToday);
+    const workstreams = await getWorkstreams(projectId, state, tags, categoryIds, notUpdatedToday, hierarchy);
 
     res.json(workstreams);
   } catch (error) {

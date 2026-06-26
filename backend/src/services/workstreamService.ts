@@ -55,6 +55,15 @@ export interface WorkstreamWithLatestStatus extends Workstream {
   latestSubstreamActivitySource?: LatestSubstreamActivitySource | null;
 }
 
+export type WorkstreamHierarchyFilter = 'all' | 'top-level' | 'sub-streams' | 'no-parent' | 'has-substreams' | 'under-parent';
+
+export interface WorkstreamHierarchyOptions {
+  mode?: WorkstreamHierarchyFilter;
+  parentId?: string | null;
+  parentIds?: string[];
+  includeSubstreams?: boolean;
+}
+
 function publicParent(parent: Workstream | null | undefined, depth?: number, activity?: ActivityMetadata): WorkstreamSummary | null {
   if (!parent) return null;
   return { id: parent.id, name: parent.name, state: parent.state, parentId: parent.parentId, createdAt: parent.createdAt, closedAt: parent.closedAt, depth, ...activity };
@@ -113,6 +122,48 @@ function substreamIds(workstreamId: string, substreamsByParent: Map<string | nul
     stack.push(...(substreamsByParent.get(substream.id) ?? []));
   }
   return ids;
+}
+
+function scopedWorkstreamIds(parentIds: Set<string>, workstreams: Workstream[]): Set<string> {
+  const substreamsByParent = buildSubstreamsByParent(workstreams);
+  const scopedIds = new Set(parentIds);
+  const queue = Array.from(parentIds);
+  while (queue.length) {
+    const parentId = queue.shift()!;
+    for (const substream of substreamsByParent.get(parentId) ?? []) {
+      if (scopedIds.has(substream.id)) continue;
+      scopedIds.add(substream.id);
+      queue.push(substream.id);
+    }
+  }
+  return scopedIds;
+}
+
+async function applyWorkstreamHierarchyFilter(
+  projectId: string,
+  workstreams: Workstream[],
+  hierarchy?: WorkstreamHierarchyOptions
+): Promise<Workstream[]> {
+  const mode = hierarchy?.mode ?? 'all';
+  if (mode === 'all') return workstreams;
+  if (mode === 'top-level' || mode === 'no-parent') return workstreams.filter(ws => !ws.parentId);
+  if (mode === 'sub-streams') return workstreams.filter(ws => Boolean(ws.parentId));
+  if (mode === 'has-substreams') {
+    const allWorkstreams = await prisma.workstream.findMany({ where: { projectId } });
+    const substreamsByParent = buildSubstreamsByParent(allWorkstreams);
+    return workstreams.filter(ws => (substreamsByParent.get(ws.id) ?? []).length > 0);
+  }
+
+  const selectedParentIds = hierarchy?.parentIds?.length
+    ? hierarchy.parentIds
+    : hierarchy?.parentId
+      ? [hierarchy.parentId]
+      : [];
+  const parentIds = new Set(selectedParentIds.filter(Boolean));
+  if (parentIds.size === 0) return [];
+
+  const includedIds = hierarchy?.includeSubstreams ? scopedWorkstreamIds(parentIds, workstreams) : parentIds;
+  return workstreams.filter(ws => includedIds.has(ws.id));
 }
 
 function substreamTreeMaxRelativeDepth(workstreamId: string, substreamsByParent: Map<string | null, Workstream[]>): number {
@@ -227,7 +278,14 @@ async function hierarchyTransaction<T>(fn: (tx: PrismaTx) => Promise<T>): Promis
   return prisma.$transaction(fn, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
-export async function getWorkstreams(projectId: string, state?: 'active' | 'closed' | 'all', tags?: string[], categoryIds?: string[], notUpdatedToday?: boolean): Promise<WorkstreamWithLatestStatus[]> {
+export async function getWorkstreams(
+  projectId: string,
+  state?: 'active' | 'closed' | 'all',
+  tags?: string[],
+  categoryIds?: string[],
+  notUpdatedToday?: boolean,
+  hierarchy?: WorkstreamHierarchyOptions
+): Promise<WorkstreamWithLatestStatus[]> {
   try {
     const whereClause: any = { projectId };
     if (state && state !== 'all') whereClause.state = state;
@@ -253,6 +311,7 @@ export async function getWorkstreams(projectId: string, state?: 'active' | 'clos
       startOfToday.setHours(0, 0, 0, 0);
       workstreams = workstreams.filter(ws => ws.statusUpdates.length === 0 || new Date(ws.statusUpdates[0].updatedAt) < startOfToday);
     }
+    workstreams = await applyWorkstreamHierarchyFilter(projectId, workstreams, hierarchy);
     return enrichWorkstreams(workstreams, false);
   } catch (error) {
     logger.error('Error getting workstreams:', error);

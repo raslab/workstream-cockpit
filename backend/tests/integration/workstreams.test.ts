@@ -122,6 +122,32 @@ describe('Workstreams API Integration Tests', () => {
         expect.objectContaining({ id: parent.id, name: 'Parent stream', state: 'active', parentId: null, depth: 1 }),
       ]);
     });
+
+    it('scopes filtered parent views to matching direct sub-streams when includeSubstreams is enabled', async () => {
+      const ktlo = await createTestCategory(project.id, { name: 'KTLO', color: '#00AA00' });
+      const selectedParent = await createTestWorkstream(project.id, { name: 'Selected parent', categoryId: ktlo.id });
+      const matchingSubstream = await createTestWorkstream(project.id, { name: 'Matching direct sub-stream', parentId: selectedParent.id, categoryId: ktlo.id });
+      const nonMatchingSubstream = await createTestWorkstream(project.id, { name: 'Non-matching direct sub-stream', parentId: selectedParent.id });
+      const otherParent = await createTestWorkstream(project.id, { name: 'Other parent', categoryId: ktlo.id });
+      const otherSubstream = await createTestWorkstream(project.id, { name: 'Other parent sub-stream', parentId: otherParent.id, categoryId: ktlo.id });
+
+      const includedResponse = await request(app).get(
+        `/?state=active&categoryIds=${ktlo.id}&hierarchy=under-parent&parentId=${selectedParent.id}&includeSubstreams=true`
+      );
+
+      expect(includedResponse.status).toBe(200);
+      expect(includedResponse.body.map((workstream: any) => workstream.id)).toEqual([matchingSubstream.id, selectedParent.id]);
+      expect(includedResponse.body.map((workstream: any) => workstream.id)).not.toContain(nonMatchingSubstream.id);
+      expect(includedResponse.body.map((workstream: any) => workstream.id)).not.toContain(otherParent.id);
+      expect(includedResponse.body.map((workstream: any) => workstream.id)).not.toContain(otherSubstream.id);
+
+      const excludedResponse = await request(app).get(
+        `/?state=active&categoryIds=${ktlo.id}&hierarchy=under-parent&parentId=${selectedParent.id}&includeSubstreams=false`
+      );
+
+      expect(excludedResponse.status).toBe(200);
+      expect(excludedResponse.body.map((workstream: any) => workstream.id)).toEqual([selectedParent.id]);
+    });
   });
 
   describe('GET /workstreams/:id', () => {

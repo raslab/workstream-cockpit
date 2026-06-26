@@ -179,6 +179,12 @@ describe('Cockpit URL state', () => {
 
     renderCockpit('/?hierarchy=under-parent&parentIds=parent-1&includeSubstreams=1&group=none');
 
+    await waitFor(() => expect(useWorkstreamsMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      hierarchy: 'under-parent',
+      parentId: 'parent-1',
+      parentIds: ['parent-1'],
+      includeSubstreams: true,
+    })));
     await waitFor(() => expect(screen.getAllByTestId('workstream-card')).toHaveLength(3));
     const cardText = screen.getAllByTestId('workstream-card').map((card) => card.textContent).join(' | ');
     expect(cardText).toContain('Parent one');

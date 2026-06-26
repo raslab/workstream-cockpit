@@ -130,6 +130,7 @@ export default function Cockpit() {
     notUpdatedToday: currentConfig.filters.temporal.notUpdatedToday,
     hierarchy: currentConfig.filters.hierarchy.mode,
     parentId: currentConfig.filters.hierarchy.parentId,
+    parentIds: currentConfig.filters.hierarchy.parentIds,
     includeSubstreams: currentConfig.filters.hierarchy.includeSubstreams,
   });
 

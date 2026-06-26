@@ -9,6 +9,7 @@ interface UseWorkstreamsOptions {
   notUpdatedToday?: boolean;
   hierarchy?: 'all' | 'top-level' | 'sub-streams' | 'no-parent' | 'has-substreams' | 'under-parent';
   parentId?: string | null;
+  parentIds?: string[];
   includeSubstreams?: boolean;
 }
 
@@ -34,6 +35,9 @@ export function useWorkstreams(options: UseWorkstreamsOptions = {}) {
       }
       if (options.parentId) {
         params.set('parentId', options.parentId);
+      }
+      if (options.parentIds && options.parentIds.length > 0) {
+        params.set('parentIds', options.parentIds.join(','));
       }
       if (options.includeSubstreams !== undefined) {
         params.set('includeSubstreams', String(options.includeSubstreams));
