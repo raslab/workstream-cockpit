@@ -111,6 +111,34 @@ describe('parent stream utilities', () => {
     }).map((w) => w.id)).toEqual([]);
   });
 
+  it('keeps selected parent streams when they are also sub-streams of another selected parent', () => {
+    const streamA = base({ id: 'a', name: 'A', parentId: null, depth: 1 });
+    const streamB = base({ id: 'b', name: 'B', parentId: 'a', parent: { id: 'a', name: 'A' }, parentStreams: [{ id: 'a', name: 'A' }], depth: 2 });
+    const streamC = base({ id: 'c', name: 'C', parentId: 'b', parent: { id: 'b', name: 'B' }, parentStreams: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], depth: 3 });
+    const streams = [streamA, streamB, streamC];
+
+    expect(applyCockpitHierarchyFilter(streams, {
+      mode: 'under-parent',
+      parentId: null,
+      parentIds: ['a'],
+      includeSubstreams: false,
+    }).map((w) => w.id)).toEqual(['b']);
+
+    expect(applyCockpitHierarchyFilter(streams, {
+      mode: 'under-parent',
+      parentId: null,
+      parentIds: ['a'],
+      includeSubstreams: true,
+    }).map((w) => w.id)).toEqual(['b', 'c']);
+
+    expect(applyCockpitHierarchyFilter(streams, {
+      mode: 'under-parent',
+      parentId: null,
+      parentIds: ['a', 'b'],
+      includeSubstreams: false,
+    }).map((w) => w.id)).toEqual(['b', 'c']);
+  });
+
   it('uses explicit parent stream timestamps for sorting', () => {
     const ws = base({
       latestStatus: { id: 's', workstreamId: 'ws', status: 'done', note: null, createdAt: '2026-01-02T00:00:00Z', updatedAt: '2026-01-02T00:00:00Z' },

@@ -158,6 +158,33 @@ describe('Workstreams API Integration Tests', () => {
       expect(leafResponse.status).toBe(200);
       expect(leafResponse.body.map((workstream: any) => workstream.id)).toEqual([]);
     });
+
+    it('returns direct and nested sub-streams for overlapping selected parents', async () => {
+      const streamA = await createTestWorkstream(project.id, { name: 'A' });
+      const streamB = await createTestWorkstream(project.id, { name: 'B', parentId: streamA.id });
+      const streamC = await createTestWorkstream(project.id, { name: 'C', parentId: streamB.id });
+
+      const directResponse = await request(app).get(
+        `/?state=active&hierarchy=under-parent&parentId=${streamA.id}&includeSubstreams=false`
+      );
+
+      expect(directResponse.status).toBe(200);
+      expect(directResponse.body.map((workstream: any) => workstream.id)).toEqual([streamB.id]);
+
+      const recursiveResponse = await request(app).get(
+        `/?state=active&hierarchy=under-parent&parentId=${streamA.id}&includeSubstreams=true`
+      );
+
+      expect(recursiveResponse.status).toBe(200);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).toEqual([streamC.id, streamB.id]);
+
+      const overlappingParentsResponse = await request(app).get(
+        `/?state=active&hierarchy=under-parent&parentIds=${streamA.id},${streamB.id}&includeSubstreams=false`
+      );
+
+      expect(overlappingParentsResponse.status).toBe(200);
+      expect(overlappingParentsResponse.body.map((workstream: any) => workstream.id)).toEqual([streamC.id, streamB.id]);
+    });
   });
 
   describe('GET /workstreams/:id', () => {
