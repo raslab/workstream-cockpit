@@ -21,11 +21,11 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await cleanDatabase();
-  
+
   // Create test user and project
   person = await createTestPerson({ email: 'test@example.com', name: 'Test User' });
   project = await createTestProject(person.id, { name: 'Test Project' });
-  
+
   // Create app with authenticated user
   app = createTestApp(categoriesRoutes, person);
 });
@@ -72,7 +72,10 @@ describe('Categorys API Integration Tests', () => {
     it('should include emoji when present', async () => {
       await createTestCategory(project.id, { name: 'emoji-category', color: '#FF0000' });
       const { prisma } = await import('../helpers/testDb');
-      const category = await createTestCategory(project.id, { name: 'emoji-category-2', color: '#00FF00' });
+      const category = await createTestCategory(project.id, {
+        name: 'emoji-category-2',
+        color: '#00FF00',
+      });
       await prisma.category.update({
         where: { id: category.id },
         data: { emoji: '🔥' },
@@ -110,6 +113,37 @@ describe('Categorys API Integration Tests', () => {
 
       expect(response.status).toBe(201);
       expect(response.body.emoji).toBe('🎯');
+    });
+
+    it('should create category with a human-readable description', async () => {
+      const response = await request(app).post('/').send({
+        name: 'Process',
+        color: '#00FF00',
+        description: 'Recurring operational work that needs periodic attention.',
+      });
+
+      expect(response.status).toBe(201);
+      expect(response.body.description).toBe(
+        'Recurring operational work that needs periodic attention.',
+      );
+
+      const getResponse = await request(app).get('/');
+      const createdCategory = getResponse.body.find(
+        (category: any) => category.id === response.body.id,
+      );
+      expect(createdCategory.description).toBe(
+        'Recurring operational work that needs periodic attention.',
+      );
+    });
+
+    it('should default category description to empty for existing create payloads', async () => {
+      const response = await request(app).post('/').send({
+        name: 'No Description',
+        color: '#FF5733',
+      });
+
+      expect(response.status).toBe(201);
+      expect(response.body.description).toBe('');
     });
 
     it('should return 400 when name is missing', async () => {
@@ -150,7 +184,9 @@ describe('Categorys API Integration Tests', () => {
         });
 
         expect(response.status).toBe(400);
-        expect(response.body.error).toBe('Category color must be a valid hex color (e.g., #FF5733)');
+        expect(response.body.error).toBe(
+          'Category color must be a valid hex color (e.g., #FF5733)',
+        );
       }
     });
 
@@ -199,22 +235,36 @@ describe('Categorys API Integration Tests', () => {
 
   describe('PUT /categories/reorder', () => {
     it('should reorder categories with valid category IDs', async () => {
-      const category1 = await createTestCategory(project.id, { name: 'First', color: '#FF0000', sortOrder: 0 });
-      const category2 = await createTestCategory(project.id, { name: 'Second', color: '#00FF00', sortOrder: 1 });
-      const category3 = await createTestCategory(project.id, { name: 'Third', color: '#0000FF', sortOrder: 2 });
-
-      const response = await request(app).put('/reorder').send({
-        categoryIds: [category3.id, category1.id, category2.id],
+      const category1 = await createTestCategory(project.id, {
+        name: 'First',
+        color: '#FF0000',
+        sortOrder: 0,
       });
+      const category2 = await createTestCategory(project.id, {
+        name: 'Second',
+        color: '#00FF00',
+        sortOrder: 1,
+      });
+      const category3 = await createTestCategory(project.id, {
+        name: 'Third',
+        color: '#0000FF',
+        sortOrder: 2,
+      });
+
+      const response = await request(app)
+        .put('/reorder')
+        .send({
+          categoryIds: [category3.id, category1.id, category2.id],
+        });
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(3);
-      
+
       // Verify new order
       const category1Updated = response.body.find((t: any) => t.id === category1.id);
       const category2Updated = response.body.find((t: any) => t.id === category2.id);
       const category3Updated = response.body.find((t: any) => t.id === category3.id);
-      
+
       expect(category3Updated.sortOrder).toBe(0);
       expect(category1Updated.sortOrder).toBe(1);
       expect(category2Updated.sortOrder).toBe(2);
@@ -246,9 +296,11 @@ describe('Categorys API Integration Tests', () => {
     });
 
     it('should return 404 when category ID does not exist', async () => {
-      const response = await request(app).put('/reorder').send({
-        categoryIds: ['00000000-0000-0000-0000-000000000000'],
-      });
+      const response = await request(app)
+        .put('/reorder')
+        .send({
+          categoryIds: ['00000000-0000-0000-0000-000000000000'],
+        });
 
       expect(response.status).toBe(404);
       expect(response.body.error).toBe('Category not found');
@@ -258,12 +310,20 @@ describe('Categorys API Integration Tests', () => {
       // Create another user and their categories
       const person2 = await createTestPerson({ email: 'user2@example.com' });
       const project2 = await createTestProject(person2.id, { name: 'Other Project' });
-      const category1 = await createTestCategory(project2.id, { name: 'Other Category 1', color: '#FF0000' });
-      const category2 = await createTestCategory(project2.id, { name: 'Other Category 2', color: '#00FF00' });
-
-      const response = await request(app).put('/reorder').send({
-        categoryIds: [category2.id, category1.id],
+      const category1 = await createTestCategory(project2.id, {
+        name: 'Other Category 1',
+        color: '#FF0000',
       });
+      const category2 = await createTestCategory(project2.id, {
+        name: 'Other Category 2',
+        color: '#00FF00',
+      });
+
+      const response = await request(app)
+        .put('/reorder')
+        .send({
+          categoryIds: [category2.id, category1.id],
+        });
 
       expect(response.status).toBe(404);
       expect(response.body.error).toBe('Category not found');
@@ -284,7 +344,10 @@ describe('Categorys API Integration Tests', () => {
     });
 
     it('should update category color', async () => {
-      const category = await createTestCategory(project.id, { name: 'Test Category', color: '#FF0000' });
+      const category = await createTestCategory(project.id, {
+        name: 'Test Category',
+        color: '#FF0000',
+      });
 
       const response = await request(app).put(`/${category.id}`).send({
         color: '#00FF00',
@@ -296,7 +359,10 @@ describe('Categorys API Integration Tests', () => {
     });
 
     it('should update category emoji', async () => {
-      const category = await createTestCategory(project.id, { name: 'Test Category', color: '#FF0000' });
+      const category = await createTestCategory(project.id, {
+        name: 'Test Category',
+        color: '#FF0000',
+      });
 
       const response = await request(app).put(`/${category.id}`).send({
         emoji: '🔥',
@@ -306,9 +372,35 @@ describe('Categorys API Integration Tests', () => {
       expect(response.body.emoji).toBe('🔥');
     });
 
+    it('should update and clear category description', async () => {
+      const category = await createTestCategory(project.id, {
+        name: 'Test Category',
+        color: '#FF0000',
+      });
+
+      const updateResponse = await request(app).put(`/${category.id}`).send({
+        description: 'Use for tracked initiatives with a bounded outcome.',
+      });
+
+      expect(updateResponse.status).toBe(200);
+      expect(updateResponse.body.description).toBe(
+        'Use for tracked initiatives with a bounded outcome.',
+      );
+
+      const clearResponse = await request(app).put(`/${category.id}`).send({
+        description: '',
+      });
+
+      expect(clearResponse.status).toBe(200);
+      expect(clearResponse.body.description).toBe('');
+    });
+
     it('should clear emoji by setting to null', async () => {
       const { prisma } = await import('../helpers/testDb');
-      const category = await createTestCategory(project.id, { name: 'Test Category', color: '#FF0000' });
+      const category = await createTestCategory(project.id, {
+        name: 'Test Category',
+        color: '#FF0000',
+      });
       await prisma.category.update({
         where: { id: category.id },
         data: { emoji: '🔥' },
@@ -347,7 +439,10 @@ describe('Categorys API Integration Tests', () => {
     });
 
     it('should return 400 when name is empty', async () => {
-      const category = await createTestCategory(project.id, { name: 'Test Category', color: '#FF0000' });
+      const category = await createTestCategory(project.id, {
+        name: 'Test Category',
+        color: '#FF0000',
+      });
 
       const response = await request(app).put(`/${category.id}`).send({
         name: '  ',
@@ -358,7 +453,10 @@ describe('Categorys API Integration Tests', () => {
     });
 
     it('should return 400 when color is invalid', async () => {
-      const category = await createTestCategory(project.id, { name: 'Test Category', color: '#FF0000' });
+      const category = await createTestCategory(project.id, {
+        name: 'Test Category',
+        color: '#FF0000',
+      });
 
       const response = await request(app).put(`/${category.id}`).send({
         color: 'invalid',
@@ -369,7 +467,10 @@ describe('Categorys API Integration Tests', () => {
     });
 
     it('should trim updated name', async () => {
-      const category = await createTestCategory(project.id, { name: 'Test Category', color: '#FF0000' });
+      const category = await createTestCategory(project.id, {
+        name: 'Test Category',
+        color: '#FF0000',
+      });
 
       const response = await request(app).put(`/${category.id}`).send({
         name: '  Trimmed Name  ',
@@ -380,7 +481,10 @@ describe('Categorys API Integration Tests', () => {
     });
 
     it('should convert updated color to uppercase', async () => {
-      const category = await createTestCategory(project.id, { name: 'Test Category', color: '#FF0000' });
+      const category = await createTestCategory(project.id, {
+        name: 'Test Category',
+        color: '#FF0000',
+      });
 
       const response = await request(app).put(`/${category.id}`).send({
         color: '#aabbcc',
@@ -393,7 +497,10 @@ describe('Categorys API Integration Tests', () => {
 
   describe('DELETE /categories/:id', () => {
     it('should delete a category', async () => {
-      const category = await createTestCategory(project.id, { name: 'Test Category', color: '#FF0000' });
+      const category = await createTestCategory(project.id, {
+        name: 'Test Category',
+        color: '#FF0000',
+      });
 
       const response = await request(app).delete(`/${category.id}`);
 
@@ -413,10 +520,13 @@ describe('Categorys API Integration Tests', () => {
     });
 
     it('should clear categoryId from workstreams when category deleted', async () => {
-      const category = await createTestCategory(project.id, { name: 'Test Category', color: '#FF0000' });
-      const workstream = await createTestWorkstream(project.id, { 
+      const category = await createTestCategory(project.id, {
+        name: 'Test Category',
+        color: '#FF0000',
+      });
+      const workstream = await createTestWorkstream(project.id, {
         name: 'Test Workstream',
-        categoryId: category.id 
+        categoryId: category.id,
       });
 
       const response = await request(app).delete(`/${category.id}`);
@@ -433,7 +543,10 @@ describe('Categorys API Integration Tests', () => {
       // Create another user and their category
       const person2 = await createTestPerson({ email: 'user2@example.com' });
       const project2 = await createTestProject(person2.id, { name: 'Other Project' });
-      const category2 = await createTestCategory(project2.id, { name: 'Other Category', color: '#FF0000' });
+      const category2 = await createTestCategory(project2.id, {
+        name: 'Other Category',
+        color: '#FF0000',
+      });
 
       const response = await request(app).delete(`/${category2.id}`);
 
@@ -468,7 +581,10 @@ describe('Categorys API Integration Tests', () => {
     it('should not update categories from another user', async () => {
       const person2 = await createTestPerson({ email: 'user2@example.com' });
       const project2 = await createTestProject(person2.id, { name: 'Other Project' });
-      const category2 = await createTestCategory(project2.id, { name: 'Other Category', color: '#FF0000' });
+      const category2 = await createTestCategory(project2.id, {
+        name: 'Other Category',
+        color: '#FF0000',
+      });
 
       const response = await request(app).put(`/${category2.id}`).send({
         name: 'Hacked!',
