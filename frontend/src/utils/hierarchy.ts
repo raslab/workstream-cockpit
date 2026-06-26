@@ -58,7 +58,7 @@ export function applyHierarchyFilter(workstreams: Workstream[], filter: Hierarch
   }
 }
 
-function collectSubstreamIds(parentIds: Set<string>, workstreams: Workstream[]): Set<string> {
+function collectSubstreamIds(parentIds: Set<string>, workstreams: Workstream[], recursive: boolean): Set<string> {
   const childrenByParentId = new Map<string, Workstream[]>();
   workstreams.forEach((workstream) => {
     if (!workstream.parentId) return;
@@ -67,14 +67,14 @@ function collectSubstreamIds(parentIds: Set<string>, workstreams: Workstream[]):
     childrenByParentId.set(workstream.parentId, children);
   });
 
-  const scopedIds = new Set(parentIds);
-  const queue = [...parentIds];
+  const scopedIds = new Set<string>();
+  const queue = Array.from(parentIds);
   while (queue.length > 0) {
     const parentId = queue.shift()!;
     for (const child of childrenByParentId.get(parentId) ?? []) {
       if (scopedIds.has(child.id)) continue;
       scopedIds.add(child.id);
-      queue.push(child.id);
+      if (recursive) queue.push(child.id);
     }
   }
   return scopedIds;
@@ -91,7 +91,7 @@ export function applyCockpitHierarchyFilter(workstreams: Workstream[], hierarchy
   const parentIds = new Set(selectedParentIds.filter(Boolean));
   if (parentIds.size === 0) return [];
 
-  const scopedIds = hierarchy.includeSubstreams ? collectSubstreamIds(parentIds, workstreams) : parentIds;
+  const scopedIds = collectSubstreamIds(parentIds, workstreams, Boolean(hierarchy.includeSubstreams));
   return workstreams.filter((workstream) => scopedIds.has(workstream.id));
 }
 

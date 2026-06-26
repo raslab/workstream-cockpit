@@ -122,6 +122,81 @@ describe('Workstreams API Integration Tests', () => {
         expect.objectContaining({ id: parent.id, name: 'Parent stream', state: 'active', parentId: null, depth: 1 }),
       ]);
     });
+
+    it('scopes parent views to matching sub-streams without returning the selected parent', async () => {
+      const ktlo = await createTestCategory(project.id, { name: 'KTLO', color: '#00AA00' });
+      const selectedParent = await createTestWorkstream(project.id, { name: 'Selected parent' });
+      const matchingDirectSubstream = await createTestWorkstream(project.id, { name: 'Matching direct sub-stream', parentId: selectedParent.id, categoryId: ktlo.id });
+      const nonMatchingDirectSubstream = await createTestWorkstream(project.id, { name: 'Non-matching direct sub-stream', parentId: selectedParent.id });
+      const intermediateSubstream = await createTestWorkstream(project.id, { name: 'Intermediate sub-stream', parentId: selectedParent.id });
+      const matchingLeafSubstream = await createTestWorkstream(project.id, { name: 'Matching leaf sub-stream', parentId: intermediateSubstream.id, categoryId: ktlo.id });
+      const otherParent = await createTestWorkstream(project.id, { name: 'Other parent' });
+      const otherSubstream = await createTestWorkstream(project.id, { name: 'Other parent sub-stream', parentId: otherParent.id, categoryId: ktlo.id });
+
+      const directResponse = await request(app).get(
+        `/?state=active&categoryIds=${ktlo.id}&hierarchy=under-parent&parentId=${selectedParent.id}&includeSubstreams=false`
+      );
+
+      expect(directResponse.status).toBe(200);
+      expect(directResponse.body.map((workstream: any) => workstream.id)).toEqual([matchingDirectSubstream.id]);
+
+      const recursiveResponse = await request(app).get(
+        `/?state=active&categoryIds=${ktlo.id}&hierarchy=under-parent&parentId=${selectedParent.id}&includeSubstreams=true`
+      );
+
+      expect(recursiveResponse.status).toBe(200);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).toEqual([matchingLeafSubstream.id, matchingDirectSubstream.id]);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(selectedParent.id);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(nonMatchingDirectSubstream.id);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(intermediateSubstream.id);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(otherSubstream.id);
+
+      const leafResponse = await request(app).get(
+        `/?state=active&hierarchy=under-parent&parentId=${matchingLeafSubstream.id}&includeSubstreams=true`
+      );
+
+      expect(leafResponse.status).toBe(200);
+      expect(leafResponse.body.map((workstream: any) => workstream.id)).toEqual([]);
+    });
+
+    it('returns direct and nested sub-streams for overlapping selected parents', async () => {
+      const streamA = await createTestWorkstream(project.id, { name: 'A' });
+      const streamB = await createTestWorkstream(project.id, { name: 'B', parentId: streamA.id });
+      const streamC = await createTestWorkstream(project.id, { name: 'C', parentId: streamB.id });
+
+      const directResponse = await request(app).get(
+        `/?state=active&hierarchy=under-parent&parentId=${streamA.id}&includeSubstreams=false`
+      );
+
+      expect(directResponse.status).toBe(200);
+      expect(directResponse.body.map((workstream: any) => workstream.id)).toEqual([streamB.id]);
+
+      const recursiveResponse = await request(app).get(
+        `/?state=active&hierarchy=under-parent&parentId=${streamA.id}&includeSubstreams=true`
+      );
+
+      expect(recursiveResponse.status).toBe(200);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).toEqual([streamC.id, streamB.id]);
+
+      const overlappingParentsResponse = await request(app).get(
+        `/?state=active&hierarchy=under-parent&parentIds=${streamA.id},${streamB.id}&includeSubstreams=false`
+      );
+
+      expect(overlappingParentsResponse.status).toBe(200);
+      expect(overlappingParentsResponse.body.map((workstream: any) => workstream.id)).toEqual([streamC.id, streamB.id]);
+
+      const browserUrlStyleResponse = await request(app)
+        .get('/')
+        .query({
+          state: 'active',
+          hierarchy: 'under-parent',
+          parentIds: [streamA.id, streamB.id],
+          includeSubstreams: '1',
+        });
+
+      expect(browserUrlStyleResponse.status).toBe(200);
+      expect(browserUrlStyleResponse.body.map((workstream: any) => workstream.id)).toEqual([streamC.id, streamB.id]);
+    });
   });
 
   describe('GET /workstreams/:id', () => {
