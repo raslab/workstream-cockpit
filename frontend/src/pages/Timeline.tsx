@@ -6,20 +6,19 @@ import { useCategories } from '../hooks/useCategories';
 import { FilterBar } from '../components/Timeline/FilterBar';
 import { Link, useSearchParams } from 'react-router-dom';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
-import { getWorkstreamName } from '../utils/hierarchy';
+import { workstreamPath, workstreamReferenceText } from '../utils/workstreamReference';
 import { SelectMenu } from '../components/UI/SelectMenu';
 import { ExportButton } from '../components/Timeline/ExportButton';
 import { DateRangeQuickPreset } from '../components/Timeline/DateRangeFilter';
 import { dateToUrlDate, parseTimelineSearch, serializeTimelineSearch, TimelineUrlState, urlDateToDate } from '../utils/urlState';
 
-function streamPath(stream: { id?: string; number?: number; workstreamId?: string; workstreamNumber?: number }) {
-  return `/workstreams/${stream.workstreamNumber ?? stream.number ?? stream.id ?? stream.workstreamId}`;
-}
-
-function streamLabel(stream: { name?: string; workstreamName?: string; number?: number; workstreamNumber?: number }) {
-  const number = stream.workstreamNumber ?? stream.number;
-  const name = stream.name || stream.workstreamName || 'Untitled stream';
-  return `${number !== undefined ? `#${number} ` : ''}${name}`;
+function timelineTitle(entry: TimelineEntry): string {
+  const trail = [...(entry.parentStreams || []), entry].map((stream) => {
+    const ref = stream as { id?: string; number?: number; name?: string; workstreamId?: string; workstreamNumber?: number; workstreamName?: string };
+    return workstreamReferenceText({ id: ref.workstreamId || ref.id, number: ref.workstreamNumber ?? ref.number, name: ref.workstreamName || ref.name }, { name: false });
+  });
+  if (entry.eventType === 'status_update' && entry.statusUpdateNumber !== undefined) return `${trail.join(' > ')} > update #${entry.statusUpdateNumber}`;
+  return trail.join(' > ');
 }
 
 export default function Timeline() {
@@ -237,7 +236,7 @@ export default function Timeline() {
               Sub-stream created
             </span>
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              Created under {entry.parent ? getWorkstreamName(entry.parent) : entry.parentName || entry.newParentName || entry.metadata?.newParentName || 'parent stream'}
+              Created under {entry.parent ? workstreamReferenceText(entry.parent) : entry.parentName || entry.newParentName || entry.metadata?.newParentName || 'parent stream'}
             </span>
           </div>
         );
@@ -245,9 +244,6 @@ export default function Timeline() {
       default:
         return (
           <div>
-            {entry.statusUpdateNumber !== undefined && (
-              <div className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">Update #{entry.statusUpdateNumber}</div>
-            )}
             <MarkdownRenderer content={entry.status!} className="text-sm text-gray-700 dark:text-gray-300" />
             {entry.note && (
               <div className="mt-3 border-t border-gray-900 pt-2 dark:border-gray-700">
@@ -319,7 +315,7 @@ export default function Timeline() {
                 buttonClassName="min-w-64"
                 options={[
                   { value: '', label: 'Select a parent' },
-                  ...workstreams.map((stream) => ({ value: String(stream.number ?? stream.id), label: streamLabel(stream) })),
+                  ...workstreams.map((stream) => ({ value: String(stream.number ?? stream.id), label: workstreamReferenceText(stream) })),
                 ]}
               />
             </div>
@@ -416,45 +412,15 @@ export default function Timeline() {
                       <div className="flex-1">
                         <div className="flex items-baseline justify-between gap-2">
                           <Link
-                            to={streamPath(entry)}
+                            to={workstreamPath({ id: entry.workstreamId, number: entry.workstreamNumber })}
                             className="font-medium text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400"
                           >
-                            {streamLabel(entry)}
+                            {timelineTitle(entry)}
                           </Link>
                           <time className="text-xs text-gray-500 dark:text-gray-400">
                             {format(parseISO(entry.createdAt), 'h:mm a')}
                           </time>
                         </div>
-                        {((entry.parentStreams)?.length || entry.parent || entry.parentName || entry.parentStreamPath || entry.breadcrumb) && (
-                          <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                            {entry.parentStreamPath || entry.breadcrumb ? (
-                              <span>{entry.parentStreamPath || entry.breadcrumb}</span>
-                            ) : (
-                              <>
-                                {(entry.parentStreams || []).map((parentStream) => (
-                                  <span key={parentStream.id} className="inline-flex items-center gap-1">
-                                    <Link to={streamPath(parentStream)} className="hover:text-primary-600 dark:hover:text-primary-400">{streamLabel(parentStream)}</Link>
-                                    <span aria-hidden="true">›</span>
-                                  </span>
-                                ))}
-                                {entry.parent ? (
-                                  !(entry.parentStreams)?.some((parentStream) => parentStream.id === entry.parent?.id) && (
-                                    <span className="inline-flex items-center gap-1">
-                                      <Link to={streamPath(entry.parent)} className="hover:text-primary-600 dark:hover:text-primary-400">{streamLabel(entry.parent)}</Link>
-                                      <span aria-hidden="true">›</span>
-                                    </span>
-                                  )
-                                ) : entry.parentName ? (
-                                  <span className="inline-flex items-center gap-1">
-                                    <span>{entry.parentName}</span>
-                                    <span aria-hidden="true">›</span>
-                                  </span>
-                                ) : null}
-                                <span>{streamLabel(entry)}</span>
-                              </>
-                            )}
-                          </div>
-                        )}
                         <div className="mt-1">
                           {renderEventContent(entry)}
                         </div>
@@ -472,3 +438,4 @@ export default function Timeline() {
     </div>
   );
 }
+

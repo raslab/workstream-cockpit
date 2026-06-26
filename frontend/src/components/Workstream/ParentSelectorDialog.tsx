@@ -3,7 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useWorkstreams } from '../../hooks/useWorkstreams';
 import type { Workstream } from '../../types/workstream';
-import { getBreadcrumbLabel, getWorkstreamName, hierarchyErrorMessage, isObviousSubstream } from '../../utils/hierarchy';
+import { getBreadcrumbLabel, hierarchyErrorMessage, isObviousSubstream } from '../../utils/hierarchy';
+import { workstreamReferenceText } from '../../utils/workstreamReference';
 
 function normalizeSearch(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -71,8 +72,8 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
 
     return candidates.filter((candidate) => fuzzyMatch(getBreadcrumbLabel(candidate), query));
   }, [candidates, parentSearch]);
-  const currentParentName = getWorkstreamName(workstream.parent || null);
-  const nextParentName = parentId ? getWorkstreamName(selectedParent) : 'Top level / no parent';
+  const currentParentName = workstream.parent ? workstreamReferenceText(workstream.parent) : 'Top level / no parent';
+  const nextParentName = parentId ? workstreamReferenceText(selectedParent) : 'Top level / no parent';
   const hasChange = parentId !== (workstream.parentId || '');
 
   if (!isOpen) return null;

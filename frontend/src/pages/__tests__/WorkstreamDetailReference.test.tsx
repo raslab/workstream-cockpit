@@ -207,13 +207,12 @@ describe('WorkstreamDetail reference redesign', () => {
     renderDetail(numberedWorkstream);
     await screen.findByTestId('workstream-detail-shell');
 
-    expect(screen.getByText('Stream #28')).toBeInTheDocument();
-    expect(screen.getByText('#3 Platform Ops')).toHaveAttribute('href', '/workstreams/3');
-    expect(screen.getAllByText('#8 Reliability')[0]).toHaveAttribute('href', '/workstreams/8');
-    expect(screen.getByText('Update #42')).toBeInTheDocument();
-    expect(screen.getByText('Update #41')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Sub-stream: #29 run CoE' })).toHaveAttribute('href', '/workstreams/29');
-    expect(screen.getByRole('link', { name: '#29 run CoE' })).toHaveAttribute('href', '/workstreams/29');
+    expect(screen.queryByText('Stream #28')).not.toBeInTheDocument();
+    expect(screen.getByText('#3')).toHaveAttribute('href', '/workstreams/3');
+    expect(screen.getAllByText('#8')[0]).toHaveAttribute('href', '/workstreams/8');
+    expect(screen.getByText(/update #42 from sub-stream #29 run CoE/)).toBeInTheDocument();
+    expect(screen.getByText(/self update #41/)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: '#29' })[0]).toHaveAttribute('href', '/workstreams/29');
   });
 
   it('does not expose Add Update when the stream is closed', async () => {
@@ -234,7 +233,7 @@ describe('WorkstreamDetail reference redesign', () => {
 
     const substreamUpdate = screen.getByTestId('status-update-substream-update');
     expect(substreamUpdate).toHaveAttribute('data-source', 'sub-stream');
-    expect(within(substreamUpdate).getByRole('link', { name: 'Sub-stream: run CoE' })).toHaveAttribute('href', '/workstreams/substream-1');
+    expect(within(substreamUpdate).getByRole('link', { name: 'run CoE' })).toHaveAttribute('href', '/workstreams/substream-1');
     expect(within(substreamUpdate).getByRole('link', { name: 'Open sub-stream' })).toHaveAttribute('href', '/workstreams/substream-1');
     expect(substreamUpdate).toHaveTextContent('#Production');
     expect(within(substreamUpdate).queryByText(/^#Production$/)).not.toBeInTheDocument();

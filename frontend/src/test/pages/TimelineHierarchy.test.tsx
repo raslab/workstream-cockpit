@@ -10,7 +10,7 @@ vi.mock('../../hooks/useTimeline', async () => {
 });
 
 vi.mock('../../hooks/useWorkstreams', () => ({
-  useWorkstreams: () => ({ data: [{ id: 'parent-1', name: 'Parent stream' }] }),
+  useWorkstreams: () => ({ data: [{ id: 'parent-1', number: 7, name: 'Parent stream' }] }),
 }));
 
 vi.mock('../../hooks/useCategories', () => ({
@@ -38,6 +38,7 @@ describe('Timeline parent stream path rendering', () => {
           id: 'move-1',
           eventType: 'parent_changed',
           workstreamId: 'substream-1',
+          workstreamNumber: 12,
           workstreamName: 'Sub-stream',
           createdAt: '2026-06-20T10:00:00Z',
           oldParentName: 'Old parent',
@@ -49,6 +50,7 @@ describe('Timeline parent stream path rendering', () => {
           id: 'created-1',
           eventType: 'sub_stream_created',
           workstreamId: 'substream-2',
+          workstreamNumber: 13,
           workstreamName: 'Created sub-stream',
           createdAt: '2026-06-20T09:00:00Z',
           parentName: 'Flat parent',
@@ -62,7 +64,7 @@ describe('Timeline parent stream path rendering', () => {
     render(<MemoryRouter><Timeline /></MemoryRouter>);
 
     expect(screen.getByText('Moved from Old parent to New parent')).toBeInTheDocument();
-    expect(screen.getByText('Root > New parent > Sub-stream')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '#12' })).toBeInTheDocument();
     expect(screen.getByText('Created under Flat parent')).toBeInTheDocument();
   });
 
@@ -102,11 +104,11 @@ describe('Timeline parent stream path rendering', () => {
     expect(parentControl.tagName).toBe('BUTTON');
 
     fireEvent.click(parentControl);
-    fireEvent.click(within(screen.getByRole('listbox', { name: 'Parent stream' })).getByRole('option', { name: 'Parent stream' }));
+    fireEvent.click(within(screen.getByRole('listbox', { name: 'Parent stream' })).getByRole('option', { name: '#7 Parent stream' }));
 
     expect(useTimelineMock).toHaveBeenLastCalledWith(expect.objectContaining({
       streamScope: 'under-parent',
-      parentId: 'parent-1',
+      parentId: '7',
     }));
   });
 });

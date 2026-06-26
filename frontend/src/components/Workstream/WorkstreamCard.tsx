@@ -10,6 +10,7 @@ import { TagChip } from '../Tag/TagChip';
 import { WorkstreamCreateDialog } from './WorkstreamCreateDialog';
 import { ParentSelectorDialog } from './ParentSelectorDialog';
 import { DEFAULT_CATEGORY_COLOR, DEFAULT_CATEGORY_EMOJI, getCategoryIconBandBackground } from '../../utils/categoryColor';
+import { WorkstreamLink, WorkstreamTitle, workstreamPath } from './WorkstreamReference';
 
 interface WorkstreamCardProps {
   workstream: Workstream;
@@ -28,9 +29,6 @@ function getSourceName(workstream: Workstream) {
   return workstream.latestSubstreamActivitySource?.name || workstream.latestSubstreamActivitySource?.workstreamName;
 }
 
-function publicWorkstreamPath(workstream: Pick<Workstream, 'id' | 'number'>) {
-  return `/workstreams/${workstream.number ?? workstream.id}`;
-}
 
 function StatusIcon() {
   return (
@@ -189,7 +187,7 @@ function MeasuredTagList({ tags }: { tags: string[] }) {
 }
 
 export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
-  const { name, category, latestStatus, allTags } = workstream;
+  const { category, latestStatus, allTags } = workstream;
   const [showDialog, setShowDialog] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showCreateSubstream, setShowCreateSubstream] = useState(false);
@@ -252,17 +250,11 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
           {categoryEmoji}
         </div>
 
-        <Link
-          to={publicWorkstreamPath(workstream)}
-          className="relative z-10 col-start-3 row-start-1 min-w-0 pl-3 pr-36 pt-3 hover:text-primary-600 dark:hover:text-primary-400"
-        >
-          {workstream.number !== undefined && (
-            <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">Stream #{workstream.number}</span>
-          )}
+        <div className="relative z-10 col-start-3 row-start-1 min-w-0 pl-3 pr-36 pt-3">
           <h3 className={`text-base font-semibold leading-tight text-gray-900 dark:text-gray-100 ${workstream.state === 'closed' ? 'text-gray-600 dark:text-gray-400' : ''}`}>
-            {name}
+            <WorkstreamLink workstream={workstream} />
           </h3>
-        </Link>
+        </div>
 
         <button
           className="absolute right-2 top-2 z-20 inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 bg-white px-3 text-xs font-bold text-gray-800 shadow-sm hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
@@ -275,16 +267,16 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
 
         {workstream.parent && (
           <Link
-            to={`/workstreams/${workstream.parent.number ?? workstream.parent.id}`}
+            to={workstreamPath(workstream.parent)}
             className="relative z-10 col-start-3 col-end-5 row-start-2 mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden pl-3 pr-36 text-xs text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400"
           >
             <ParentIcon />
-            <span className="truncate">Parent: {workstream.parent.number !== undefined ? `#${workstream.parent.number} ` : ''}{workstream.parent.name || workstream.parent.workstreamName}</span>
+            <span className="truncate">Parent: <WorkstreamTitle workstream={workstream.parent} /></span>
           </Link>
         )}
 
         <Link
-          to={publicWorkstreamPath(workstream)}
+          to={workstreamPath(workstream)}
           className={`relative z-10 col-start-3 col-end-4 min-w-0 pl-3 pr-2 ${workstream.parent ? 'row-start-3 mt-1' : 'row-start-2 mt-1'}`}
         >
           {latestStatus ? (
@@ -353,8 +345,8 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
         </div>
       </article>
 
-      <StatusUpdateDialog workstreamId={workstream.id} workstreamName={workstream.name} isOpen={showDialog} onClose={() => setShowDialog(false)} />
-      <WorkstreamCreateDialog isOpen={showCreateSubstream} onClose={() => setShowCreateSubstream(false)} parent={{ id: workstream.id, name: workstream.name, state: workstream.state, depth: workstream.depth }} />
+      <StatusUpdateDialog workstreamId={workstream.id} workstreamName={workstream.name} workstreamNumber={workstream.number} isOpen={showDialog} onClose={() => setShowDialog(false)} />
+      <WorkstreamCreateDialog isOpen={showCreateSubstream} onClose={() => setShowCreateSubstream(false)} parent={{ id: workstream.id, number: workstream.number, name: workstream.name, state: workstream.state, depth: workstream.depth }} />
       <ParentSelectorDialog workstream={workstream} isOpen={showParentDialog} onClose={() => setShowParentDialog(false)} />
     </>
   );

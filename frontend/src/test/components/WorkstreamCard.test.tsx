@@ -102,16 +102,14 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.getByTestId('workstream-category-icon').className).not.toContain('row-start');
     expect(screen.getByTestId('workstream-category-icon').className).not.toContain('mt-4');
 
-    const titleLink = screen.getByRole('link', { name: /English learning plan/ });
-    expect(titleLink).toHaveAttribute('href', '/workstreams/stream-1');
-    expect(titleLink.closest('article')).not.toHaveClass('gap-x-3');
+    expect(screen.getByRole('heading', { name: 'English learning plan' }).closest('article')).not.toHaveClass('gap-x-3');
     expect(screen.getByRole('heading', { name: 'English learning plan' })).toHaveClass('text-base', 'font-semibold');
     expect(screen.getByText('Latest work happened in sub-stream: weekly lessons are moving.')).toHaveClass('text-sm');
-    expect(screen.getByText('Parent: Goals')).toBeInTheDocument();
-    const parentLink = screen.getByText('Parent: Goals').closest('a');
+    expect(screen.getByText(/Parent:/)).toHaveTextContent('Parent: Goals');
+    const parentLink = screen.getByText(/Parent:/).closest('a');
     expect(parentLink).toHaveClass('min-w-0', 'overflow-hidden', 'pr-36');
     expect(parentLink).not.toHaveClass('pr-4');
-    expect(screen.getByText('Parent: Goals')).toHaveClass('truncate');
+    expect(screen.getByText(/Parent:/)).toHaveClass('truncate');
     expect(screen.getByRole('button', { name: 'Log status' })).toHaveClass('absolute', 'right-2', 'top-2');
     expect(screen.getByRole('button', { name: 'Log status' }).className).not.toContain('row-start');
     expect(screen.getByText(/Self:/)).toBeInTheDocument();
@@ -143,10 +141,11 @@ describe('WorkstreamCard tile layout', () => {
   it('shows public stream numbers and links with them when available', () => {
     renderCard(baseWorkstream({ number: 28, parent: { id: 'parent-1', number: 7, name: 'Goals', state: 'active' } }));
 
-    expect(screen.getByText('Stream #28')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Stream #28\s+English learning plan/ })).toHaveAttribute('href', '/workstreams/28');
-    expect(screen.getByText('Parent: #7 Goals')).toBeInTheDocument();
-    expect(screen.getByText('Parent: #7 Goals').closest('a')).toHaveAttribute('href', '/workstreams/7');
+    expect(screen.queryByText('Stream #28')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '#28' })).toHaveAttribute('href', '/workstreams/28');
+    expect(screen.getByRole('heading', { name: /#28\s+English learning plan/ })).toBeInTheDocument();
+    expect(screen.getByText(/Parent:/)).toHaveTextContent('Parent: #7 Goals');
+    expect(screen.getByText(/Parent:/).closest('a')).toHaveAttribute('href', '/workstreams/7');
   });
 
   it('does not render or reserve a tags region when the workstream has no tags', () => {
