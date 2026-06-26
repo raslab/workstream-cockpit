@@ -10,7 +10,7 @@ import { TagChip } from '../Tag/TagChip';
 import { WorkstreamCreateDialog } from './WorkstreamCreateDialog';
 import { ParentSelectorDialog } from './ParentSelectorDialog';
 import { DEFAULT_CATEGORY_COLOR, DEFAULT_CATEGORY_EMOJI, getCategoryIconBandBackground } from '../../utils/categoryColor';
-import { WorkstreamLink, WorkstreamTitle, workstreamPath } from './WorkstreamReference';
+import { WorkstreamLink, WorkstreamReferenceContent, workstreamPath } from './WorkstreamReference';
 
 interface WorkstreamCardProps {
   workstream: Workstream;
@@ -24,11 +24,6 @@ function formatActivity(value?: string | null) {
 
   return formatDistanceToNow(new Date(value), { addSuffix: true }).replace(/^about /, '');
 }
-
-function getSourceName(workstream: Workstream) {
-  return workstream.latestSubstreamActivitySource?.name || workstream.latestSubstreamActivitySource?.workstreamName;
-}
-
 
 function StatusIcon() {
   return (
@@ -200,7 +195,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
   const categorySoftColor = getCategoryIconBandBackground(categoryColor, DEFAULT_CATEGORY_COLOR);
   const categoryEmoji = category?.emoji || DEFAULT_CATEGORY_EMOJI;
   const directActivityAt = workstream.lastDirectUpdateAt || latestStatus?.updatedAt;
-  const sourceName = getSourceName(workstream);
+  const sourceStream = workstream.latestSubstreamActivitySource;
   const substreamActivityAge = workstream.lastSubstreamActivityAt ? formatActivity(workstream.lastSubstreamActivityAt) : null;
   const substreamCount = workstream.substreamCount ?? 0;
   const substreamCountsText = substreamCount > 0
@@ -271,7 +266,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
             className="relative z-10 col-start-3 col-end-5 row-start-2 mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden pl-3 pr-36 text-xs text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400"
           >
             <ParentIcon />
-            <span className="truncate">Parent: <WorkstreamTitle workstream={workstream.parent} /></span>
+            <span className="truncate">Parent: <WorkstreamReferenceContent workstream={workstream.parent} /></span>
           </Link>
         )}
 
@@ -297,8 +292,8 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
             <span className="inline-flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300">
               <SubstreamIcon />
               <strong className="flex-none whitespace-nowrap font-bold text-gray-700 dark:text-gray-200">Sub-stream:</strong>
-              <span className="flex-none whitespace-nowrap">{substreamActivityAge}{sourceName ? ' via' : ''}</span>
-              {sourceName && <span className="min-w-0 flex-1 truncate" title={sourceName}>{sourceName}</span>}
+              <span className="flex-none whitespace-nowrap">{substreamActivityAge}{sourceStream ? ' via' : ''}</span>
+              {sourceStream && <WorkstreamLink workstream={sourceStream} className="min-w-0 flex-1 truncate text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200" />}
             </span>
           )}
         </div>

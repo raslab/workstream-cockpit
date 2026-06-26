@@ -6,7 +6,7 @@ import { useCategories } from '../../hooks/useCategories';
 import { TagAutocomplete } from '../Tag/TagAutocomplete';
 import { SelectMenu } from '../UI/SelectMenu';
 import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
-import { workstreamReferenceText } from '../../utils/workstreamReference';
+import { WorkstreamLink } from './WorkstreamReference';
 
 interface WorkstreamEditDialogProps {
   workstream: Workstream;
@@ -68,7 +68,7 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70">
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Edit {workstreamReferenceText(workstream)}</h2>
+        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Edit <WorkstreamLink workstream={workstream} /></h2>
 
         <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>
           <div className="mb-4">

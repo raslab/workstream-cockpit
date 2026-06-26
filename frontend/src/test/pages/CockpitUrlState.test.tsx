@@ -160,7 +160,7 @@ describe('Cockpit URL state', () => {
 
     renderCockpit('/?group=parent');
 
-    await waitFor(() => expect(screen.getByRole('link', { name: '#7' })).toHaveAttribute('href', '/workstreams/7'));
+    await waitFor(() => expect(screen.getByRole('link', { name: '#7 Parent stream' })).toHaveAttribute('href', '/workstreams/7'));
     expect(screen.getByText('(1)')).toBeInTheDocument();
     expect(screen.getAllByTestId('workstream-card')).toHaveLength(1);
     expect(screen.getByText(/Sub-stream one Parent: Parent stream/)).toBeInTheDocument();

@@ -128,8 +128,9 @@ describe('WorkstreamCard tile layout', () => {
 
     const substreamPill = screen.getByText(/Sub-stream:/).parentElement;
     expect(substreamPill).toHaveClass('min-w-0', 'flex-1', 'overflow-hidden');
-    expect(screen.getByText('Schedule 11 English classes')).toHaveClass('min-w-0', 'flex-1', 'truncate');
-    expect(screen.getByText('Schedule 11 English classes')).toHaveAttribute('title', 'Schedule 11 English classes');
+    const sourceLink = screen.getByRole('link', { name: 'Schedule 11 English classes' });
+    expect(sourceLink).toHaveClass('min-w-0', 'flex-1', 'truncate');
+    expect(sourceLink).toHaveAttribute('title', 'Schedule 11 English classes');
 
     const substreamCountRow = screen.getByText('2 active / 1 closed sub-streams').parentElement;
     expect(substreamCountRow).toHaveClass('row-start-5', 'pt-2');
@@ -142,7 +143,7 @@ describe('WorkstreamCard tile layout', () => {
     renderCard(baseWorkstream({ number: 28, parent: { id: 'parent-1', number: 7, name: 'Goals', state: 'active' } }));
 
     expect(screen.queryByText('Stream #28')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '#28' })).toHaveAttribute('href', '/workstreams/28');
+    expect(screen.getByRole('link', { name: '#28 English learning plan' })).toHaveAttribute('href', '/workstreams/28');
     expect(screen.getByRole('heading', { name: /#28\s+English learning plan/ })).toBeInTheDocument();
     expect(screen.getByText(/Parent:/)).toHaveTextContent('Parent: #7 Goals');
     expect(screen.getByText(/Parent:/).closest('a')).toHaveAttribute('href', '/workstreams/7');
@@ -158,7 +159,7 @@ describe('WorkstreamCard tile layout', () => {
   it('stretches the tile to the grid row height while keeping content compact at the top', () => {
     renderCard(baseWorkstream());
 
-    const card = screen.getByRole('heading', { name: 'English learning plan' }).closest('article');
+    const card = screen.getByRole('heading', { name: /English learning plan/ }).closest('article');
     expect(card).toHaveClass('h-full', 'content-start');
     expect(card).not.toHaveClass('content-between', 'gap-y-4', 'gap-y-5', 'gap-y-6');
   });

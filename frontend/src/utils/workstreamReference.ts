@@ -7,7 +7,7 @@ export interface WorkstreamRef {
 }
 
 export function workstreamId(ref: WorkstreamRef): string | undefined {
-  return ref.id || ref.workstreamId;
+  return ref.workstreamId || ref.id;
 }
 
 export function workstreamName(ref: WorkstreamRef | null | undefined): string {

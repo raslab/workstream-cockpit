@@ -64,7 +64,7 @@ describe('Timeline parent stream path rendering', () => {
     render(<MemoryRouter><Timeline /></MemoryRouter>);
 
     expect(screen.getByText('Moved from Old parent to New parent')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '#12' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '#12 Sub-stream' })).toBeInTheDocument();
     expect(screen.getByText('Created under Flat parent')).toBeInTheDocument();
   });
 

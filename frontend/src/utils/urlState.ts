@@ -215,7 +215,7 @@ export interface TimelineUrlState {
   activity: 'all' | TimelineEventType;
 }
 
-export function parseTimelineSearch(searchParams: URLSearchParams, options: { categories?: Category[] } = {}): TimelineUrlState {
+export function parseTimelineSearch(searchParams: URLSearchParams, options: { categories?: Category[]; workstreams?: Workstream[] } = {}): TimelineUrlState {
   const scope = searchParams.get('scope');
   const activity = searchParams.get('activity');
   const range = searchParams.get('range');
@@ -240,7 +240,7 @@ export function parseTimelineSearch(searchParams: URLSearchParams, options: { ca
   };
 }
 
-export function serializeTimelineSearch(state: TimelineUrlState, options: { categories?: Category[] } = {}): URLSearchParams {
+export function serializeTimelineSearch(state: TimelineUrlState, options: { categories?: Category[]; workstreams?: Workstream[] } = {}): URLSearchParams {
   const params = new URLSearchParams();
   if (state.tags.length > 0) params.set('tags', stableList(state.tags));
   if (state.categoryIds.length > 0) params.set('categories', categorySearchValue(state.categoryIds, options.categories));
@@ -251,7 +251,7 @@ export function serializeTimelineSearch(state: TimelineUrlState, options: { cate
     if (state.endDate) params.set('endDate', state.endDate);
   }
   if (state.streamScope !== 'all') params.set('scope', state.streamScope);
-  if (state.streamScope === 'under-parent' && state.parentId) params.set('parentId', state.parentId);
+  if (state.streamScope === 'under-parent' && state.parentId) params.set('parentId', workstreamSearchValue([state.parentId], options.workstreams));
   if (state.includeSubstreams) params.set('includeSubstreams', '1');
   if (state.activity !== 'all') params.set('activity', state.activity);
   return params;

@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import type { Workstream } from '../../types/workstream';
-import { getDirectSubstreamCount, getLatestSubstreamActivityAt, getLatestSubstreamActivitySourceId, getWorkstreamName } from '../../utils/hierarchy';
+import { getDirectSubstreamCount, getLatestSubstreamActivityAt, getLatestSubstreamActivitySourceId } from '../../utils/hierarchy';
+import { WorkstreamLink } from './WorkstreamReference';
 
 interface SubstreamsSectionProps {
   workstream: Workstream;
@@ -38,15 +38,13 @@ export function SubstreamsSection({ workstream, onCreateSubstream }: SubstreamsS
             return (
               <div key={substream.id} className="flex items-center justify-between gap-3 py-2">
                 <div className="min-w-0">
-                  <Link to={`/workstreams/${substream.id}`} className="text-sm font-medium text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400">
-                    {getWorkstreamName(substream)}
-                  </Link>
+                  <WorkstreamLink workstream={substream} className="text-sm font-medium text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400" />
                   {activityAt && (
                     <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                       <span>Last activity</span> {formatDistanceToNow(parseISO(activityAt), { addSuffix: true })}
                       {source && sourceId && sourceId !== substream.id && (
                         <>
-                          {' '}from <Link to={`/workstreams/${sourceId}`} className="font-medium text-primary-700 hover:underline dark:text-primary-300">{getWorkstreamName(source)}</Link>
+                          {' '}from <WorkstreamLink workstream={source} className="font-medium text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200" />
                         </>
                       )}
                     </p>

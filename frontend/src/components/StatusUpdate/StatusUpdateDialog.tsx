@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { TagAutocomplete } from '../Tag/TagAutocomplete';
 import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
-import { workstreamReferenceText } from '../../utils/workstreamReference';
+import { WorkstreamLink } from '../Workstream/WorkstreamReference';
 
 interface StatusUpdateDialogProps {
   workstreamId: string;
@@ -75,7 +75,7 @@ export function StatusUpdateDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70">
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
         <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
-          Add update for {workstreamReferenceText({ id: workstreamId, name: workstreamName, number: workstreamNumber })}
+          Add update for <WorkstreamLink workstream={{ id: workstreamId, name: workstreamName, number: workstreamNumber }} />
         </h2>
 
         <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>

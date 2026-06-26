@@ -14,7 +14,7 @@ import { TagAutocomplete } from '../components/Tag/TagAutocomplete';
 import { getBreadcrumbItems, getDirectSubstreamCount, getLatestSubstreamActivityAt, getLatestSubstreamActivitySourceId, getStatusUpdateSource, getWorkstreamName, hierarchyErrorMessage } from '../utils/hierarchy';
 import { DEFAULT_CATEGORY_COLOR, DEFAULT_CATEGORY_EMOJI, getCategoryIconBandBackground } from '../utils/categoryColor';
 import { handleRichHtmlTextareaPaste } from '../utils/richPasteTextarea';
-import { WorkstreamLink, WorkstreamTitle, workstreamPath, workstreamReferenceText } from '../components/Workstream/WorkstreamReference';
+import { WorkstreamLink, WorkstreamNumber, WorkstreamReferenceContent, workstreamPath } from '../components/Workstream/WorkstreamReference';
 
 interface StatusEditDialogProps {
   statusUpdate: StatusUpdate;
@@ -39,7 +39,7 @@ function RelativeTime({ value, emptyLabel = 'No updates yet' }: { value: string 
 
 function statusUpdateReference(update: StatusUpdate, updateSource: ReturnType<typeof getStatusUpdateSource>, isSubstreamUpdate: boolean): string {
   const updateNumber = update.number !== undefined ? ` #${update.number}` : '';
-  if (isSubstreamUpdate && updateSource) return `update${updateNumber} from sub-stream ${workstreamReferenceText(updateSource)}`;
+  if (isSubstreamUpdate && updateSource) return `update${updateNumber} from sub-stream`;
   return `self update${updateNumber}`;
 }
 
@@ -300,11 +300,11 @@ export default function WorkstreamDetail() {
                       <span key={`${crumb.id}-${index}`} className="inline-flex items-center gap-2">
                         {index > 0 && <span className="text-gray-400 dark:text-gray-500">›</span>}
                         {isCurrent ? (
-                          <span aria-current="page" className="text-gray-700 dark:text-gray-200">{crumb.number !== undefined ? `#${crumb.number}` : getWorkstreamName(crumb)}</span>
+                          <span aria-current="page" className="text-gray-700 dark:text-gray-200">
+                            {crumb.number !== undefined ? <WorkstreamNumber workstream={crumb} /> : getWorkstreamName(crumb)}
+                          </span>
                         ) : (
-                          <Link to={workstreamPath(crumb)} className="text-primary-700 underline underline-offset-2 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200">
-                            {crumb.number !== undefined ? `#${crumb.number}` : getWorkstreamName(crumb)}
-                          </Link>
+                          <WorkstreamLink workstream={crumb} />
                         )}
                       </span>
                     );
@@ -417,7 +417,7 @@ export default function WorkstreamDetail() {
                               <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">• {statusUpdateReference(update, updateSource, isSubstreamUpdate)}</span>
                             </div>
                             {isSubstreamUpdate && updateSource && updateSourceId && (
-                              <WorkstreamLink workstream={updateSource} className="w-fit rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700 hover:underline dark:bg-blue-900 dark:text-blue-200" />
+                              <WorkstreamLink workstream={updateSource} className="w-fit rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700 hover:text-blue-800 dark:bg-blue-900 dark:text-blue-200 dark:hover:text-blue-100" />
                             )}
                           </div>
 
@@ -475,7 +475,7 @@ export default function WorkstreamDetail() {
                       return (
                         <Link key={substream.id} to={workstreamPath(substream)} className="rounded-lg border border-gray-200 bg-white p-3 hover:border-primary-300 hover:shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:hover:border-primary-700">
                           <div className="flex justify-between gap-3 text-sm font-bold text-gray-900 dark:text-gray-100">
-                            <WorkstreamTitle workstream={substream} />
+                            <span className="text-primary-700 dark:text-primary-300"><WorkstreamReferenceContent workstream={substream} /></span>
                             <span className="h-fit rounded-full bg-gray-100 px-2 py-1 text-[11px] font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-300">{substream.state || 'active'}</span>
                           </div>
                           <div className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Latest update: <RelativeTime value={substreamActivity} /></div>
@@ -496,7 +496,7 @@ export default function WorkstreamDetail() {
                       <div>
                         <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Parent stream</dt>
                         <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
-                          <WorkstreamLink workstream={workstream.parent} className="text-primary-700 hover:underline dark:text-primary-300" />
+                          <WorkstreamLink workstream={workstream.parent} className="text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200" />
                         </dd>
                       </div>
                     )}
@@ -517,7 +517,7 @@ export default function WorkstreamDetail() {
                             {workstream.latestSubstreamActivitySource && (
                               <>
                                 {' '}•{' '}
-                                <WorkstreamLink workstream={workstream.latestSubstreamActivitySource} className="text-primary-700 hover:underline dark:text-primary-300" />
+                                <WorkstreamLink workstream={workstream.latestSubstreamActivitySource} className="text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200" />
                               </>
                             )}
                           </>

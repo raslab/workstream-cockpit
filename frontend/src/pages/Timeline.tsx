@@ -6,19 +6,17 @@ import { useCategories } from '../hooks/useCategories';
 import { FilterBar } from '../components/Timeline/FilterBar';
 import { Link, useSearchParams } from 'react-router-dom';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
-import { workstreamPath, workstreamReferenceText } from '../utils/workstreamReference';
+import { WorkstreamLink, WorkstreamReferenceContent, workstreamPath, workstreamReferenceText } from '../components/Workstream/WorkstreamReference';
 import { SelectMenu } from '../components/UI/SelectMenu';
 import { ExportButton } from '../components/Timeline/ExportButton';
 import { DateRangeQuickPreset } from '../components/Timeline/DateRangeFilter';
 import { dateToUrlDate, parseTimelineSearch, serializeTimelineSearch, TimelineUrlState, urlDateToDate } from '../utils/urlState';
 
-function timelineTitle(entry: TimelineEntry): string {
-  const trail = [...(entry.parentStreams || []), entry].map((stream) => {
+function timelineTrail(entry: TimelineEntry) {
+  return [...(entry.parentStreams || []), entry].map((stream) => {
     const ref = stream as { id?: string; number?: number; name?: string; workstreamId?: string; workstreamNumber?: number; workstreamName?: string };
-    return workstreamReferenceText({ id: ref.workstreamId || ref.id, number: ref.workstreamNumber ?? ref.number, name: ref.workstreamName || ref.name }, { name: false });
+    return { id: ref.workstreamId || ref.id, number: ref.workstreamNumber ?? ref.number, name: ref.workstreamName || ref.name };
   });
-  if (entry.eventType === 'status_update' && entry.statusUpdateNumber !== undefined) return `${trail.join(' > ')} > update #${entry.statusUpdateNumber}`;
-  return trail.join(' > ');
 }
 
 export default function Timeline() {
@@ -50,7 +48,8 @@ export default function Timeline() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: categories = [] } = useCategories();
-  const urlState = useMemo(() => parseTimelineSearch(searchParams, { categories }), [searchParams, categories]);
+  const { data: workstreams = [] } = useWorkstreams({ state: 'active' });
+  const urlState = useMemo(() => parseTimelineSearch(searchParams, { categories, workstreams }), [searchParams, categories, workstreams]);
   const quickPreset = urlState.quickPreset as DateRangeQuickPreset | undefined;
   const quickRange = quickPreset ? getQuickDateRange(quickPreset) : undefined;
   const selectedCategoryIds = urlState.categoryIds;
@@ -71,7 +70,7 @@ export default function Timeline() {
   };
 
   const writeTimelineSearch = (patch: Partial<TimelineUrlState>) => {
-    setSearchParams(serializeTimelineSearch({ ...urlState, ...patch }, { categories }), { replace: true });
+    setSearchParams(serializeTimelineSearch({ ...urlState, ...patch }, { categories, workstreams }), { replace: true });
     resetPagination();
   };
 
@@ -95,8 +94,6 @@ export default function Timeline() {
   const handleCustomEndDateChange = (date: Date | undefined) => {
     writeTimelineSearch({ quickPreset: undefined, startDate: dateToUrlDate(customStartDate), endDate: dateToUrlDate(date) });
   };
-
-  const { data: workstreams = [] } = useWorkstreams({ state: 'active' });
 
   const { data: timelineResponse, isLoading, error } = useTimeline({
     startDate: customStartDate,
@@ -236,7 +233,7 @@ export default function Timeline() {
               Sub-stream created
             </span>
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              Created under {entry.parent ? workstreamReferenceText(entry.parent) : entry.parentName || entry.newParentName || entry.metadata?.newParentName || 'parent stream'}
+              Created under {entry.parent ? <WorkstreamLink workstream={entry.parent} /> : entry.parentName || entry.newParentName || entry.metadata?.newParentName || 'parent stream'}
             </span>
           </div>
         );
@@ -394,7 +391,9 @@ export default function Timeline() {
                 {formatDateHeader(date)}
               </h3>
               <div className="space-y-3">
-                {entries.map((entry) => (
+                {entries.map((entry) => {
+                  const trail = timelineTrail(entry);
+                  return (
                   <div
                     key={entry.id}
                     className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
@@ -415,7 +414,15 @@ export default function Timeline() {
                             to={workstreamPath({ id: entry.workstreamId, number: entry.workstreamNumber })}
                             className="font-medium text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400"
                           >
-                            {timelineTitle(entry)}
+                            {trail.map((stream, index) => (
+                              <span key={`${stream.id ?? stream.number}-${index}`}>
+                                {index > 0 && <span className="mx-1 text-gray-400 dark:text-gray-500">›</span>}
+                                <WorkstreamReferenceContent workstream={stream} />
+                              </span>
+                            ))}
+                            {entry.eventType === 'status_update' && entry.statusUpdateNumber !== undefined && (
+                              <span><span className="mx-1 text-gray-400 dark:text-gray-500">›</span>update #{entry.statusUpdateNumber}</span>
+                            )}
                           </Link>
                           <time className="text-xs text-gray-500 dark:text-gray-400">
                             {format(parseISO(entry.createdAt), 'h:mm a')}
@@ -427,7 +434,7 @@ export default function Timeline() {
                       </div>
                     </div>
                   </div>
-                ))}
+                );})}
               </div>
             </div>
           ))}

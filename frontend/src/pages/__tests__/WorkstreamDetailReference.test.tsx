@@ -208,11 +208,11 @@ describe('WorkstreamDetail reference redesign', () => {
     await screen.findByTestId('workstream-detail-shell');
 
     expect(screen.queryByText('Stream #28')).not.toBeInTheDocument();
-    expect(screen.getByText('#3')).toHaveAttribute('href', '/workstreams/3');
-    expect(screen.getAllByText('#8')[0]).toHaveAttribute('href', '/workstreams/8');
-    expect(screen.getByText(/update #42 from sub-stream #29 run CoE/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '#3 Platform Ops' })).toHaveAttribute('href', '/workstreams/3');
+    expect(screen.getAllByRole('link', { name: '#8 Reliability' })[0]).toHaveAttribute('href', '/workstreams/8');
+    expect(screen.getByText(/update #42 from sub-stream$/)).toBeInTheDocument();
     expect(screen.getByText(/self update #41/)).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: '#29' })[0]).toHaveAttribute('href', '/workstreams/29');
+    expect(screen.getAllByRole('link', { name: '#29 run CoE' })[0]).toHaveAttribute('href', '/workstreams/29');
   });
 
   it('does not expose Add Update when the stream is closed', async () => {

@@ -1,7 +1,10 @@
-import { Link } from 'react-router-dom';
+import { Link, useInRouterContext } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import type { WorkstreamRef } from '../../utils/workstreamReference';
 import { workstreamId, workstreamName, workstreamPath, workstreamReferenceText } from '../../utils/workstreamReference';
+
+const defaultReferenceClassName = 'text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200';
+const defaultNumberClassName = 'font-semibold underline underline-offset-2';
 
 export { workstreamId, workstreamName, workstreamPath, workstreamReferenceText };
 
@@ -10,33 +13,47 @@ export function WorkstreamNumber({ workstream, className = '' }: { workstream: W
   return <span className={className}>#{workstream.number}</span>;
 }
 
+export function WorkstreamReferenceContent({
+  workstream,
+  children,
+  numberClassName = defaultNumberClassName,
+}: {
+  workstream: WorkstreamRef;
+  children?: ReactNode;
+  numberClassName?: string;
+}) {
+  const label = children ?? workstreamName(workstream);
+  if (workstream.number === undefined) return <>{label}</>;
+  return <><span className={numberClassName}>#{workstream.number}</span> {label}</>;
+}
+
 export function WorkstreamLink({
   workstream,
   children,
-  className = '',
-  numberClassName = '',
+  className = defaultReferenceClassName,
+  numberClassName = defaultNumberClassName,
 }: {
   workstream: WorkstreamRef;
   children?: ReactNode;
   className?: string;
   numberClassName?: string;
 }) {
+  const inRouter = useInRouterContext();
+  const href = workstreamPath(workstream);
+  const content = <WorkstreamReferenceContent workstream={workstream} numberClassName={numberClassName}>{children}</WorkstreamReferenceContent>;
+  if (!inRouter) return <a href={href} className={className} title={workstreamName(workstream)}>{content}</a>;
+
   return (
-    <span className={className}>
-      {workstream.number !== undefined ? (
-        <Link to={workstreamPath(workstream)} className={numberClassName || 'font-semibold text-primary-700 underline underline-offset-2 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200'}>#{workstream.number}</Link>
-      ) : (
-        <Link to={workstreamPath(workstream)}>{children ?? workstreamName(workstream)}</Link>
-      )}
-      {workstream.number !== undefined && (children ?? <> {workstreamName(workstream)}</>)}
-    </span>
+    <Link to={href} className={className} title={workstreamName(workstream)}>
+      {content}
+    </Link>
   );
 }
 
 export function WorkstreamTitle({ workstream, className = '', numberClassName = '' }: { workstream: WorkstreamRef; className?: string; numberClassName?: string }) {
   return (
     <span className={className}>
-      {workstream.number !== undefined && <span className={numberClassName}>#{workstream.number}</span>}{workstream.number !== undefined ? ' ' : ''}{workstreamName(workstream)}
+      <WorkstreamReferenceContent workstream={workstream} numberClassName={numberClassName} />
     </span>
   );
 }
