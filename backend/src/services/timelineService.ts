@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { extractTags } from '../utils/tagExtractor';
-import { getBreadcrumbForWorkstream } from './workstreamService';
+import { getBreadcrumbForWorkstream, resolveWorkstreamId } from './workstreamService';
 
 const prisma = new PrismaClient();
 
@@ -11,15 +11,18 @@ export interface TimelineEntry {
   id: string;
   eventType: TimelineEventType;
   workstreamId: string;
+  workstreamNumber?: number;
   workstreamName: string;
+  statusUpdateNumber?: number;
   status?: string;
   note?: string | null;
   createdAt: Date;
   updatedAt?: Date;
   category?: { id: string; name: string; color: string } | null;
   parentId?: string | null;
+  parentNumber?: number | null;
   parentName?: string | null;
-  parentStreams?: { id: string; name: string; workstreamName?: string }[];
+  parentStreams?: { id: string; number?: number; name: string; workstreamName?: string }[];
   parentStreamPath?: string;
   breadcrumb?: string;
   currentBreadcrumb?: string;
@@ -101,11 +104,12 @@ async function streamScopeWorkstreamIdFilter(filters: TimelineFilters): Promise<
   if (scope === 'top-level') return rows.filter(row => row.parentId === null).map(row => row.id);
   if (scope === 'sub-streams') return rows.filter(row => row.parentId !== null).map(row => row.id);
   if (!filters.parentId) return [];
-  if (!rows.some(row => row.id === filters.parentId)) return [];
-  if (!filters.includeSubstreams) return [filters.parentId];
+  const resolvedParentId = await resolveWorkstreamId(filters.parentId, filters.projectId);
+  if (!resolvedParentId || !rows.some(row => row.id === resolvedParentId)) return [];
+  if (!filters.includeSubstreams) return [resolvedParentId];
   const substreamsByParent = new Map<string | null, { id: string }[]>();
   for (const row of rows) substreamsByParent.set(row.parentId, [...(substreamsByParent.get(row.parentId) ?? []), row]);
-  return [filters.parentId, ...collectSubstreamIds(filters.parentId, substreamsByParent, 5)];
+  return [resolvedParentId, ...collectSubstreamIds(resolvedParentId, substreamsByParent, 5)];
 }
 
 function dateWhere(filters: TimelineFilters) {
@@ -147,6 +151,7 @@ async function parentStreamMeta(projectId: string, workstreamId: string) {
   const parentStreamPath = breadcrumb.map(item => item.name).join(' > ');
   return {
     parentId: self?.parentId ?? null,
+    parentNumber: parent?.number ?? null,
     parentName: parent?.name ?? null,
     parentStreams,
     parentStreamPath,
@@ -178,6 +183,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelinePag
         include: {
           workstream: {
             select: {
+              number: true,
               name: true,
               context: true,
               parentId: true,
@@ -191,7 +197,9 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelinePag
           id: `status-${update.id}`,
           eventType: 'status_update',
           workstreamId: update.workstreamId,
+          workstreamNumber: update.workstream.number,
           workstreamName: update.workstream.name,
+          statusUpdateNumber: update.number,
           status: update.status,
           note: update.note,
           createdAt: update.createdAt,
@@ -210,10 +218,10 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelinePag
         where,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: sourceTake,
-        select: { id: true, name: true, context: true, createdAt: true, category: { select: { id: true, name: true, color: true, emoji: true } } },
+        select: { id: true, number: true, name: true, context: true, createdAt: true, category: { select: { id: true, name: true, color: true, emoji: true } } },
       });
       for (const workstream of workstreamsCreated) {
-        timeline.push({ id: `created-${workstream.id}`, eventType: 'workstream_created', workstreamId: workstream.id, workstreamName: workstream.name, createdAt: workstream.createdAt, category: workstream.category, workstreamContext: workstream.context, ...(await parentStreamMeta(filters.projectId, workstream.id)) });
+        timeline.push({ id: `created-${workstream.id}`, eventType: 'workstream_created', workstreamId: workstream.id, workstreamNumber: workstream.number, workstreamName: workstream.name, createdAt: workstream.createdAt, category: workstream.category, workstreamContext: workstream.context, ...(await parentStreamMeta(filters.projectId, workstream.id)) });
       }
     }
 
@@ -224,17 +232,17 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelinePag
         where,
         orderBy: [{ closedAt: 'desc' }, { id: 'desc' }],
         take: sourceTake,
-        select: { id: true, name: true, context: true, closedAt: true, category: { select: { id: true, name: true, color: true, emoji: true } } },
+        select: { id: true, number: true, name: true, context: true, closedAt: true, category: { select: { id: true, name: true, color: true, emoji: true } } },
       });
       for (const workstream of workstreamsClosed) {
-        timeline.push({ id: `closed-${workstream.id}`, eventType: 'workstream_closed', workstreamId: workstream.id, workstreamName: workstream.name, createdAt: workstream.closedAt!, category: workstream.category, workstreamContext: workstream.context, ...(await parentStreamMeta(filters.projectId, workstream.id)) });
+        timeline.push({ id: `closed-${workstream.id}`, eventType: 'workstream_closed', workstreamId: workstream.id, workstreamNumber: workstream.number, workstreamName: workstream.name, createdAt: workstream.closedAt!, category: workstream.category, workstreamContext: workstream.context, ...(await parentStreamMeta(filters.projectId, workstream.id)) });
       }
     }
 
     if (requested.has('parent_changed') || requested.has('sub_stream_created')) {
       const eventWhere: any = { eventType: { in: Array.from(requested).filter(type => type === 'parent_changed' || type === 'sub_stream_created') }, workstream: workstreamWhereClause };
       applyDateCursorWhere(eventWhere, 'createdAt', 'event-', filters, cursor);
-      const workstreamEvents = await prisma.workstreamEvent.findMany({ where: eventWhere, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: sourceTake, include: { workstream: { select: { id: true, name: true, context: true, category: { select: { id: true, name: true, color: true, emoji: true } } } } } });
+      const workstreamEvents = await prisma.workstreamEvent.findMany({ where: eventWhere, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: sourceTake, include: { workstream: { select: { id: true, number: true, name: true, context: true, category: { select: { id: true, name: true, color: true, emoji: true } } } } } });
       for (const event of workstreamEvents) {
         const metadata = event.metadata as any;
         const meta = await parentStreamMeta(filters.projectId, event.workstreamId);
@@ -246,11 +254,13 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelinePag
           id: `event-${event.id}`,
           eventType: event.eventType,
           workstreamId: event.workstreamId,
+          workstreamNumber: event.workstream.number,
           workstreamName: event.workstream.name,
           createdAt: event.createdAt,
           category: event.workstream.category,
           workstreamContext: event.workstream.context,
           parentId: meta.parentId,
+          parentNumber: meta.parentNumber,
           parentName: meta.parentName,
           parentStreamPath: eventBreadcrumb,
           breadcrumb: eventBreadcrumb,

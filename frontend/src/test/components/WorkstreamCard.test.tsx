@@ -102,16 +102,14 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.getByTestId('workstream-category-icon').className).not.toContain('row-start');
     expect(screen.getByTestId('workstream-category-icon').className).not.toContain('mt-4');
 
-    const titleLink = screen.getByRole('link', { name: /English learning plan/ });
-    expect(titleLink).toHaveAttribute('href', '/workstreams/stream-1');
-    expect(titleLink.closest('article')).not.toHaveClass('gap-x-3');
+    expect(screen.getByRole('heading', { name: 'English learning plan' }).closest('article')).not.toHaveClass('gap-x-3');
     expect(screen.getByRole('heading', { name: 'English learning plan' })).toHaveClass('text-base', 'font-semibold');
     expect(screen.getByText('Latest work happened in sub-stream: weekly lessons are moving.')).toHaveClass('text-sm');
-    expect(screen.getByText('Parent: Goals')).toBeInTheDocument();
-    const parentLink = screen.getByText('Parent: Goals').closest('a');
+    expect(screen.getByText(/Parent:/)).toHaveTextContent('Parent: Goals');
+    const parentLink = screen.getByText(/Parent:/).closest('a');
     expect(parentLink).toHaveClass('min-w-0', 'overflow-hidden', 'pr-36');
     expect(parentLink).not.toHaveClass('pr-4');
-    expect(screen.getByText('Parent: Goals')).toHaveClass('truncate');
+    expect(screen.getByText(/Parent:/)).toHaveClass('truncate');
     expect(screen.getByRole('button', { name: 'Log status' })).toHaveClass('absolute', 'right-2', 'top-2');
     expect(screen.getByRole('button', { name: 'Log status' }).className).not.toContain('row-start');
     expect(screen.getByText(/Self:/)).toBeInTheDocument();
@@ -130,14 +128,25 @@ describe('WorkstreamCard tile layout', () => {
 
     const substreamPill = screen.getByText(/Sub-stream:/).parentElement;
     expect(substreamPill).toHaveClass('min-w-0', 'flex-1', 'overflow-hidden');
-    expect(screen.getByText('Schedule 11 English classes')).toHaveClass('min-w-0', 'flex-1', 'truncate');
-    expect(screen.getByText('Schedule 11 English classes')).toHaveAttribute('title', 'Schedule 11 English classes');
+    const sourceLink = screen.getByRole('link', { name: 'Schedule 11 English classes' });
+    expect(sourceLink).toHaveClass('min-w-0', 'flex-1', 'truncate');
+    expect(sourceLink).toHaveAttribute('title', 'Schedule 11 English classes');
 
     const substreamCountRow = screen.getByText('2 active / 1 closed sub-streams').parentElement;
     expect(substreamCountRow).toHaveClass('row-start-5', 'pt-2');
     expect(substreamCountRow).not.toBe(activityRow);
 
     expect(screen.getByTestId('workstream-tags')).toHaveClass('row-start-6');
+  });
+
+  it('shows public stream numbers and links with them when available', () => {
+    renderCard(baseWorkstream({ number: 28, parent: { id: 'parent-1', number: 7, name: 'Goals', state: 'active' } }));
+
+    expect(screen.queryByText('Stream #28')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '#28 English learning plan' })).toHaveAttribute('href', '/workstreams/28');
+    expect(screen.getByRole('heading', { name: /#28\s+English learning plan/ })).toBeInTheDocument();
+    expect(screen.getByText(/Parent:/)).toHaveTextContent('Parent: #7 Goals');
+    expect(screen.getByText(/Parent:/).closest('a')).toHaveAttribute('href', '/workstreams/7');
   });
 
   it('does not render or reserve a tags region when the workstream has no tags', () => {
@@ -150,7 +159,7 @@ describe('WorkstreamCard tile layout', () => {
   it('stretches the tile to the grid row height while keeping content compact at the top', () => {
     renderCard(baseWorkstream());
 
-    const card = screen.getByRole('heading', { name: 'English learning plan' }).closest('article');
+    const card = screen.getByRole('heading', { name: /English learning plan/ }).closest('article');
     expect(card).toHaveClass('h-full', 'content-start');
     expect(card).not.toHaveClass('content-between', 'gap-y-4', 'gap-y-5', 'gap-y-6');
   });

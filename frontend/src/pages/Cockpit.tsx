@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useWorkstreams } from '../hooks/useWorkstreams';
 import { useCategories } from '../hooks/useCategories';
 import { useViewManager } from '../hooks/useViewManager';
@@ -12,6 +12,7 @@ import { ViewCreateDialog } from '../components/ViewManagement/ViewCreateDialog'
 import { Workstream } from '../types/workstream';
 import { getHierarchyTimestamp, groupWorkstreamsByParent } from '../utils/hierarchy';
 import { applyCockpitSearchToConfig, resolveEntityParam, serializeCockpitConfigSearch, viewUrlValue } from '../utils/urlState';
+import { WorkstreamLink } from '../components/Workstream/WorkstreamReference';
 
 function softCategoryColor(color?: string | null) {
   if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) return '#c5dae4';
@@ -45,6 +46,22 @@ export default function Cockpit() {
     renameView,
   } = useViewManager();
 
+  // Keep an unfiltered reference list so URL state can resolve and serialize public stream numbers
+  // even when the visible list is scoped under parent streams and excludes those parents.
+  const { data: referenceWorkstreams } = useWorkstreams({ state: 'active' });
+
+  // Fetch workstreams with current filter config
+  const { data: workstreams, isLoading, error } = useWorkstreams({
+    state: 'active',
+    tags: currentConfig.filters.tags.length > 0 ? currentConfig.filters.tags : undefined,
+    categoryIds: currentConfig.filters.categoryIds.length > 0 ? currentConfig.filters.categoryIds : undefined,
+    notUpdatedToday: currentConfig.filters.temporal.notUpdatedToday,
+    hierarchy: currentConfig.filters.hierarchy.mode,
+    parentId: currentConfig.filters.hierarchy.parentId,
+    parentIds: currentConfig.filters.hierarchy.parentIds,
+    includeSubstreams: currentConfig.filters.hierarchy.includeSubstreams,
+  });
+
   // Apply URL view selection and filter overrides, then canonicalize the URL to the actual screen state.
   useEffect(() => {
     if (views.length === 0) return;
@@ -58,13 +75,14 @@ export default function Cockpit() {
       views[0];
     if (!view) return;
 
-    const nextConfig = applyCockpitSearchToConfig(view.config, searchParams, { categories });
+    const urlWorkstreams = referenceWorkstreams ?? workstreams;
+    const nextConfig = applyCockpitSearchToConfig(view.config, searchParams, { categories, workstreams: urlWorkstreams });
     const validUrlView = Boolean(resolvedViewId);
     const canonicalParams = serializeCockpitConfigSearch(
       validUrlView ? view.id : null,
       nextConfig,
       view.config,
-      { viewValue: validUrlView ? viewUrlValue(view) : null, categories }
+      { viewValue: validUrlView ? viewUrlValue(view) : null, categories, workstreams: urlWorkstreams }
     );
 
     if (canonicalParams.toString() !== searchParams.toString()) {
@@ -72,7 +90,7 @@ export default function Cockpit() {
     }
     if (view.id !== activeViewId) switchView(view.id);
     setCurrentConfig(nextConfig);
-  }, [views, activeViewId, searchParams, setSearchParams, switchView, setCurrentConfig, categories, categoriesLoading]);
+  }, [views, activeViewId, searchParams, setSearchParams, switchView, setCurrentConfig, categories, categoriesLoading, workstreams, referenceWorkstreams]);
 
   const activeView = views.find((view) => view.id === activeViewId);
 
@@ -99,7 +117,7 @@ export default function Cockpit() {
 
   const handleConfigChange = (nextConfig: typeof currentConfig) => {
     setCurrentConfig(nextConfig);
-    setSearchParams(serializeCockpitConfigSearch(activeViewId, nextConfig, activeView?.config, { viewValue: viewUrlValue(activeView), categories }), { replace: true });
+    setSearchParams(serializeCockpitConfigSearch(activeViewId, nextConfig, activeView?.config, { viewValue: viewUrlValue(activeView), categories, workstreams: referenceWorkstreams ?? workstreams }), { replace: true });
   };
 
   const handleSaveCurrentView = async () => {
@@ -121,18 +139,6 @@ export default function Cockpit() {
       setSearchParams(params, { replace: true });
     }
   };
-
-  // Fetch workstreams with current filter config
-  const { data: workstreams, isLoading, error } = useWorkstreams({
-    state: 'active',
-    tags: currentConfig.filters.tags.length > 0 ? currentConfig.filters.tags : undefined,
-    categoryIds: currentConfig.filters.categoryIds.length > 0 ? currentConfig.filters.categoryIds : undefined,
-    notUpdatedToday: currentConfig.filters.temporal.notUpdatedToday,
-    hierarchy: currentConfig.filters.hierarchy.mode,
-    parentId: currentConfig.filters.hierarchy.parentId,
-    parentIds: currentConfig.filters.hierarchy.parentIds,
-    includeSubstreams: currentConfig.filters.hierarchy.includeSubstreams,
-  });
 
   // Helper function to get sort comparator
   const getSortComparator = (sortField: typeof currentConfig.sort.field, sortDir: typeof currentConfig.sort.direction) => {
@@ -273,12 +279,10 @@ export default function Cockpit() {
                       </div>
                       <h2 className="text-xl font-bold leading-none text-gray-900 dark:text-gray-100">
                         {currentConfig.group.by === 'parent' && group.parent ? (
-                          <Link
-                            to={`/workstreams/${group.parent.id}`}
+                          <WorkstreamLink
+                            workstream={group.parent}
                             className="hover:text-primary-600 dark:hover:text-primary-400"
-                          >
-                            {group.name}
-                          </Link>
+                          />
                         ) : (
                           group.name || (currentConfig.group.by === 'category' ? 'Untagged' : 'Top level / no parent')
                         )}

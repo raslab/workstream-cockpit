@@ -3,6 +3,7 @@ import { useWorkstreams } from '../hooks/useWorkstreams';
 import { WorkstreamSkeleton } from '../components/Workstream/WorkstreamSkeleton';
 import { apiClient } from '../api/client';
 import { format, parseISO } from 'date-fns';
+import { WorkstreamLink } from '../components/Workstream/WorkstreamReference';
 
 export default function Archive() {
   const { data: workstreams, isLoading, error } = useWorkstreams({ state: 'closed' });
@@ -70,7 +71,7 @@ export default function Archive() {
                       </div>
                     )}
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {workstream.name}
+                      <WorkstreamLink workstream={workstream} />
                     </h3>
                   </div>
 

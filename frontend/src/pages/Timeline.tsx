@@ -6,11 +6,18 @@ import { useCategories } from '../hooks/useCategories';
 import { FilterBar } from '../components/Timeline/FilterBar';
 import { Link, useSearchParams } from 'react-router-dom';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
-import { getWorkstreamName } from '../utils/hierarchy';
+import { WorkstreamLink, WorkstreamReferenceContent, workstreamPath, workstreamReferenceText } from '../components/Workstream/WorkstreamReference';
 import { SelectMenu } from '../components/UI/SelectMenu';
 import { ExportButton } from '../components/Timeline/ExportButton';
 import { DateRangeQuickPreset } from '../components/Timeline/DateRangeFilter';
 import { dateToUrlDate, parseTimelineSearch, serializeTimelineSearch, TimelineUrlState, urlDateToDate } from '../utils/urlState';
+
+function timelineTrail(entry: TimelineEntry) {
+  return [...(entry.parentStreams || []), entry].map((stream) => {
+    const ref = stream as { id?: string; number?: number; name?: string; workstreamId?: string; workstreamNumber?: number; workstreamName?: string };
+    return { id: ref.workstreamId || ref.id, number: ref.workstreamNumber ?? ref.number, name: ref.workstreamName || ref.name };
+  });
+}
 
 export default function Timeline() {
   const getQuickDateRange = (preset: DateRangeQuickPreset) => {
@@ -41,7 +48,8 @@ export default function Timeline() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: categories = [] } = useCategories();
-  const urlState = useMemo(() => parseTimelineSearch(searchParams, { categories }), [searchParams, categories]);
+  const { data: workstreams = [] } = useWorkstreams({ state: 'active' });
+  const urlState = useMemo(() => parseTimelineSearch(searchParams, { categories, workstreams }), [searchParams, categories, workstreams]);
   const quickPreset = urlState.quickPreset as DateRangeQuickPreset | undefined;
   const quickRange = quickPreset ? getQuickDateRange(quickPreset) : undefined;
   const selectedCategoryIds = urlState.categoryIds;
@@ -62,7 +70,7 @@ export default function Timeline() {
   };
 
   const writeTimelineSearch = (patch: Partial<TimelineUrlState>) => {
-    setSearchParams(serializeTimelineSearch({ ...urlState, ...patch }, { categories }), { replace: true });
+    setSearchParams(serializeTimelineSearch({ ...urlState, ...patch }, { categories, workstreams }), { replace: true });
     resetPagination();
   };
 
@@ -86,8 +94,6 @@ export default function Timeline() {
   const handleCustomEndDateChange = (date: Date | undefined) => {
     writeTimelineSearch({ quickPreset: undefined, startDate: dateToUrlDate(customStartDate), endDate: dateToUrlDate(date) });
   };
-
-  const { data: workstreams = [] } = useWorkstreams({ state: 'active' });
 
   const { data: timelineResponse, isLoading, error } = useTimeline({
     startDate: customStartDate,
@@ -227,7 +233,7 @@ export default function Timeline() {
               Sub-stream created
             </span>
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              Created under {entry.parent ? getWorkstreamName(entry.parent) : entry.parentName || entry.newParentName || entry.metadata?.newParentName || 'parent stream'}
+              Created under {entry.parent ? <WorkstreamLink workstream={entry.parent} /> : entry.parentName || entry.newParentName || entry.metadata?.newParentName || 'parent stream'}
             </span>
           </div>
         );
@@ -306,7 +312,7 @@ export default function Timeline() {
                 buttonClassName="min-w-64"
                 options={[
                   { value: '', label: 'Select a parent' },
-                  ...workstreams.map((stream) => ({ value: stream.id, label: getWorkstreamName(stream) })),
+                  ...workstreams.map((stream) => ({ value: String(stream.number ?? stream.id), label: workstreamReferenceText(stream) })),
                 ]}
               />
             </div>
@@ -385,7 +391,9 @@ export default function Timeline() {
                 {formatDateHeader(date)}
               </h3>
               <div className="space-y-3">
-                {entries.map((entry) => (
+                {entries.map((entry) => {
+                  const trail = timelineTrail(entry);
+                  return (
                   <div
                     key={entry.id}
                     className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
@@ -403,52 +411,30 @@ export default function Timeline() {
                       <div className="flex-1">
                         <div className="flex items-baseline justify-between gap-2">
                           <Link
-                            to={`/workstreams/${entry.workstreamId}`}
+                            to={workstreamPath({ id: entry.workstreamId, number: entry.workstreamNumber })}
                             className="font-medium text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400"
                           >
-                            {entry.workstreamName}
+                            {trail.map((stream, index) => (
+                              <span key={`${stream.id ?? stream.number}-${index}`}>
+                                {index > 0 && <span className="mx-1 text-gray-400 dark:text-gray-500">›</span>}
+                                <WorkstreamReferenceContent workstream={stream} />
+                              </span>
+                            ))}
+                            {entry.eventType === 'status_update' && entry.statusUpdateNumber !== undefined && (
+                              <span><span className="mx-1 text-gray-400 dark:text-gray-500">›</span>update #{entry.statusUpdateNumber}</span>
+                            )}
                           </Link>
                           <time className="text-xs text-gray-500 dark:text-gray-400">
                             {format(parseISO(entry.createdAt), 'h:mm a')}
                           </time>
                         </div>
-                        {((entry.parentStreams)?.length || entry.parent || entry.parentName || entry.parentStreamPath || entry.breadcrumb) && (
-                          <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                            {entry.parentStreamPath || entry.breadcrumb ? (
-                              <span>{entry.parentStreamPath || entry.breadcrumb}</span>
-                            ) : (
-                              <>
-                                {(entry.parentStreams || []).map((parentStream) => (
-                                  <span key={parentStream.id} className="inline-flex items-center gap-1">
-                                    <Link to={`/workstreams/${parentStream.id}`} className="hover:text-primary-600 dark:hover:text-primary-400">{getWorkstreamName(parentStream)}</Link>
-                                    <span aria-hidden="true">›</span>
-                                  </span>
-                                ))}
-                                {entry.parent ? (
-                                  !(entry.parentStreams)?.some((parentStream) => parentStream.id === entry.parent?.id) && (
-                                    <span className="inline-flex items-center gap-1">
-                                      <Link to={`/workstreams/${entry.parent.id}`} className="hover:text-primary-600 dark:hover:text-primary-400">{getWorkstreamName(entry.parent)}</Link>
-                                      <span aria-hidden="true">›</span>
-                                    </span>
-                                  )
-                                ) : entry.parentName ? (
-                                  <span className="inline-flex items-center gap-1">
-                                    <span>{entry.parentName}</span>
-                                    <span aria-hidden="true">›</span>
-                                  </span>
-                                ) : null}
-                                <span>{entry.workstreamName}</span>
-                              </>
-                            )}
-                          </div>
-                        )}
                         <div className="mt-1">
                           {renderEventContent(entry)}
                         </div>
                       </div>
                     </div>
                   </div>
-                ))}
+                );})}
               </div>
             </div>
           ))}
@@ -459,3 +445,4 @@ export default function Timeline() {
     </div>
   );
 }
+

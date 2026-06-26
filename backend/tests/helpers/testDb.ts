@@ -8,6 +8,20 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env.test') });
 ensureDatabaseUrl();
 
 const prisma = new PrismaClient();
+const nextWorkstreamNumberByProject = new Map<string, number>();
+const nextStatusUpdateNumberByProject = new Map<string, number>();
+
+function reserveWorkstreamNumber(projectId: string, explicitNumber?: number): number {
+  const next = explicitNumber ?? nextWorkstreamNumberByProject.get(projectId) ?? 1;
+  nextWorkstreamNumberByProject.set(projectId, Math.max(nextWorkstreamNumberByProject.get(projectId) ?? 1, next + 1));
+  return next;
+}
+
+function reserveStatusUpdateNumber(projectId: string, explicitNumber?: number): number {
+  const next = explicitNumber ?? nextStatusUpdateNumberByProject.get(projectId) ?? 1000;
+  nextStatusUpdateNumberByProject.set(projectId, Math.max(nextStatusUpdateNumberByProject.get(projectId) ?? 1000, next + 1));
+  return next;
+}
 
 function quotePostgresIdentifier(identifier: string): string {
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(identifier)) {
@@ -80,6 +94,8 @@ export async function setupTestDatabase(): Promise<void> {
  * Clean database before each test
  */
 export async function cleanDatabase(): Promise<void> {
+  nextWorkstreamNumberByProject.clear();
+  nextStatusUpdateNumberByProject.clear();
   const tables = [
     'personal_access_tokens',
     'views',
@@ -173,15 +189,18 @@ export async function createTestWorkstream(
   projectId: string,
   data?: {
     name?: string;
+    number?: number;
     categoryId?: string;
     parentId?: string | null;
     context?: string;
     state?: string;
   },
 ) {
-  return prisma.workstream.create({
+  const number = reserveWorkstreamNumber(projectId, data?.number);
+  const workstream = await prisma.workstream.create({
     data: {
       projectId,
+      number,
       name: data?.name || 'Test Workstream',
       categoryId: data?.categoryId,
       parentId: data?.parentId,
@@ -189,6 +208,8 @@ export async function createTestWorkstream(
       state: data?.state || 'active',
     },
   });
+  await prisma.project.update({ where: { id: projectId }, data: { nextWorkstreamNumber: nextWorkstreamNumberByProject.get(projectId) ?? number + 1 } });
+  return workstream;
 }
 
 /**
@@ -196,15 +217,21 @@ export async function createTestWorkstream(
  */
 export async function createTestStatusUpdate(
   workstreamId: string,
-  data?: { status?: string; note?: string },
+  data?: { status?: string; note?: string; number?: number },
 ) {
-  return prisma.statusUpdate.create({
+  const workstream = await prisma.workstream.findUniqueOrThrow({ where: { id: workstreamId }, select: { projectId: true } });
+  const number = reserveStatusUpdateNumber(workstream.projectId, data?.number);
+  const statusUpdate = await prisma.statusUpdate.create({
     data: {
+      projectId: workstream.projectId,
+      number,
       workstreamId,
       status: data?.status || 'Test status update',
       note: data?.note,
     },
   });
+  await prisma.project.update({ where: { id: workstream.projectId }, data: { nextStatusUpdateNumber: nextStatusUpdateNumberByProject.get(workstream.projectId) ?? number + 1 } });
+  return statusUpdate;
 }
 
 export { prisma };

@@ -5,6 +5,7 @@ import { useCategories } from '../../hooks/useCategories';
 import { TagAutocomplete } from '../Tag/TagAutocomplete';
 import type { WorkstreamSummary } from '../../types/workstream';
 import { CLOSED_PARENT_SUBSTREAM_MESSAGE, hierarchyErrorMessage } from '../../utils/hierarchy';
+import { WorkstreamLink } from './WorkstreamReference';
 import { SelectMenu } from '../UI/SelectMenu';
 import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
 
@@ -94,7 +95,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
         <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">{parent ? 'Create Sub-stream' : 'Create New Workstream'}</h2>
         {parent && (
           <div className="mb-4 rounded-md border border-primary-200 bg-primary-50 p-3 text-sm text-primary-900 dark:border-primary-500 dark:bg-primary-900/40 dark:text-primary-50">
-            Parent: <span className="font-medium">{parent.name}</span>
+            Parent: <WorkstreamLink workstream={parent} className="font-medium text-primary-700 hover:text-primary-800 dark:text-primary-200 dark:hover:text-primary-100" />
           </div>
         )}
 

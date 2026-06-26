@@ -3,7 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useWorkstreams } from '../../hooks/useWorkstreams';
 import type { Workstream } from '../../types/workstream';
-import { getBreadcrumbLabel, getWorkstreamName, hierarchyErrorMessage, isObviousSubstream } from '../../utils/hierarchy';
+import { getBreadcrumbLabel, hierarchyErrorMessage, isObviousSubstream } from '../../utils/hierarchy';
+import { WorkstreamLink } from './WorkstreamReference';
 
 function normalizeSearch(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -71,8 +72,6 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
 
     return candidates.filter((candidate) => fuzzyMatch(getBreadcrumbLabel(candidate), query));
   }, [candidates, parentSearch]);
-  const currentParentName = getWorkstreamName(workstream.parent || null);
-  const nextParentName = parentId ? getWorkstreamName(selectedParent) : 'Top level / no parent';
   const hasChange = parentId !== (workstream.parentId || '');
 
   if (!isOpen) return null;
@@ -133,8 +132,8 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
         {hasChange && (
           <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
             <div className="font-medium">Preview parent stream change</div>
-            <div className="mt-1">Current parent: {workstream.parentId ? currentParentName : 'Top level / no parent'}</div>
-            <div>New parent: {nextParentName}</div>
+            <div className="mt-1">Current parent: {workstream.parent ? <WorkstreamLink workstream={workstream.parent} /> : 'Top level / no parent'}</div>
+            <div>New parent: {selectedParent ? <WorkstreamLink workstream={selectedParent} /> : 'Top level / no parent'}</div>
             {!parentId && <div className="mt-1">This will detach the stream and make it top-level.</div>}
           </div>
         )}

@@ -4,6 +4,7 @@ import { useCategories } from '../../hooks/useCategories';
 import { useTags } from '../../api/tags';
 import { useWorkstreams } from '../../hooks/useWorkstreams';
 import { getWorkstreamName } from '../../utils/hierarchy';
+import { workstreamReferenceText } from '../../utils/workstreamReference';
 
 interface FilterPanelProps {
   filters: FilterConfig;
@@ -371,7 +372,7 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
                       onClick={() => toggleParent(parent.id)}
                       className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700 hover:bg-primary-100 dark:bg-primary-950 dark:text-primary-200 dark:hover:bg-primary-900"
                     >
-                      {getWorkstreamName(parent)} ×
+                <span>{workstreamReferenceText(parent)} ×</span>
                     </button>
                   ))}
                 </div>
@@ -391,7 +392,7 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
                         onChange={() => toggleParent(parent.id)}
                         className="h-4 w-4 rounded border-gray-300 text-primary-600 accent-primary-600 focus:ring-primary-500 dark:border-gray-500 dark:bg-gray-900 dark:text-primary-400 dark:accent-primary-400"
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{getWorkstreamName(parent)}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{workstreamReferenceText(parent)}</span>
                     </label>
                   ))
                 )}

@@ -1,6 +1,6 @@
 import type { TimelineEventType } from '../hooks/useTimeline';
 import type { HierarchyFilter, SortConfig, ViewConfig } from '../types/view';
-import type { Category } from '../types/workstream';
+import type { Category, Workstream } from '../types/workstream';
 
 const hierarchyModes = new Set<HierarchyFilter>(['all', 'top-level', 'sub-streams', 'no-parent', 'has-substreams', 'under-parent']);
 const timelineScopes = new Set(['all', 'top-level', 'sub-streams', 'under-parent'] as const);
@@ -79,6 +79,30 @@ function setCategoryListIfDifferent(params: URLSearchParams, current: string[], 
   }
 }
 
+function resolveWorkstreamValues(values: string[], workstreams: Workstream[] = []): string[] {
+  const candidates = workstreamReferenceCandidates(workstreams);
+
+  return values
+    .map((value) => candidates.find((workstream) => workstream.id === value || String(workstream.number) === value)?.id ?? value)
+    .filter(Boolean);
+}
+
+function workstreamSearchValue(parentIds: string[], workstreams: Workstream[] = []): string {
+  const candidates = workstreamReferenceCandidates(workstreams);
+  return stableList(parentIds.map((id) => {
+    const workstream = candidates.find((candidate) => candidate.id === id);
+    return workstream?.number !== undefined ? String(workstream.number) : id;
+  }));
+}
+
+function workstreamReferenceCandidates(workstreams: Workstream[] = []) {
+  return workstreams.flatMap((workstream) => [
+    workstream,
+    ...(workstream.parent ? [workstream.parent] : []),
+    ...(workstream.parentStreams ?? []),
+  ]);
+}
+
 export function viewUrlValue(view: Pick<ViewConfig, 'id' | 'name'> | null | undefined): string | null {
   return view ? slugForEntity(view) : null;
 }
@@ -107,7 +131,7 @@ function setListIfDifferent(params: URLSearchParams, key: string, current: strin
 export function applyCockpitSearchToConfig(
   baseConfig: ViewConfig['config'],
   searchParams: URLSearchParams,
-  options: { categories?: Category[] } = {}
+  options: { categories?: Category[]; workstreams?: Workstream[] } = {}
 ): ViewConfig['config'] {
   const next: ViewConfig['config'] = structuredClone(baseConfig);
   const tags = splitList(searchParams.get('tags'));
@@ -116,7 +140,7 @@ export function applyCockpitSearchToConfig(
   const sort = searchParams.get('sort');
   const group = searchParams.get('group');
   const parentId = searchParams.get('parentId');
-  const parentIds = splitList(searchParams.get('parentIds'));
+  const parentIds = resolveWorkstreamValues(splitList(searchParams.get('parentIds')), options.workstreams);
 
   if (searchParams.has('tags')) next.filters.tags = tags;
   if (searchParams.has('categories') || searchParams.has('categoryIds')) next.filters.categoryIds = categoryIds;
@@ -127,8 +151,9 @@ export function applyCockpitSearchToConfig(
     next.filters.hierarchy.parentIds = parentIds;
     next.filters.hierarchy.parentId = parentIds[0] || null;
   } else if (searchParams.has('parentId')) {
-    next.filters.hierarchy.parentId = parentId || null;
-    next.filters.hierarchy.parentIds = parentId ? [parentId] : [];
+    const resolvedParentIds = resolveWorkstreamValues(parentId ? [parentId] : [], options.workstreams);
+    next.filters.hierarchy.parentId = resolvedParentIds[0] || parentId || null;
+    next.filters.hierarchy.parentIds = resolvedParentIds.length > 0 ? resolvedParentIds : (parentId ? [parentId] : []);
   }
 
   if (sort) {
@@ -149,7 +174,7 @@ export function serializeCockpitConfigSearch(
   viewId: string | null | undefined,
   currentConfig: ViewConfig['config'],
   baseConfig?: ViewConfig['config'],
-  options: { viewValue?: string | null; categories?: Category[] } = {}
+  options: { viewValue?: string | null; categories?: Category[]; workstreams?: Workstream[] } = {}
 ): URLSearchParams {
   const params = new URLSearchParams();
   const viewValue = options.viewValue ?? viewId;
@@ -175,7 +200,7 @@ export function serializeCockpitConfigSearch(
   const currentParentIds = currentConfig.filters.hierarchy.parentIds ?? (currentConfig.filters.hierarchy.parentId ? [currentConfig.filters.hierarchy.parentId] : []);
   const baseParentIds = base.filters.hierarchy.parentIds ?? (base.filters.hierarchy.parentId ? [base.filters.hierarchy.parentId] : []);
   if (stableList(currentParentIds) !== stableList(baseParentIds)) {
-    params.set('parentIds', stableList(currentParentIds));
+    params.set('parentIds', workstreamSearchValue(currentParentIds, options.workstreams));
   }
   if (currentConfig.filters.hierarchy.includeSubstreams !== base.filters.hierarchy.includeSubstreams) {
     params.set('includeSubstreams', booleanParam(currentConfig.filters.hierarchy.includeSubstreams));
@@ -201,7 +226,7 @@ export interface TimelineUrlState {
   activity: 'all' | TimelineEventType;
 }
 
-export function parseTimelineSearch(searchParams: URLSearchParams, options: { categories?: Category[] } = {}): TimelineUrlState {
+export function parseTimelineSearch(searchParams: URLSearchParams, options: { categories?: Category[]; workstreams?: Workstream[] } = {}): TimelineUrlState {
   const scope = searchParams.get('scope');
   const activity = searchParams.get('activity');
   const range = searchParams.get('range');
@@ -226,7 +251,7 @@ export function parseTimelineSearch(searchParams: URLSearchParams, options: { ca
   };
 }
 
-export function serializeTimelineSearch(state: TimelineUrlState, options: { categories?: Category[] } = {}): URLSearchParams {
+export function serializeTimelineSearch(state: TimelineUrlState, options: { categories?: Category[]; workstreams?: Workstream[] } = {}): URLSearchParams {
   const params = new URLSearchParams();
   if (state.tags.length > 0) params.set('tags', stableList(state.tags));
   if (state.categoryIds.length > 0) params.set('categories', categorySearchValue(state.categoryIds, options.categories));
@@ -237,7 +262,7 @@ export function serializeTimelineSearch(state: TimelineUrlState, options: { cate
     if (state.endDate) params.set('endDate', state.endDate);
   }
   if (state.streamScope !== 'all') params.set('scope', state.streamScope);
-  if (state.streamScope === 'under-parent' && state.parentId) params.set('parentId', state.parentId);
+  if (state.streamScope === 'under-parent' && state.parentId) params.set('parentId', workstreamSearchValue([state.parentId], options.workstreams));
   if (state.includeSubstreams) params.set('includeSubstreams', '1');
   if (state.activity !== 'all') params.set('activity', state.activity);
   return params;

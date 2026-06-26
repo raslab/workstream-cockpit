@@ -210,6 +210,24 @@ describe('Workstreams API Integration Tests', () => {
       expect(response.body.name).toBe('Test Workstream');
     });
 
+    it('should expose stable public numbers and return workstream by public number', async () => {
+      const first = await createTestWorkstream(project.id, { name: 'First Workstream' });
+      const second = await createTestWorkstream(project.id, { name: 'Second Workstream' });
+      const otherPerson = await createTestPerson({ email: 'numbers-other@example.com', name: 'Other User' });
+      const otherProject = await createTestProject(otherPerson.id, { name: 'Other Project' });
+      await createTestWorkstream(otherProject.id, { name: 'Other project first' });
+
+      expect(first.number).toBe(1);
+      expect(second.number).toBe(2);
+
+      const response = await request(app).get(`/${second.number}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.id).toBe(second.id);
+      expect(response.body.number).toBe(2);
+      expect(response.body.name).toBe('Second Workstream');
+    });
+
     it('should return 404 when workstream does not exist', async () => {
       const response = await request(app).get('/00000000-0000-0000-0000-000000000000');
 
@@ -503,6 +521,19 @@ describe('Workstreams API Integration Tests', () => {
       // Verify it's deleted
       const getResponse = await request(app).get(`/${workstream.id}`);
       expect(getResponse.status).toBe(404);
+    });
+
+    it('should not reuse public numbers after deleting the highest-numbered workstream', async () => {
+      const first = await createTestWorkstream(project.id, { name: 'First numbered stream' });
+      const second = await createTestWorkstream(project.id, { name: 'Second numbered stream' });
+
+      await request(app).delete(`/${second.id}`).expect(204);
+      const response = await request(app).post('/').send({ name: 'Replacement stream' });
+
+      expect(response.status).toBe(201);
+      expect(response.body.number).toBeGreaterThan(second.number);
+      expect(response.body.number).not.toBe(first.number);
+      expect(response.body.number).not.toBe(second.number);
     });
 
     it('should return 404 when workstream does not exist', async () => {

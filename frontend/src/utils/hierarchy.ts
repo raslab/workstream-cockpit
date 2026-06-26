@@ -1,5 +1,6 @@
 import type { StatusUpdate, Workstream, WorkstreamSummary } from '../types/workstream';
 import type { HierarchyFilter, SortConfig } from '../types/view';
+import { workstreamReferenceText } from './workstreamReference';
 
 export interface ParentGroup {
   key: string;
@@ -9,7 +10,7 @@ export interface ParentGroup {
 }
 
 export function getBreadcrumbItems(workstream: Workstream): WorkstreamSummary[] {
-  return [...(workstream.parentStreams || []), { id: workstream.id, name: workstream.name, state: workstream.state, parentId: workstream.parentId, depth: workstream.depth }];
+  return [...(workstream.parentStreams || []), { id: workstream.id, number: workstream.number, name: workstream.name, state: workstream.state, parentId: workstream.parentId, depth: workstream.depth }];
 }
 
 export function getWorkstreamName(workstream: WorkstreamSummary | Workstream | null | undefined): string {
@@ -29,7 +30,7 @@ export function getLatestSubstreamActivityAt(workstream: Workstream | Workstream
 }
 
 export function getBreadcrumbLabel(workstream: Workstream): string {
-  return getBreadcrumbItems(workstream).map((item) => getWorkstreamName(item)).join(' > ');
+  return getBreadcrumbItems(workstream).map((item) => workstreamReferenceText(item)).join(' > ');
 }
 
 export function getDirectSubstreamCount(workstream: Workstream): number {
@@ -145,7 +146,7 @@ export function groupWorkstreamsByParent(workstreams: Workstream[]): ParentGroup
     const substreams = (substreamsByParentId.get(parentId) ?? []).filter((ws) => ws.id !== parentId);
     return {
       key: parentId,
-      name: getWorkstreamName(parent),
+      name: workstreamReferenceText(parent),
       parent,
       workstreams: substreams,
     };

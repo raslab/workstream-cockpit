@@ -183,6 +183,38 @@ describe('WorkstreamDetail reference redesign', () => {
     expect(screen.getByRole('checkbox', { name: /include sub-stream updates/i })).toBeInTheDocument();
   });
 
+  it('shows stream and update public numbers and uses them for shareable stream links', async () => {
+    const numberedWorkstream: Workstream = {
+      ...workstream,
+      number: 28,
+      parentStreams: [
+        { id: 'parent-stream-1', number: 3, name: 'Platform Ops' },
+        { id: 'parent-stream-2', number: 8, name: 'Reliability' },
+      ],
+      parent: { id: 'parent-stream-2', number: 8, name: 'Reliability' },
+      substreams: [{ id: 'substream-1', number: 29, name: 'run CoE', state: 'active', lastActivityAt: '2026-06-20T10:15:00Z' }],
+      latestSubstreamActivitySource: { id: 'substream-1', number: 29, name: 'run CoE', lastActivityAt: '2026-06-20T10:15:00Z' },
+    };
+    apiGetMock.mockResolvedValueOnce({ data: numberedWorkstream });
+    useStatusHistoryMock.mockReturnValue({
+      data: [
+        { ...updates[0], number: 42, sourceWorkstream: { id: 'substream-1', number: 29, name: 'run CoE' } },
+        { ...updates[1], number: 41 },
+      ],
+      isLoading: false,
+    });
+
+    renderDetail(numberedWorkstream);
+    await screen.findByTestId('workstream-detail-shell');
+
+    expect(screen.queryByText('Stream #28')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '#3 Platform Ops' })).toHaveAttribute('href', '/workstreams/3');
+    expect(screen.getAllByRole('link', { name: '#8 Reliability' })[0]).toHaveAttribute('href', '/workstreams/8');
+    expect(screen.getByText(/update #42 from sub-stream$/)).toBeInTheDocument();
+    expect(screen.getByText(/self update #41/)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: '#29 run CoE' })[0]).toHaveAttribute('href', '/workstreams/29');
+  });
+
   it('does not expose Add Update when the stream is closed', async () => {
     const closedWorkstream = { ...workstream, state: 'closed' as const, closedAt: '2026-06-20T11:00:00Z' };
     apiGetMock.mockResolvedValueOnce({ data: closedWorkstream });
@@ -201,7 +233,7 @@ describe('WorkstreamDetail reference redesign', () => {
 
     const substreamUpdate = screen.getByTestId('status-update-substream-update');
     expect(substreamUpdate).toHaveAttribute('data-source', 'sub-stream');
-    expect(within(substreamUpdate).getByRole('link', { name: 'Sub-stream: run CoE' })).toHaveAttribute('href', '/workstreams/substream-1');
+    expect(within(substreamUpdate).getByRole('link', { name: 'run CoE' })).toHaveAttribute('href', '/workstreams/substream-1');
     expect(within(substreamUpdate).getByRole('link', { name: 'Open sub-stream' })).toHaveAttribute('href', '/workstreams/substream-1');
     expect(substreamUpdate).toHaveTextContent('#Production');
     expect(within(substreamUpdate).queryByText(/^#Production$/)).not.toBeInTheDocument();
