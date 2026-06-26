@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/start.js",
-    "test": "jest --silent",
+    "test": "tsx src/scripts/runTestsWithIsolatedDatabase.ts --silent",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --silent",
     "lint": "eslint src --ext .ts",
