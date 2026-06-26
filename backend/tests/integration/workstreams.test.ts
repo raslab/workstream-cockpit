@@ -123,30 +123,40 @@ describe('Workstreams API Integration Tests', () => {
       ]);
     });
 
-    it('scopes filtered parent views to matching direct sub-streams when includeSubstreams is enabled', async () => {
+    it('scopes parent views to matching sub-streams without returning the selected parent', async () => {
       const ktlo = await createTestCategory(project.id, { name: 'KTLO', color: '#00AA00' });
-      const selectedParent = await createTestWorkstream(project.id, { name: 'Selected parent', categoryId: ktlo.id });
-      const matchingSubstream = await createTestWorkstream(project.id, { name: 'Matching direct sub-stream', parentId: selectedParent.id, categoryId: ktlo.id });
-      const nonMatchingSubstream = await createTestWorkstream(project.id, { name: 'Non-matching direct sub-stream', parentId: selectedParent.id });
-      const otherParent = await createTestWorkstream(project.id, { name: 'Other parent', categoryId: ktlo.id });
+      const selectedParent = await createTestWorkstream(project.id, { name: 'Selected parent' });
+      const matchingDirectSubstream = await createTestWorkstream(project.id, { name: 'Matching direct sub-stream', parentId: selectedParent.id, categoryId: ktlo.id });
+      const nonMatchingDirectSubstream = await createTestWorkstream(project.id, { name: 'Non-matching direct sub-stream', parentId: selectedParent.id });
+      const intermediateSubstream = await createTestWorkstream(project.id, { name: 'Intermediate sub-stream', parentId: selectedParent.id });
+      const matchingLeafSubstream = await createTestWorkstream(project.id, { name: 'Matching leaf sub-stream', parentId: intermediateSubstream.id, categoryId: ktlo.id });
+      const otherParent = await createTestWorkstream(project.id, { name: 'Other parent' });
       const otherSubstream = await createTestWorkstream(project.id, { name: 'Other parent sub-stream', parentId: otherParent.id, categoryId: ktlo.id });
 
-      const includedResponse = await request(app).get(
-        `/?state=active&categoryIds=${ktlo.id}&hierarchy=under-parent&parentId=${selectedParent.id}&includeSubstreams=true`
-      );
-
-      expect(includedResponse.status).toBe(200);
-      expect(includedResponse.body.map((workstream: any) => workstream.id)).toEqual([matchingSubstream.id, selectedParent.id]);
-      expect(includedResponse.body.map((workstream: any) => workstream.id)).not.toContain(nonMatchingSubstream.id);
-      expect(includedResponse.body.map((workstream: any) => workstream.id)).not.toContain(otherParent.id);
-      expect(includedResponse.body.map((workstream: any) => workstream.id)).not.toContain(otherSubstream.id);
-
-      const excludedResponse = await request(app).get(
+      const directResponse = await request(app).get(
         `/?state=active&categoryIds=${ktlo.id}&hierarchy=under-parent&parentId=${selectedParent.id}&includeSubstreams=false`
       );
 
-      expect(excludedResponse.status).toBe(200);
-      expect(excludedResponse.body.map((workstream: any) => workstream.id)).toEqual([selectedParent.id]);
+      expect(directResponse.status).toBe(200);
+      expect(directResponse.body.map((workstream: any) => workstream.id)).toEqual([matchingDirectSubstream.id]);
+
+      const recursiveResponse = await request(app).get(
+        `/?state=active&categoryIds=${ktlo.id}&hierarchy=under-parent&parentId=${selectedParent.id}&includeSubstreams=true`
+      );
+
+      expect(recursiveResponse.status).toBe(200);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).toEqual([matchingLeafSubstream.id, matchingDirectSubstream.id]);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(selectedParent.id);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(nonMatchingDirectSubstream.id);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(intermediateSubstream.id);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(otherSubstream.id);
+
+      const leafResponse = await request(app).get(
+        `/?state=active&hierarchy=under-parent&parentId=${matchingLeafSubstream.id}&includeSubstreams=true`
+      );
+
+      expect(leafResponse.status).toBe(200);
+      expect(leafResponse.body.map((workstream: any) => workstream.id)).toEqual([]);
     });
   });
 

@@ -124,16 +124,16 @@ function substreamIds(workstreamId: string, substreamsByParent: Map<string | nul
   return ids;
 }
 
-function scopedWorkstreamIds(parentIds: Set<string>, workstreams: Workstream[]): Set<string> {
+function scopedWorkstreamIds(parentIds: Set<string>, workstreams: Workstream[], recursive: boolean): Set<string> {
   const substreamsByParent = buildSubstreamsByParent(workstreams);
-  const scopedIds = new Set(parentIds);
+  const scopedIds = new Set<string>();
   const queue = Array.from(parentIds);
   while (queue.length) {
     const parentId = queue.shift()!;
     for (const substream of substreamsByParent.get(parentId) ?? []) {
       if (scopedIds.has(substream.id)) continue;
       scopedIds.add(substream.id);
-      queue.push(substream.id);
+      if (recursive) queue.push(substream.id);
     }
   }
   return scopedIds;
@@ -162,7 +162,8 @@ async function applyWorkstreamHierarchyFilter(
   const parentIds = new Set(selectedParentIds.filter(Boolean));
   if (parentIds.size === 0) return [];
 
-  const includedIds = hierarchy?.includeSubstreams ? scopedWorkstreamIds(parentIds, workstreams) : parentIds;
+  const allWorkstreams = await prisma.workstream.findMany({ where: { projectId } });
+  const includedIds = scopedWorkstreamIds(parentIds, allWorkstreams, Boolean(hierarchy?.includeSubstreams));
   return workstreams.filter(ws => includedIds.has(ws.id));
 }
 

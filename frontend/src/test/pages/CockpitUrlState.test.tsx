@@ -185,9 +185,10 @@ describe('Cockpit URL state', () => {
       parentIds: ['parent-1'],
       includeSubstreams: true,
     })));
-    await waitFor(() => expect(screen.getAllByTestId('workstream-card')).toHaveLength(3));
-    const cardText = screen.getAllByTestId('workstream-card').map((card) => card.textContent).join(' | ');
-    expect(cardText).toContain('Parent one');
+    await waitFor(() => expect(screen.getAllByTestId('workstream-card')).toHaveLength(2));
+    const cardTexts = screen.getAllByTestId('workstream-card').map((card) => card.textContent ?? '');
+    const cardText = cardTexts.join(' | ');
+    expect(cardTexts).not.toContain('Parent one');
     expect(cardText).toContain('Direct sub-stream Parent: Parent one');
     expect(cardText).toContain('Nested sub-stream Parent: Direct sub-stream');
     expect(cardText).not.toContain('Other sub-stream');
