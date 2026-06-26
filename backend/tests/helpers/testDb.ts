@@ -59,14 +59,13 @@ export async function setupTestDatabase(): Promise<void> {
 
     try {
       await adminClient.connect();
-      const result = await adminClient.query(
-        'SELECT 1 FROM pg_database WHERE datname = $1',
-        [testDbConfig.databaseName]
-      );
+      const result = await adminClient.query('SELECT 1 FROM pg_database WHERE datname = $1', [
+        testDbConfig.databaseName,
+      ]);
 
       if (result.rows.length === 0) {
         await adminClient.query(
-          `CREATE DATABASE ${quotePostgresIdentifier(testDbConfig.databaseName)}`
+          `CREATE DATABASE ${quotePostgresIdentifier(testDbConfig.databaseName)}`,
         );
         console.log(`Created test database: ${testDbConfig.databaseName}`);
       }
@@ -79,7 +78,7 @@ export async function setupTestDatabase(): Promise<void> {
     // Run migrations on test database
     execSync('npm run migrate:deploy', {
       env: { ...process.env },
-      stdio: 'inherit'
+      stdio: 'inherit',
     });
   } catch (error) {
     console.error('Error setting up test database:', error);
@@ -104,7 +103,7 @@ export async function cleanDatabase(): Promise<void> {
     'projects',
     'persons',
   ];
-  
+
   for (const table of tables) {
     await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${table} CASCADE;`);
   }
@@ -146,13 +145,14 @@ export async function createTestProject(personId: string, data?: { name?: string
  */
 export async function createTestCategory(
   projectId: string,
-  data?: { name?: string; color?: string; sortOrder?: number }
+  data?: { name?: string; color?: string; description?: string; sortOrder?: number },
 ) {
   return prisma.category.create({
     data: {
       projectId,
       name: data?.name || 'test-category',
       color: data?.color || '#3B82F6',
+      description: data?.description ?? '',
       sortOrder: data?.sortOrder ?? 0,
     },
   });
@@ -163,11 +163,11 @@ export async function createTestCategory(
  */
 export async function createTestTag(
   projectId: string,
-  data?: { name?: string; displayName?: string; color?: string }
+  data?: { name?: string; displayName?: string; color?: string },
 ) {
   const displayName = data?.displayName || data?.name || 'Test Tag';
   const name = data?.name || displayName.toLowerCase().replace(/\s+/g, '_');
-  
+
   return prisma.tag.create({
     data: {
       projectId,
@@ -190,7 +190,7 @@ export async function createTestWorkstream(
     parentId?: string | null;
     context?: string;
     state?: string;
-  }
+  },
 ) {
   const number = reserveWorkstreamNumber(projectId, data?.number);
   const workstream = await prisma.workstream.create({
@@ -213,7 +213,7 @@ export async function createTestWorkstream(
  */
 export async function createTestStatusUpdate(
   workstreamId: string,
-  data?: { status?: string; note?: string; number?: number }
+  data?: { status?: string; note?: string; number?: number },
 ) {
   const workstream = await prisma.workstream.findUniqueOrThrow({ where: { id: workstreamId }, select: { projectId: true } });
   const number = reserveStatusUpdateNumber(workstream.projectId, data?.number);

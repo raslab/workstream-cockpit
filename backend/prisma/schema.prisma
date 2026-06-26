@@ -60,13 +60,14 @@ model Project {
 }
 
 model Category {
-  id        String   @id @default(uuid())
-  projectId String   @map("project_id")
-  name      String
-  color     String
-  emoji     String?
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at")
+  id          String   @id @default(uuid())
+  projectId   String   @map("project_id")
+  name        String
+  color       String
+  emoji       String?
+  description String   @default("") @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   workstreams Workstream[]

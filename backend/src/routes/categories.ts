@@ -25,7 +25,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
     // Get user's projects (for Phase 1, we'll use the first/default project)
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.json([]);
       return;
@@ -48,7 +48,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
-    const { name, color, emoji } = req.body;
+    const { name, color, emoji, description } = req.body;
 
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -85,9 +85,21 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       }
     }
 
+    if (description !== undefined) {
+      if (typeof description !== 'string') {
+        res.status(400).json({ error: 'Category description must be a string' });
+        return;
+      }
+
+      if (description.length > 2000) {
+        res.status(400).json({ error: 'Category description must be 2000 characters or less' });
+        return;
+      }
+    }
+
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.status(400).json({ error: 'No project found for user' });
       return;
@@ -99,6 +111,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       name: name.trim(),
       color: color.toUpperCase(),
       emoji: emoji?.trim() || null,
+      description: description?.trim() || '',
     });
 
     res.status(201).json(category);
@@ -122,7 +135,9 @@ router.put('/reorder', async (req: Request, res: Response): Promise<void> => {
     const personId = req.userContext!.personId;
     const { categoryIds } = req.body;
 
-    logger.info(`Reorder request from person ${personId} with ${categoryIds?.length || 0} categories`);
+    logger.info(
+      `Reorder request from person ${personId} with ${categoryIds?.length || 0} categories`,
+    );
 
     // Validation
     if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
@@ -137,7 +152,7 @@ router.put('/reorder', async (req: Request, res: Response): Promise<void> => {
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       logger.error(`No project found for person ${personId}`);
       res.status(400).json({ error: 'No project found for user' });
@@ -146,9 +161,9 @@ router.put('/reorder', async (req: Request, res: Response): Promise<void> => {
 
     const projectId = projects[0].id;
     logger.info(`Reordering categories for project ${projectId}`);
-    
+
     const updatedCategories = await reorderCategories(projectId, categoryIds);
-    
+
     logger.info(`Successfully reordered ${updatedCategories.length} categories`);
     res.json(updatedCategories);
   } catch (error: any) {
@@ -170,7 +185,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
     const categoryId = req.params.id;
-    const { name, color, emoji } = req.body;
+    const { name, color, emoji, description } = req.body;
 
     // Validation
     if (name !== undefined) {
@@ -208,9 +223,21 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
       }
     }
 
+    if (description !== undefined) {
+      if (typeof description !== 'string') {
+        res.status(400).json({ error: 'Category description must be a string' });
+        return;
+      }
+
+      if (description.length > 2000) {
+        res.status(400).json({ error: 'Category description must be 2000 characters or less' });
+        return;
+      }
+    }
+
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.status(404).json({ error: 'Category not found' });
       return;
@@ -218,10 +245,11 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
 
     const projectId = projects[0].id;
     const updates: any = {};
-    
+
     if (name !== undefined) updates.name = name.trim();
     if (color !== undefined) updates.color = color.toUpperCase();
     if (emoji !== undefined) updates.emoji = emoji?.trim() || null;
+    if (description !== undefined) updates.description = description.trim();
 
     const category = await updateCategory(categoryId, projectId, updates);
     res.json(category);
@@ -250,7 +278,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.status(404).json({ error: 'Category not found' });
       return;
@@ -258,7 +286,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
 
     const projectId = projects[0].id;
     await deleteCategory(categoryId, projectId);
-    
+
     res.status(204).send();
   } catch (error: any) {
     if (error.message === 'Category not found or access denied') {

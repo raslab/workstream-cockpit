@@ -1,17 +1,25 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { getSafeReturnTo, storeReturnTo } from '@/utils/authRedirect';
 
 export default function Login() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = new URLSearchParams(location.search).get('returnTo');
 
   useEffect(() => {
     // If already logged in, redirect to cockpit
     if (user) {
-      navigate('/', { replace: true });
+      navigate(getSafeReturnTo(returnTo), { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, navigate, returnTo]);
+
+  const handleLogin = () => {
+    storeReturnTo(returnTo);
+    login();
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-800">
@@ -24,10 +32,10 @@ export default function Login() {
             Sign in to track your workstreams
           </p>
         </div>
-        
+
         <div className="mt-8">
           <button
-            onClick={login}
+            onClick={handleLogin}
             className="flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
           >
             <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
