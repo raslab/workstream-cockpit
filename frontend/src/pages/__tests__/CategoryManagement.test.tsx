@@ -67,6 +67,9 @@ describe('Category management settings', () => {
       await screen.findByText('Tracked initiatives with a bounded outcome.'),
     ).toBeInTheDocument();
     expect(screen.getByText('watching')).toBeInTheDocument();
+    expect(screen.getByText('No description')).toBeInTheDocument();
+    expect(screen.queryByText('#9EC3FF')).not.toBeInTheDocument();
+    expect(screen.queryByText('#B5BAC5')).not.toBeInTheDocument();
   });
 
   it('creates and edits category descriptions', async () => {

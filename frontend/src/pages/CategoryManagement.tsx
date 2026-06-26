@@ -168,10 +168,9 @@ function SortableCategory({
 
       <div className="flex-1">
         <h3 className="font-medium text-gray-900 dark:text-gray-100">{category.name}</h3>
-        {category.description && (
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{category.description}</p>
-        )}
-        <p className="text-sm text-gray-500 dark:text-gray-400">{category.color}</p>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+          {category.description || 'No description'}
+        </p>
       </div>
 
       <div className="flex gap-2">
