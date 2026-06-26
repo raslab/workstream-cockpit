@@ -3,7 +3,9 @@ import MockAdapter from 'axios-mock-adapter';
 import { apiClient } from '../client';
 
 // Mock window.location
+const originalLocation = window.location;
 const mockLocation = {
+  origin: 'http://localhost:3001',
   pathname: '/',
   href: '/',
 };
@@ -11,6 +13,7 @@ const mockLocation = {
 Object.defineProperty(window, 'location', {
   value: mockLocation,
   writable: true,
+  configurable: true,
 });
 
 describe('API Client - OAuth Redirect Loop Prevention', () => {
@@ -23,12 +26,23 @@ describe('API Client - OAuth Redirect Loop Prevention', () => {
 
   afterEach(() => {
     mock.restore();
+    Object.defineProperty(window, 'location', {
+      value: originalLocation,
+      writable: true,
+      configurable: true,
+    });
   });
 
   describe('401 Interceptor - Redirect Logic', () => {
-    it('should redirect to /login on 401 when on regular page', async () => {
+    it('should redirect to /login with the full current URL on 401 when on regular page', async () => {
       // Set current path to a protected route
-      const mockLocationObj = { pathname: '/cockpit', href: '/cockpit' };
+      const mockLocationObj = {
+        origin: 'http://localhost:3001',
+        pathname: '/',
+        search: '?view=platform-ops&tags=sre%2Cdevops&categoryIds=ktlo',
+        hash: '#filters',
+        href: '/?view=platform-ops&tags=sre%2Cdevops&categoryIds=ktlo#filters',
+      };
       Object.defineProperty(window, 'location', {
         value: mockLocationObj,
         writable: true,
@@ -44,8 +58,36 @@ describe('API Client - OAuth Redirect Loop Prevention', () => {
         expect(error.response.status).toBe(401);
       }
 
-      // Should redirect to login
-      expect(window.location.href).toBe('/login');
+      // Should redirect to login without losing saved view/filter state
+      expect(window.location.href).toBe(
+        '/login?returnTo=%2F%3Fview%3Dplatform-ops%26tags%3Dsre%252Cdevops%26categoryIds%3Dktlo%23filters',
+      );
+    });
+
+    it('should preserve timeline path, query, and hash on 401 redirect', async () => {
+      Object.defineProperty(window, 'location', {
+        value: {
+          origin: 'http://localhost:3001',
+          pathname: '/timeline',
+          search: '?range=30d&tagNames=deployments&parentId=stream-1',
+          hash: '#updates',
+          href: '/timeline?range=30d&tagNames=deployments&parentId=stream-1#updates',
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      mock.onGet('/api/timeline').reply(401);
+
+      try {
+        await apiClient.get('/api/timeline');
+      } catch (error: any) {
+        expect(error.response.status).toBe(401);
+      }
+
+      expect(window.location.href).toBe(
+        '/login?returnTo=%2Ftimeline%3Frange%3D30d%26tagNames%3Ddeployments%26parentId%3Dstream-1%23updates',
+      );
     });
 
     it('should NOT redirect when already on /login page', async () => {
@@ -89,9 +131,9 @@ describe('API Client - OAuth Redirect Loop Prevention', () => {
     it('should NOT redirect when on /auth/callback with query params', async () => {
       // OAuth callback URL with Google's query params
       Object.defineProperty(window, 'location', {
-        value: { 
+        value: {
           pathname: '/auth/callback',
-          search: '?code=abc123&scope=email+profile'
+          search: '?code=abc123&scope=email+profile',
         },
         writable: true,
       });
@@ -177,7 +219,7 @@ describe('API Client - OAuth Redirect Loop Prevention', () => {
   describe('API Client - Base URL Configuration', () => {
     it('should use correct API base URL', () => {
       const baseURL = apiClient.defaults.baseURL;
-      
+
       // Should use relative path for production (nginx proxies /api to backend)
       // or full URL for development if VITE_API_URL is set
       expect(baseURL).toBeTruthy();
@@ -188,7 +230,7 @@ describe('API Client - OAuth Redirect Loop Prevention', () => {
       mock.onGet('/api/workstreams').reply(200, []);
 
       const response = await apiClient.get('/api/workstreams');
-      
+
       expect(response.status).toBe(200);
       expect(Array.isArray(response.data)).toBe(true);
     });
