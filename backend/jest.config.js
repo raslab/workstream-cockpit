@@ -4,7 +4,8 @@ module.exports = {
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  // Load test environment variables from .env.test
+  // npm test wraps Jest with an isolated per-run test database.
+  // Direct Jest invocations still load .env.test here.
   setupFiles: ['<rootDir>/tests/setup.ts'],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {

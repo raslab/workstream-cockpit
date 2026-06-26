@@ -31,7 +31,9 @@ docker ps --filter name=workstream-cockpit-test-postgres
 
 ## Test environment
 
-`backend/.env.test` is configured for Hermes/subagent containers by default:
+`backend/.env.test` is configured for Hermes/subagent containers by default. `POSTGRES_DB`
+is a base name; `npm run test` appends a unique per-run suffix so concurrent worktrees do
+not truncate or migrate the same database.
 
 ```env
 POSTGRES_HOST=host.docker.internal
@@ -47,7 +49,7 @@ If you run tests directly on the host and `host.docker.internal` does not resolv
 POSTGRES_HOST=localhost
 ```
 
-The test bootstrap composes Prisma's required `DATABASE_URL` from `POSTGRES_*`. Set `DATABASE_URL` only as an advanced override.
+The test bootstrap composes Prisma's required `DATABASE_URL` from `POSTGRES_*`. Set `DATABASE_URL` only as an advanced override. The npm test wrapper still replaces the database name for each run.
 
 ## Run tests
 
@@ -65,14 +67,19 @@ npm run test --workspace=backend -- --runTestsByPath backend/tests/integration/w
 
 ## Automatic setup behavior
 
-The test helper composes `DATABASE_URL` from `POSTGRES_*` and uses the same host, port, user, password, and database name for setup.
+The npm test wrapper loads `.env.test`, derives a database name such as
+`workstream_cockpit_test_mabc123_pid_random`, sets both `POSTGRES_DB` and `DATABASE_URL` for
+the Jest child process, and drops that isolated database after Jest exits.
+
+The test helper composes `DATABASE_URL` from the effective `POSTGRES_*` values and uses the same host, port, user, password, and database name for setup.
 
 On the first run it:
 
 1. Connects to the sidecar's default `postgres` database.
-2. Creates the test database named in `POSTGRES_DB` if missing.
-3. Runs `npm run migrate:deploy` against the test database.
-4. Cleans tables between tests.
+2. Creates the isolated test database named in `POSTGRES_DB` if missing.
+3. Runs `npm run migrate:deploy` against the isolated test database.
+4. Cleans tables between tests inside the isolated database.
+5. Drops the isolated database when the npm test run finishes.
 
 ## Troubleshooting
 
