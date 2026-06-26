@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { buildLoginRedirectUrl, getCurrentReturnTo } from '@/utils/authRedirect';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -20,7 +21,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={buildLoginRedirectUrl(getCurrentReturnTo())} replace />;
   }
 
   return <>{children}</>;
