@@ -16,6 +16,8 @@ import timelineRoutes from '../../src/routes/timeline';
 let person: any;
 let project: any;
 let app: any;
+let directWorkstreamNumber = 1000;
+let directStatusUpdateNumber = 1000;
 
 const eventsOf = (res: any) => res.body.events;
 
@@ -25,6 +27,8 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await cleanDatabase();
+  directWorkstreamNumber = 1000;
+  directStatusUpdateNumber = 1000;
   
   // Create test user and project
   person = await createTestPerson({ email: 'timeline@test.com', name: 'Timeline User' });
@@ -118,6 +122,7 @@ describe('Timeline API Integration Tests', () => {
         data: {
           name: 'Test Workstream',
           projectId: project.id,
+          number: directWorkstreamNumber++,
           createdAt: new Date('2024-01-01'),
         },
       });
@@ -127,6 +132,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'Old Status',
           workstreamId: workstream.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date('2024-01-01'),
         },
       });
@@ -136,6 +143,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'Recent Status',
           workstreamId: workstream.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date('2024-06-01'),
         },
       });
@@ -158,6 +167,7 @@ describe('Timeline API Integration Tests', () => {
         data: {
           name: 'Test Workstream',
           projectId: project.id,
+          number: directWorkstreamNumber++,
           createdAt: new Date('2024-01-01'),
         },
       });
@@ -167,6 +177,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'Old Status',
           workstreamId: workstream.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date('2024-01-15'),
         },
       });
@@ -176,6 +188,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'Recent Status',
           workstreamId: workstream.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date('2024-06-01'),
         },
       });
@@ -198,6 +212,7 @@ describe('Timeline API Integration Tests', () => {
         data: {
           name: 'Test Workstream',
           projectId: project.id,
+          number: directWorkstreamNumber++,
           createdAt: new Date('2024-01-01'),
         },
       });
@@ -207,6 +222,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'Too Early',
           workstreamId: workstream.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date('2024-01-01'),
         },
       });
@@ -216,6 +233,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'In Range',
           workstreamId: workstream.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date('2024-03-15'),
         },
       });
@@ -225,6 +244,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'Too Late',
           workstreamId: workstream.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date('2024-06-01'),
         },
       });
@@ -356,6 +377,7 @@ describe('Timeline API Integration Tests', () => {
         data: {
           name: 'Old Feature',
           projectId: project.id,
+          number: directWorkstreamNumber++,
           categoryId: category1.id,
           createdAt: new Date('2024-01-01'),
         },
@@ -365,6 +387,7 @@ describe('Timeline API Integration Tests', () => {
         data: {
           name: 'Recent Feature',
           projectId: project.id,
+          number: directWorkstreamNumber++,
           categoryId: category1.id,
           createdAt: new Date('2024-05-01'),
         },
@@ -374,6 +397,7 @@ describe('Timeline API Integration Tests', () => {
         data: {
           name: 'Recent Bug',
           projectId: project.id,
+          number: directWorkstreamNumber++,
           categoryId: category2.id,
           createdAt: new Date('2024-05-15'),
         },
@@ -383,6 +407,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'Old Feature Status',
           workstreamId: workstream1.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date('2024-01-15'),
         },
       });
@@ -391,6 +417,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'Recent Feature Status',
           workstreamId: workstream2.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date('2024-05-10'),
         },
       });
@@ -399,6 +427,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'Recent Bug Status',
           workstreamId: workstream3.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date('2024-05-20'),
         },
       });
@@ -420,6 +450,7 @@ describe('Timeline API Integration Tests', () => {
         data: {
           name: 'Default Range Workstream',
           projectId: project.id,
+          number: directWorkstreamNumber++,
           createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
         },
       });
@@ -428,6 +459,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'Too Old',
           workstreamId: workstream.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
         },
       });
@@ -436,6 +469,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'Recent Enough',
           workstreamId: workstream.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
         },
       });
@@ -484,6 +519,8 @@ describe('Timeline API Integration Tests', () => {
           data: {
             status: `Page Status ${i}`,
             workstreamId: workstream.id,
+            projectId: project.id,
+            number: directStatusUpdateNumber++,
             createdAt: new Date(`2024-06-0${i + 1}T00:00:00.000Z`),
           },
         });
@@ -514,6 +551,8 @@ describe('Timeline API Integration Tests', () => {
           data: {
             status: `Same Timestamp ${i}`,
             workstreamId: workstream.id,
+            projectId: project.id,
+            number: directStatusUpdateNumber++,
             createdAt: sharedCreatedAt,
           },
         });
@@ -543,8 +582,8 @@ describe('Timeline API Integration Tests', () => {
 
     it('should bound single-sided startDate filters to 366 days', async () => {
       const workstream = await createTestWorkstream(project.id, { name: 'Bounded Start Workstream' });
-      await prisma.statusUpdate.create({ data: { status: 'Inside bounded range', workstreamId: workstream.id, createdAt: new Date('2024-06-01T00:00:00.000Z') } });
-      await prisma.statusUpdate.create({ data: { status: 'Outside bounded range', workstreamId: workstream.id, createdAt: new Date('2025-02-01T00:00:00.000Z') } });
+      await prisma.statusUpdate.create({ data: { status: 'Inside bounded range', workstreamId: workstream.id, projectId: project.id, number: directStatusUpdateNumber++, createdAt: new Date('2024-06-01T00:00:00.000Z') } });
+      await prisma.statusUpdate.create({ data: { status: 'Outside bounded range', workstreamId: workstream.id, projectId: project.id, number: directStatusUpdateNumber++, createdAt: new Date('2025-02-01T00:00:00.000Z') } });
 
       const res = await request(app)
         .get('/')
@@ -596,6 +635,7 @@ describe('Timeline API Integration Tests', () => {
         data: {
           name: 'Test Workstream',
           projectId: project.id,
+          number: directWorkstreamNumber++,
           createdAt: new Date('2024-01-01'),
         },
       });
@@ -604,6 +644,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'First',
           workstreamId: workstream.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date('2024-01-01'),
         },
       });
@@ -612,6 +654,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'Third',
           workstreamId: workstream.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date('2024-03-01'),
         },
       });
@@ -620,6 +664,8 @@ describe('Timeline API Integration Tests', () => {
         data: {
           status: 'Second',
           workstreamId: workstream.id,
+          projectId: project.id,
+          number: directStatusUpdateNumber++,
           createdAt: new Date('2024-02-01'),
         },
       });
@@ -676,3 +722,4 @@ describe('Timeline API Integration Tests', () => {
     });
   });
 });
+

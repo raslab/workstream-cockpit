@@ -39,7 +39,7 @@ afterAll(async () => {
 
 describe('Status Updates API Integration Tests', () => {
   describe('POST /status-updates', () => {
-    it('should create status update with required fields only', async () => {
+    it('should create status update with required fields only and assign a public number', async () => {
       const response = await request(app).post('/').send({
         workstreamId: workstream.id,
         status: 'Making good progress',
@@ -47,6 +47,8 @@ describe('Status Updates API Integration Tests', () => {
 
       expect(response.status).toBe(201);
       expect(response.body.id).toBeDefined();
+      expect(response.body.number).toBe(1);
+      expect(response.body.projectId).toBe(project.id);
       expect(response.body.workstreamId).toBe(workstream.id);
       expect(response.body.status).toBe('Making good progress');
       expect(response.body.createdAt).toBeDefined();
@@ -190,9 +192,21 @@ describe('Status Updates API Integration Tests', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(3);
+      expect(response.body[0].number).toBeDefined();
       expect(response.body[0].status).toBeDefined();
       expect(response.body[1].status).toBeDefined();
       expect(response.body[2].status).toBeDefined();
+    });
+
+    it('should return status updates when the workstream is addressed by public number', async () => {
+      const statusUpdate = await createTestStatusUpdate(workstream.id, { status: 'Reference-friendly update' });
+
+      const response = await request(app).get(`/workstreams/${workstream.number}/status-updates`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveLength(1);
+      expect(response.body[0].id).toBe(statusUpdate.id);
+      expect(response.body[0].number).toBe(statusUpdate.number);
     });
 
     it('should return status updates ordered by createdAt DESC', async () => {
@@ -394,6 +408,19 @@ describe('Status Updates API Integration Tests', () => {
       // Verify it's deleted
       const getResponse = await request(app).get(`/workstreams/${workstream.id}/status-updates`);
       expect(getResponse.body.find((su: any) => su.id === statusUpdate.id)).toBeUndefined();
+    });
+
+    it('should not reuse public numbers after deleting the highest-numbered status update', async () => {
+      const first = await createTestStatusUpdate(workstream.id, { status: 'First numbered update' });
+      const second = await createTestStatusUpdate(workstream.id, { status: 'Second numbered update' });
+
+      await request(app).delete(`/${second.id}`).send({ workstreamId: workstream.id }).expect(204);
+      const response = await request(app).post('/').send({ workstreamId: workstream.id, status: 'Replacement update' });
+
+      expect(response.status).toBe(201);
+      expect(response.body.number).toBeGreaterThan(second.number);
+      expect(response.body.number).not.toBe(first.number);
+      expect(response.body.number).not.toBe(second.number);
     });
 
     it('should return 404 when status update does not exist', async () => {

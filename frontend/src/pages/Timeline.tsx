@@ -12,6 +12,16 @@ import { ExportButton } from '../components/Timeline/ExportButton';
 import { DateRangeQuickPreset } from '../components/Timeline/DateRangeFilter';
 import { dateToUrlDate, parseTimelineSearch, serializeTimelineSearch, TimelineUrlState, urlDateToDate } from '../utils/urlState';
 
+function streamPath(stream: { id?: string; number?: number; workstreamId?: string; workstreamNumber?: number }) {
+  return `/workstreams/${stream.workstreamNumber ?? stream.number ?? stream.id ?? stream.workstreamId}`;
+}
+
+function streamLabel(stream: { name?: string; workstreamName?: string; number?: number; workstreamNumber?: number }) {
+  const number = stream.workstreamNumber ?? stream.number;
+  const name = stream.name || stream.workstreamName || 'Untitled stream';
+  return `${number !== undefined ? `#${number} ` : ''}${name}`;
+}
+
 export default function Timeline() {
   const getQuickDateRange = (preset: DateRangeQuickPreset) => {
     const now = new Date();
@@ -235,6 +245,9 @@ export default function Timeline() {
       default:
         return (
           <div>
+            {entry.statusUpdateNumber !== undefined && (
+              <div className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">Update #{entry.statusUpdateNumber}</div>
+            )}
             <MarkdownRenderer content={entry.status!} className="text-sm text-gray-700 dark:text-gray-300" />
             {entry.note && (
               <div className="mt-3 border-t border-gray-900 pt-2 dark:border-gray-700">
@@ -306,7 +319,7 @@ export default function Timeline() {
                 buttonClassName="min-w-64"
                 options={[
                   { value: '', label: 'Select a parent' },
-                  ...workstreams.map((stream) => ({ value: stream.id, label: getWorkstreamName(stream) })),
+                  ...workstreams.map((stream) => ({ value: String(stream.number ?? stream.id), label: streamLabel(stream) })),
                 ]}
               />
             </div>
@@ -403,10 +416,10 @@ export default function Timeline() {
                       <div className="flex-1">
                         <div className="flex items-baseline justify-between gap-2">
                           <Link
-                            to={`/workstreams/${entry.workstreamId}`}
+                            to={streamPath(entry)}
                             className="font-medium text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400"
                           >
-                            {entry.workstreamName}
+                            {streamLabel(entry)}
                           </Link>
                           <time className="text-xs text-gray-500 dark:text-gray-400">
                             {format(parseISO(entry.createdAt), 'h:mm a')}
@@ -420,14 +433,14 @@ export default function Timeline() {
                               <>
                                 {(entry.parentStreams || []).map((parentStream) => (
                                   <span key={parentStream.id} className="inline-flex items-center gap-1">
-                                    <Link to={`/workstreams/${parentStream.id}`} className="hover:text-primary-600 dark:hover:text-primary-400">{getWorkstreamName(parentStream)}</Link>
+                                    <Link to={streamPath(parentStream)} className="hover:text-primary-600 dark:hover:text-primary-400">{streamLabel(parentStream)}</Link>
                                     <span aria-hidden="true">›</span>
                                   </span>
                                 ))}
                                 {entry.parent ? (
                                   !(entry.parentStreams)?.some((parentStream) => parentStream.id === entry.parent?.id) && (
                                     <span className="inline-flex items-center gap-1">
-                                      <Link to={`/workstreams/${entry.parent.id}`} className="hover:text-primary-600 dark:hover:text-primary-400">{getWorkstreamName(entry.parent)}</Link>
+                                      <Link to={streamPath(entry.parent)} className="hover:text-primary-600 dark:hover:text-primary-400">{streamLabel(entry.parent)}</Link>
                                       <span aria-hidden="true">›</span>
                                     </span>
                                   )
@@ -437,7 +450,7 @@ export default function Timeline() {
                                     <span aria-hidden="true">›</span>
                                   </span>
                                 ) : null}
-                                <span>{entry.workstreamName}</span>
+                                <span>{streamLabel(entry)}</span>
                               </>
                             )}
                           </div>

@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 
 const router = Router();
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+const POSITIVE_INTEGER_RE = /^[1-9]\d*$/;
 const STRICT_DATE_RE = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})?)?$/;
 const VALID_EVENT_TYPES = ['status_update', 'workstream_created', 'workstream_closed', 'parent_changed', 'sub_stream_created'] as const;
 const VALID_EVENT_TYPE_SET = new Set<string>(VALID_EVENT_TYPES);
@@ -133,8 +134,8 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     if (parentId !== undefined) {
-      if (typeof parentId !== 'string' || !UUID_RE.test(parentId)) {
-        res.status(400).json({ error: 'parentId must be a valid UUID' });
+      if (typeof parentId !== 'string' || (!UUID_RE.test(parentId) && !POSITIVE_INTEGER_RE.test(parentId))) {
+        res.status(400).json({ error: 'parentId must be a valid UUID or stream number' });
         return;
       }
       filters.parentId = parentId;

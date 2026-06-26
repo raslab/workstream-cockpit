@@ -8,7 +8,9 @@ export interface TimelineEntry {
   id: string;
   eventType: TimelineEventType;
   workstreamId: string;
+  workstreamNumber?: number;
   workstreamName: string;
+  statusUpdateNumber?: number;
   status?: string;
   note?: string | null;
   createdAt: string;
@@ -20,6 +22,7 @@ export interface TimelineEntry {
     emoji?: string | null;
   } | null;
   parentId?: string | null;
+  parentNumber?: number | null;
   parent?: WorkstreamSummary | null;
   parentName?: string | null;
   parentStreams?: WorkstreamSummary[];

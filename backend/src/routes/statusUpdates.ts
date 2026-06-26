@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { requireUserContext } from '../middleware/userContext';
 import { getProjectsByPersonId } from '../services/projectService';
-import { getWorkstreamById } from '../services/workstreamService';
+import { getWorkstreamByReference } from '../services/workstreamService';
 import {
   createStatusUpdate,
   getStatusUpdatesByWorkstream,
   updateStatusUpdate,
-  deleteStatusUpdate,
+  deleteStatusUpdateByReference,
 } from '../services/statusUpdateService';
 import { logger } from '../utils/logger';
 
@@ -25,7 +25,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const { workstreamId, status, note } = req.body;
 
     // Validation
-    if (!workstreamId || typeof workstreamId !== 'string') {
+    if (!workstreamId || (typeof workstreamId !== 'string' && typeof workstreamId !== 'number')) {
       res.status(400).json({ error: 'Workstream ID is required' });
       return;
     }
@@ -56,7 +56,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const projectId = projects[0].id;
 
     // Verify workstream belongs to user's project
-    const workstream = await getWorkstreamById(workstreamId, projectId);
+    const workstream = await getWorkstreamByReference(workstreamId, projectId);
     if (!workstream) {
       res.status(404).json({ error: 'Workstream not found' });
       return;
@@ -68,7 +68,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     const statusUpdate = await createStatusUpdate({
-      workstreamId,
+      workstreamId: workstream.id,
+      projectId,
       status: status.trim(),
       note,
     });
@@ -100,13 +101,13 @@ router.get('/workstreams/:workstreamId/status-updates', async (req: Request, res
     const projectId = projects[0].id;
 
     // Verify workstream belongs to user's project
-    const workstream = await getWorkstreamById(workstreamId, projectId);
+    const workstream = await getWorkstreamByReference(workstreamId, projectId);
     if (!workstream) {
       res.status(404).json({ error: 'Workstream not found' });
       return;
     }
 
-    const statusUpdates = await getStatusUpdatesByWorkstream(workstreamId);
+    const statusUpdates = await getStatusUpdatesByWorkstream(workstream.id);
     res.json(statusUpdates);
   } catch (error) {
     logger.error('Error fetching status updates:', error);
@@ -125,7 +126,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
     const { workstreamId, status, note } = req.body;
 
     // Validation
-    if (!workstreamId || typeof workstreamId !== 'string') {
+    if (!workstreamId || (typeof workstreamId !== 'string' && typeof workstreamId !== 'number')) {
       res.status(400).json({ error: 'Workstream ID is required' });
       return;
     }
@@ -158,7 +159,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
     const projectId = projects[0].id;
 
     // Verify workstream belongs to user's project
-    const workstream = await getWorkstreamById(workstreamId, projectId);
+    const workstream = await getWorkstreamByReference(workstreamId, projectId);
     if (!workstream) {
       res.status(404).json({ error: 'Status update not found' });
       return;
@@ -168,7 +169,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
     if (status !== undefined) updates.status = status.trim();
     if (note !== undefined) updates.note = note;
 
-    const statusUpdate = await updateStatusUpdate(statusUpdateId, workstreamId, updates);
+    const statusUpdate = await updateStatusUpdate(statusUpdateId, workstream.id, updates, projectId);
     res.json(statusUpdate);
   } catch (error: any) {
     if (error.message === 'Status update not found or access denied') {
@@ -191,7 +192,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
     const { workstreamId } = req.body;
 
     // Validation
-    if (!workstreamId || typeof workstreamId !== 'string') {
+    if (!workstreamId || (typeof workstreamId !== 'string' && typeof workstreamId !== 'number')) {
       res.status(400).json({ error: 'Workstream ID is required' });
       return;
     }
@@ -207,13 +208,13 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
     const projectId = projects[0].id;
 
     // Verify workstream belongs to user's project
-    const workstream = await getWorkstreamById(workstreamId, projectId);
+    const workstream = await getWorkstreamByReference(workstreamId, projectId);
     if (!workstream) {
       res.status(404).json({ error: 'Status update not found' });
       return;
     }
 
-    await deleteStatusUpdate(statusUpdateId, workstreamId);
+    await deleteStatusUpdateByReference(statusUpdateId, workstream.id, projectId);
     res.status(204).send();
   } catch (error: any) {
     if (error.message === 'Status update not found or access denied') {

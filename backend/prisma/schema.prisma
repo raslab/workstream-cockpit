@@ -41,16 +41,19 @@ model PersonalAccessToken {
 }
 
 model Project {
-  id        String   @id @default(uuid())
-  personId  String   @map("person_id")
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
+  id                     String   @id @default(uuid())
+  personId               String   @map("person_id")
+  name                   String
+  nextWorkstreamNumber   Int      @default(1) @map("next_workstream_number")
+  nextStatusUpdateNumber Int      @default(1) @map("next_status_update_number")
+  createdAt              DateTime @default(now()) @map("created_at")
 
-  person      Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
-  categories  Category[]
-  workstreams Workstream[]
-  tags        Tag[]
-  views       View[]
+  person        Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
+  categories    Category[]
+  workstreams   Workstream[]
+  statusUpdates StatusUpdate[]
+  tags          Tag[]
+  views         View[]
 
   @@index([personId])
   @@map("projects")
@@ -76,7 +79,7 @@ model Category {
 model Tag {
   id          String   @id @default(uuid())
   projectId   String   @map("project_id")
-  name        String   // Tag ID: lowercase with underscores (e.g., "alan_awake")
+  name        String // Tag ID: lowercase with underscores (e.g., "alan_awake")
   displayName String   @map("display_name") // User-friendly name with spaces (e.g., "Alan Awake")
   color       String
   createdAt   DateTime @default(now()) @map("created_at")
@@ -92,6 +95,7 @@ model Tag {
 model Workstream {
   id         String    @id @default(uuid())
   projectId  String    @map("project_id")
+  number     Int       @map("public_number")
   categoryId String?   @map("category_id")
   parentId   String?   @map("parent_id")
   name       String
@@ -100,13 +104,14 @@ model Workstream {
   createdAt  DateTime  @default(now()) @map("created_at")
   closedAt   DateTime? @map("closed_at")
 
-  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  parent        Workstream?    @relation("WorkstreamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  substreams    Workstream[]   @relation("WorkstreamHierarchy")
+  project       Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  category      Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  parent        Workstream?       @relation("WorkstreamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  substreams    Workstream[]      @relation("WorkstreamHierarchy")
   statusUpdates StatusUpdate[]
   events        WorkstreamEvent[]
 
+  @@unique([projectId, number])
   @@index([projectId])
   @@index([projectId, state])
   @@index([categoryId])
@@ -131,6 +136,8 @@ model WorkstreamEvent {
 
 model StatusUpdate {
   id           String   @id @default(uuid())
+  projectId    String   @map("project_id")
+  number       Int      @map("public_number")
   workstreamId String   @map("workstream_id")
   status       String
   note         String?  @db.Text
@@ -138,8 +145,11 @@ model StatusUpdate {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   workstream Workstream @relation(fields: [workstreamId], references: [id], onDelete: Cascade)
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
+  @@unique([projectId, number])
   @@index([workstreamId])
+  @@index([projectId])
   @@index([createdAt])
   @@map("status_updates")
 }

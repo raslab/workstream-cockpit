@@ -140,6 +140,15 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.getByTestId('workstream-tags')).toHaveClass('row-start-6');
   });
 
+  it('shows public stream numbers and links with them when available', () => {
+    renderCard(baseWorkstream({ number: 28, parent: { id: 'parent-1', number: 7, name: 'Goals', state: 'active' } }));
+
+    expect(screen.getByText('Stream #28')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Stream #28\s+English learning plan/ })).toHaveAttribute('href', '/workstreams/28');
+    expect(screen.getByText('Parent: #7 Goals')).toBeInTheDocument();
+    expect(screen.getByText('Parent: #7 Goals').closest('a')).toHaveAttribute('href', '/workstreams/7');
+  });
+
   it('does not render or reserve a tags region when the workstream has no tags', () => {
     renderCard(baseWorkstream({ allTags: [] }));
 

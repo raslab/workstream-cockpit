@@ -4,17 +4,40 @@ import { extractTagsFromFields } from '../utils/tagExtractor';
 
 const prisma = new PrismaClient();
 const MAX_HIERARCHY_DEPTH = 5;
+const POSITIVE_INTEGER_RE = /^[1-9]\d*$/;
 
-type LatestSubstreamActivitySource = { workstreamId: string; workstreamName: string; name?: string; updateId?: string; eventId?: string; eventType?: string; createdAt: Date };
+type LatestSubstreamActivitySource = { id?: string; number?: number; workstreamId: string; workstreamName: string; name?: string; updateId?: string; eventId?: string; eventType?: string; createdAt: Date };
 type ActivityMetadata = {
   lastDirectUpdateAt: Date | null;
   lastSubstreamActivityAt: Date | null;
   lastActivityAt: Date | null;
   latestSubstreamActivitySource: LatestSubstreamActivitySource | null;
 };
-type WorkstreamSummary = Pick<Workstream, 'id' | 'name' | 'state' | 'parentId' | 'createdAt' | 'closedAt'> & { depth?: number } & Partial<ActivityMetadata>;
+type WorkstreamSummary = Pick<Workstream, 'id' | 'number' | 'name' | 'state' | 'parentId' | 'createdAt' | 'closedAt'> & { depth?: number } & Partial<ActivityMetadata>;
 type PrismaTx = Prisma.TransactionClient;
 type PrismaExecutor = PrismaClient | PrismaTx;
+
+export function isPublicNumberReference(reference: string | number): boolean {
+  return POSITIVE_INTEGER_RE.test(String(reference));
+}
+
+export async function allocateWorkstreamNumber(client: PrismaExecutor, projectId: string): Promise<number> {
+  const project = await client.project.update({
+    where: { id: projectId },
+    data: { nextWorkstreamNumber: { increment: 1 } },
+    select: { nextWorkstreamNumber: true },
+  });
+  return project.nextWorkstreamNumber - 1;
+}
+
+async function allocateStatusUpdateNumber(client: PrismaExecutor, projectId: string): Promise<number> {
+  const project = await client.project.update({
+    where: { id: projectId },
+    data: { nextStatusUpdateNumber: { increment: 1 } },
+    select: { nextStatusUpdateNumber: true },
+  });
+  return project.nextStatusUpdateNumber - 1;
+}
 
 export interface CreateWorkstreamInput {
   projectId: string;
@@ -57,7 +80,7 @@ export interface WorkstreamWithLatestStatus extends Workstream {
 
 function publicParent(parent: Workstream | null | undefined, depth?: number, activity?: ActivityMetadata): WorkstreamSummary | null {
   if (!parent) return null;
-  return { id: parent.id, name: parent.name, state: parent.state, parentId: parent.parentId, createdAt: parent.createdAt, closedAt: parent.closedAt, depth, ...activity };
+  return { id: parent.id, number: parent.number, name: parent.name, state: parent.state, parentId: parent.parentId, createdAt: parent.createdAt, closedAt: parent.closedAt, depth, ...activity };
 }
 
 function buildSubstreamsByParent(workstreams: Workstream[]): Map<string | null, Workstream[]> {
@@ -152,9 +175,9 @@ async function enrichWorkstreams<T extends Workstream & { statusUpdates?: Status
       const update = latestByWorkstream.get(substreamId);
       const event = latestEventByWorkstream.get(substreamId);
       const candidate = update && (!event || update.createdAt >= event.createdAt)
-        ? { at: update.createdAt, source: { workstreamId: substreamId, workstreamName: byId.get(substreamId)?.name ?? '', name: byId.get(substreamId)?.name ?? '', updateId: update.id, createdAt: update.createdAt } }
+        ? { at: update.createdAt, source: { id: substreamId, number: byId.get(substreamId)?.number, workstreamId: substreamId, workstreamName: byId.get(substreamId)?.name ?? '', name: byId.get(substreamId)?.name ?? '', updateId: update.id, createdAt: update.createdAt } }
         : event
-          ? { at: event.createdAt, source: { workstreamId: substreamId, workstreamName: byId.get(substreamId)?.name ?? '', name: byId.get(substreamId)?.name ?? '', eventId: event.id, eventType: event.eventType, createdAt: event.createdAt } }
+          ? { at: event.createdAt, source: { id: substreamId, number: byId.get(substreamId)?.number, workstreamId: substreamId, workstreamName: byId.get(substreamId)?.name ?? '', name: byId.get(substreamId)?.name ?? '', eventId: event.id, eventType: event.eventType, createdAt: event.createdAt } }
           : null;
       if (candidate && (!latestSubstreamActivityAt || candidate.at > latestSubstreamActivityAt)) {
         latestSubstreamActivityAt = candidate.at;
@@ -223,6 +246,21 @@ async function assertValidParent(client: PrismaExecutor, projectId: string, work
   if (parentDepth + relativeDepth > MAX_HIERARCHY_DEPTH) throw new Error(`Parent stream depth cannot exceed ${MAX_HIERARCHY_DEPTH} levels`);
 }
 
+export async function resolveWorkstreamReference(reference: string | number, projectId: string, client: PrismaExecutor = prisma): Promise<Workstream | null> {
+  const value = String(reference);
+  if (isPublicNumberReference(value)) {
+    return client.workstream.findUnique({ where: { projectId_number: { projectId, number: Number(value) } } });
+  }
+  return client.workstream.findFirst({ where: { id: value, projectId } });
+}
+
+export async function resolveWorkstreamId(reference: string | number | null | undefined, projectId: string, client: PrismaExecutor = prisma): Promise<string | null | undefined> {
+  if (reference === undefined) return undefined;
+  if (reference === null) return null;
+  const workstream = await resolveWorkstreamReference(reference, projectId, client);
+  return workstream?.id ?? null;
+}
+
 async function hierarchyTransaction<T>(fn: (tx: PrismaTx) => Promise<T>): Promise<T> {
   return prisma.$transaction(fn, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
@@ -277,6 +315,12 @@ export async function getWorkstreamById(workstreamId: string, projectId: string)
   }
 }
 
+export async function getWorkstreamByReference(workstreamReference: string | number, projectId: string): Promise<WorkstreamWithLatestStatus | null> {
+  const workstream = await resolveWorkstreamReference(workstreamReference, projectId);
+  if (!workstream) return null;
+  return getWorkstreamById(workstream.id, projectId);
+}
+
 export async function createWorkstream(input: CreateWorkstreamInput): Promise<WorkstreamWithLatestStatus> {
   try {
     logger.info(`Creating new workstream: ${input.name} for project ${input.projectId}`);
@@ -284,10 +328,13 @@ export async function createWorkstream(input: CreateWorkstreamInput): Promise<Wo
       await assertCategoryBelongsToProject(tx, input.categoryId, input.projectId);
       await assertValidParent(tx, input.projectId, undefined, input.parentId);
       const parent = input.parentId ? await tx.workstream.findUnique({ where: { id: input.parentId } }) : null;
+      const number = await allocateWorkstreamNumber(tx, input.projectId);
       const workstream = await tx.workstream.create({
-        data: { projectId: input.projectId, name: input.name, categoryId: input.categoryId, parentId: input.parentId ?? null, context: input.context, state: 'active' },
+        data: { projectId: input.projectId, number, name: input.name, categoryId: input.categoryId, parentId: input.parentId ?? null, context: input.context, state: 'active' },
       });
-      if (input.initialStatus) await tx.statusUpdate.create({ data: { workstreamId: workstream.id, status: input.initialStatus, note: input.initialNote } });
+      if (input.initialStatus) {
+        await tx.statusUpdate.create({ data: { projectId: input.projectId, number: await allocateStatusUpdateNumber(tx, input.projectId), workstreamId: workstream.id, status: input.initialStatus, note: input.initialNote } });
+      }
       if (input.parentId) {
         const allWorkstreams = await tx.workstream.findMany({ where: { projectId: input.projectId } });
         const byId = new Map(allWorkstreams.map(ws => [ws.id, ws]));

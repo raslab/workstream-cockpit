@@ -28,6 +28,10 @@ function getSourceName(workstream: Workstream) {
   return workstream.latestSubstreamActivitySource?.name || workstream.latestSubstreamActivitySource?.workstreamName;
 }
 
+function publicWorkstreamPath(workstream: Pick<Workstream, 'id' | 'number'>) {
+  return `/workstreams/${workstream.number ?? workstream.id}`;
+}
+
 function StatusIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" className="h-4 w-4">
@@ -249,9 +253,12 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
         </div>
 
         <Link
-          to={`/workstreams/${workstream.id}`}
+          to={publicWorkstreamPath(workstream)}
           className="relative z-10 col-start-3 row-start-1 min-w-0 pl-3 pr-36 pt-3 hover:text-primary-600 dark:hover:text-primary-400"
         >
+          {workstream.number !== undefined && (
+            <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">Stream #{workstream.number}</span>
+          )}
           <h3 className={`text-base font-semibold leading-tight text-gray-900 dark:text-gray-100 ${workstream.state === 'closed' ? 'text-gray-600 dark:text-gray-400' : ''}`}>
             {name}
           </h3>
@@ -268,16 +275,16 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
 
         {workstream.parent && (
           <Link
-            to={`/workstreams/${workstream.parent.id}`}
+            to={`/workstreams/${workstream.parent.number ?? workstream.parent.id}`}
             className="relative z-10 col-start-3 col-end-5 row-start-2 mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden pl-3 pr-36 text-xs text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400"
           >
             <ParentIcon />
-            <span className="truncate">Parent: {workstream.parent.name || workstream.parent.workstreamName}</span>
+            <span className="truncate">Parent: {workstream.parent.number !== undefined ? `#${workstream.parent.number} ` : ''}{workstream.parent.name || workstream.parent.workstreamName}</span>
           </Link>
         )}
 
         <Link
-          to={`/workstreams/${workstream.id}`}
+          to={publicWorkstreamPath(workstream)}
           className={`relative z-10 col-start-3 col-end-4 min-w-0 pl-3 pr-2 ${workstream.parent ? 'row-start-3 mt-1' : 'row-start-2 mt-1'}`}
         >
           {latestStatus ? (

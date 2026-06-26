@@ -8,6 +8,7 @@ export interface Category {
 
 export interface WorkstreamSummary {
   id: string;
+  number?: number;
   name?: string;
   workstreamName?: string;
   workstreamId?: string;
@@ -22,6 +23,7 @@ export interface WorkstreamSummary {
 
 export interface StatusUpdate {
   id: string;
+  number?: number;
   workstreamId: string;
   status: string;
   note: string | null;
@@ -39,6 +41,7 @@ export interface LatestSubstreamActivitySource extends WorkstreamSummary {
 
 export interface Workstream {
   id: string;
+  number?: number;
   projectId: string;
   name: string;
   workstreamName?: string;

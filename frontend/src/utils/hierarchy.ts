@@ -9,7 +9,7 @@ export interface ParentGroup {
 }
 
 export function getBreadcrumbItems(workstream: Workstream): WorkstreamSummary[] {
-  return [...(workstream.parentStreams || []), { id: workstream.id, name: workstream.name, state: workstream.state, parentId: workstream.parentId, depth: workstream.depth }];
+  return [...(workstream.parentStreams || []), { id: workstream.id, number: workstream.number, name: workstream.name, state: workstream.state, parentId: workstream.parentId, depth: workstream.depth }];
 }
 
 export function getWorkstreamName(workstream: WorkstreamSummary | Workstream | null | undefined): string {
