@@ -8,6 +8,7 @@ export interface CreateCategoryInput {
   name: string;
   color: string;
   emoji?: string | null;
+  description?: string;
   sortOrder?: number;
 }
 
@@ -25,13 +26,14 @@ const DEFAULT_CATEGORIES = [
 export async function createCategory(input: CreateCategoryInput): Promise<Category> {
   try {
     logger.info(`Creating new category: ${input.name} for project ${input.projectId}`);
-    
+
     const category = await prisma.category.create({
       data: {
         projectId: input.projectId,
         name: input.name,
         color: input.color,
         emoji: input.emoji ?? null,
+        description: input.description ?? '',
         sortOrder: input.sortOrder ?? 0,
       },
     });
@@ -62,7 +64,10 @@ export async function getCategoriesByProjectId(projectId: string): Promise<Categ
 /**
  * Get a category by ID (with project access check)
  */
-export async function getCategoryById(categoryId: string, projectId: string): Promise<Category | null> {
+export async function getCategoryById(
+  categoryId: string,
+  projectId: string,
+): Promise<Category | null> {
   try {
     return await prisma.category.findFirst({
       where: {
@@ -82,7 +87,7 @@ export async function getCategoryById(categoryId: string, projectId: string): Pr
 export async function updateCategory(
   categoryId: string,
   projectId: string,
-  updates: Partial<Pick<Category, 'name' | 'color' | 'emoji' | 'sortOrder'>>
+  updates: Partial<Pick<Category, 'name' | 'color' | 'emoji' | 'description' | 'sortOrder'>>,
 ): Promise<Category> {
   try {
     // Verify access first
@@ -130,14 +135,14 @@ export async function deleteCategory(categoryId: string, projectId: string): Pro
 export async function createDefaultCategories(projectId: string): Promise<Category[]> {
   try {
     logger.info(`Creating default categories for project: ${projectId}`);
-    
+
     const categories = await Promise.all(
       DEFAULT_CATEGORIES.map((categoryData) =>
         createCategory({
           projectId,
           ...categoryData,
-        })
-      )
+        }),
+      ),
     );
 
     logger.info(`Created ${categories.length} default categories for project ${projectId}`);
@@ -153,12 +158,12 @@ export async function createDefaultCategories(projectId: string): Promise<Catego
  */
 export async function reorderCategories(
   projectId: string,
-  categoryIds: string[]
+  categoryIds: string[],
 ): Promise<Category[]> {
   try {
     logger.info(`Attempting to reorder ${categoryIds.length} categories for project ${projectId}`);
     logger.info(`Category IDs: ${categoryIds.join(', ')}`);
-    
+
     // Verify all categories belong to the project
     const categories = await prisma.category.findMany({
       where: {
@@ -168,9 +173,11 @@ export async function reorderCategories(
     });
 
     logger.info(`Found ${categories.length} categories in database`);
-    
+
     if (categories.length !== categoryIds.length) {
-      logger.error(`Category count mismatch: requested ${categoryIds.length}, found ${categories.length}`);
+      logger.error(
+        `Category count mismatch: requested ${categoryIds.length}, found ${categories.length}`,
+      );
       const foundIds = categories.map((c: any) => c.id);
       const missingIds = categoryIds.filter((id) => !foundIds.includes(id));
       logger.error(`Missing category IDs: ${missingIds.join(', ')}`);
@@ -183,12 +190,12 @@ export async function reorderCategories(
         prisma.category.update({
           where: { id: categoryId },
           data: { sortOrder: index },
-        })
-      )
+        }),
+      ),
     );
 
     logger.info(`Reordered ${categoryIds.length} categories for project ${projectId}`);
-    
+
     // Return updated categories in order
     return await getCategoriesByProjectId(projectId);
   } catch (error) {

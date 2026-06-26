@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { buildLoginRedirectUrl, getCurrentReturnTo } from '@/utils/authRedirect';
 
 // Use relative path for production (nginx proxies /api to backend)
 // or full URL for development
@@ -20,7 +21,7 @@ apiClient.interceptors.response.use(
       // Don't redirect to login if we're already on login or callback pages
       const currentPath = window.location.pathname;
       if (currentPath !== '/login' && currentPath !== '/auth/callback') {
-        window.location.href = '/login';
+        window.location.href = buildLoginRedirectUrl(getCurrentReturnTo());
       }
     }
     return Promise.reject(error);
