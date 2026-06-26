@@ -19,10 +19,10 @@
     "test:frontend": "npm run test --workspace=frontend",
     "lint": "npm run lint --workspaces",
     "format": "npm run format --workspaces",
-    "docker": "docker compose up --build -d",
+    "docker": "VITE_GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD) VITE_GIT_COMMIT=$(git rev-parse HEAD) VITE_GIT_COMMIT_DATE=$(git show -s --format=%cI HEAD) VITE_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) docker compose up --build -d",
     "docker:up": "docker-compose up",
     "docker:down": "docker-compose down",
-    "docker:build": "docker-compose build"
+    "docker:build": "VITE_GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD) VITE_GIT_COMMIT=$(git rev-parse HEAD) VITE_GIT_COMMIT_DATE=$(git show -s --format=%cI HEAD) VITE_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) docker compose build"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

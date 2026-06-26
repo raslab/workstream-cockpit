@@ -1,0 +1,7 @@
+# Frontend compose builds use the repository root as context only to read Git metadata.
+# Keep the context small while allowing frontend sources and .git through.
+**
+!frontend/
+!frontend/**
+!.git
+!.git/**

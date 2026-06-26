@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { BuildInfoBadge } from './BuildInfoBadge';
 
 interface SettingsTab {
   name: string;
@@ -37,6 +38,9 @@ export function SettingsSidebar() {
             <span>{tab.name}</span>
           </NavLink>
         ))}
+      </div>
+      <div className="mt-6 px-3">
+        <BuildInfoBadge />
       </div>
     </nav>
   );
