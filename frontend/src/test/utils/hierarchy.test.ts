@@ -68,7 +68,7 @@ describe('parent stream utilities', () => {
     ]);
   });
 
-  it('filters streams under multiple selected parents with optional nested sub-streams', () => {
+  it('filters streams under selected parents without returning the selected parents themselves', () => {
     const nestedSubstream = base({
       id: 'nested-substream',
       name: 'Nested sub-stream',
@@ -77,22 +77,66 @@ describe('parent stream utilities', () => {
       parentStreams: [{ id: 'parent', name: 'Parent' }, { id: 'substream', name: 'Sub-stream' }],
       depth: 3,
     });
+    const leafSubstream = base({
+      id: 'leaf-substream',
+      name: 'Leaf sub-stream',
+      parentId: 'nested-substream',
+      parent: { id: 'nested-substream', name: 'Nested sub-stream' },
+      parentStreams: [{ id: 'parent', name: 'Parent' }, { id: 'substream', name: 'Sub-stream' }, { id: 'nested-substream', name: 'Nested sub-stream' }],
+      depth: 4,
+    });
     const otherParent = base({ id: 'other-parent', name: 'Other parent', parentId: null, depth: 1 });
     const otherSubstream = base({ id: 'other-substream', name: 'Other sub-stream', parentId: 'other-parent', parent: { id: 'other-parent', name: 'Other parent' }, depth: 2 });
+    const streams = [parent, substream, nestedSubstream, leafSubstream, otherParent, otherSubstream];
 
-    expect(applyCockpitHierarchyFilter([parent, substream, nestedSubstream, otherParent, otherSubstream], {
+    expect(applyCockpitHierarchyFilter(streams, {
       mode: 'under-parent',
       parentId: null,
       parentIds: ['parent', 'other-parent'],
       includeSubstreams: false,
-    }).map((w) => w.id)).toEqual(['parent', 'other-parent']);
+    }).map((w) => w.id)).toEqual(['substream', 'other-substream']);
 
-    expect(applyCockpitHierarchyFilter([parent, substream, nestedSubstream, otherParent, otherSubstream], {
+    expect(applyCockpitHierarchyFilter(streams, {
       mode: 'under-parent',
       parentId: null,
       parentIds: ['parent'],
       includeSubstreams: true,
-    }).map((w) => w.id)).toEqual(['parent', 'substream', 'nested-substream']);
+    }).map((w) => w.id)).toEqual(['substream', 'nested-substream', 'leaf-substream']);
+
+    expect(applyCockpitHierarchyFilter(streams, {
+      mode: 'under-parent',
+      parentId: null,
+      parentIds: ['leaf-substream'],
+      includeSubstreams: true,
+    }).map((w) => w.id)).toEqual([]);
+  });
+
+  it('keeps selected parent streams when they are also sub-streams of another selected parent', () => {
+    const streamA = base({ id: 'a', name: 'A', parentId: null, depth: 1 });
+    const streamB = base({ id: 'b', name: 'B', parentId: 'a', parent: { id: 'a', name: 'A' }, parentStreams: [{ id: 'a', name: 'A' }], depth: 2 });
+    const streamC = base({ id: 'c', name: 'C', parentId: 'b', parent: { id: 'b', name: 'B' }, parentStreams: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], depth: 3 });
+    const streams = [streamA, streamB, streamC];
+
+    expect(applyCockpitHierarchyFilter(streams, {
+      mode: 'under-parent',
+      parentId: null,
+      parentIds: ['a'],
+      includeSubstreams: false,
+    }).map((w) => w.id)).toEqual(['b']);
+
+    expect(applyCockpitHierarchyFilter(streams, {
+      mode: 'under-parent',
+      parentId: null,
+      parentIds: ['a'],
+      includeSubstreams: true,
+    }).map((w) => w.id)).toEqual(['b', 'c']);
+
+    expect(applyCockpitHierarchyFilter(streams, {
+      mode: 'under-parent',
+      parentId: null,
+      parentIds: ['a', 'b'],
+      includeSubstreams: false,
+    }).map((w) => w.id)).toEqual(['b', 'c']);
   });
 
   it('uses explicit parent stream timestamps for sorting', () => {

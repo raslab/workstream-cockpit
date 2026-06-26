@@ -80,16 +80,27 @@ function setCategoryListIfDifferent(params: URLSearchParams, current: string[], 
 }
 
 function resolveWorkstreamValues(values: string[], workstreams: Workstream[] = []): string[] {
+  const candidates = workstreamReferenceCandidates(workstreams);
+
   return values
-    .map((value) => workstreams.find((workstream) => workstream.id === value || String(workstream.number) === value)?.id ?? value)
+    .map((value) => candidates.find((workstream) => workstream.id === value || String(workstream.number) === value)?.id ?? value)
     .filter(Boolean);
 }
 
 function workstreamSearchValue(parentIds: string[], workstreams: Workstream[] = []): string {
+  const candidates = workstreamReferenceCandidates(workstreams);
   return stableList(parentIds.map((id) => {
-    const workstream = workstreams.find((candidate) => candidate.id === id);
+    const workstream = candidates.find((candidate) => candidate.id === id);
     return workstream?.number !== undefined ? String(workstream.number) : id;
   }));
+}
+
+function workstreamReferenceCandidates(workstreams: Workstream[] = []) {
+  return workstreams.flatMap((workstream) => [
+    workstream,
+    ...(workstream.parent ? [workstream.parent] : []),
+    ...(workstream.parentStreams ?? []),
+  ]);
 }
 
 export function viewUrlValue(view: Pick<ViewConfig, 'id' | 'name'> | null | undefined): string | null {

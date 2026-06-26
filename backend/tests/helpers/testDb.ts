@@ -43,6 +43,10 @@ function quotePostgresIdentifier(identifier: string): string {
  * - Run all migrations on the test database
  */
 export async function setupTestDatabase(): Promise<void> {
+  if (process.env.WORKSTREAM_TEST_DATABASE_READY === '1') {
+    return;
+  }
+
   try {
     // Create test database if it doesn't exist.
     // Use the same host/user/password as the composed database URL, but connect to the

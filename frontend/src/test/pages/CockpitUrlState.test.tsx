@@ -170,10 +170,8 @@ describe('Cockpit URL state', () => {
   it('filters cockpit streams under multiple selected parents and nested sub-streams', async () => {
     useWorkstreamsMock.mockReturnValue({
       data: [
-        { id: 'parent-1', number: 10, projectId: 'project-1', name: 'Parent one', categoryId: null, context: null, state: 'active', createdAt: '2026-06-01T00:00:00Z', closedAt: null, allTags: [], parentId: null },
         { id: 'substream-1', number: 11, projectId: 'project-1', name: 'Direct sub-stream', categoryId: null, context: null, state: 'active', createdAt: '2026-06-02T00:00:00Z', closedAt: null, allTags: [], parentId: 'parent-1', parent: { id: 'parent-1', number: 10, name: 'Parent one' } },
         { id: 'nested-substream', number: 12, projectId: 'project-1', name: 'Nested sub-stream', categoryId: null, context: null, state: 'active', createdAt: '2026-06-03T00:00:00Z', closedAt: null, allTags: [], parentId: 'substream-1', parent: { id: 'substream-1', number: 11, name: 'Direct sub-stream' }, parentStreams: [{ id: 'parent-1', number: 10, name: 'Parent one' }, { id: 'substream-1', number: 11, name: 'Direct sub-stream' }] },
-        { id: 'other-substream', projectId: 'project-1', name: 'Other sub-stream', categoryId: null, context: null, state: 'active', createdAt: '2026-06-04T00:00:00Z', closedAt: null, allTags: [], parentId: 'parent-2', parent: { id: 'parent-2', name: 'Parent two' } },
       ] satisfies Workstream[],
       isLoading: false,
       error: null,
@@ -181,9 +179,16 @@ describe('Cockpit URL state', () => {
 
     renderCockpit('/?hierarchy=under-parent&parentIds=10&includeSubstreams=1&group=none');
 
-    await waitFor(() => expect(screen.getAllByTestId('workstream-card')).toHaveLength(3));
-    const cardText = screen.getAllByTestId('workstream-card').map((card) => card.textContent).join(' | ');
-    expect(cardText).toContain('Parent one');
+    await waitFor(() => expect(useWorkstreamsMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      hierarchy: 'under-parent',
+      parentId: 'parent-1',
+      parentIds: ['parent-1'],
+      includeSubstreams: true,
+    })));
+    await waitFor(() => expect(screen.getAllByTestId('workstream-card')).toHaveLength(2));
+    const cardTexts = screen.getAllByTestId('workstream-card').map((card) => card.textContent ?? '');
+    const cardText = cardTexts.join(' | ');
+    expect(cardTexts).not.toContain('Parent one');
     expect(cardText).toContain('Direct sub-stream Parent: Parent one');
     expect(cardText).toContain('Nested sub-stream Parent: Direct sub-stream');
     expect(cardText).not.toContain('Other sub-stream');
@@ -234,4 +239,3 @@ describe('Cockpit URL state', () => {
     expect(screen.getByText(/Sub-stream two Parent: Parent stream/)).toBeInTheDocument();
   });
 });
-

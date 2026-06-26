@@ -10,7 +10,7 @@ import { ViewTabs } from '../components/ViewManagement/ViewTabs';
 import { ViewControls } from '../components/ViewManagement/ViewControls';
 import { ViewCreateDialog } from '../components/ViewManagement/ViewCreateDialog';
 import { Workstream } from '../types/workstream';
-import { applyCockpitHierarchyFilter, getHierarchyTimestamp, groupWorkstreamsByParent } from '../utils/hierarchy';
+import { getHierarchyTimestamp, groupWorkstreamsByParent } from '../utils/hierarchy';
 import { applyCockpitSearchToConfig, resolveEntityParam, serializeCockpitConfigSearch, viewUrlValue } from '../utils/urlState';
 import { WorkstreamLink } from '../components/Workstream/WorkstreamReference';
 
@@ -54,6 +54,7 @@ export default function Cockpit() {
     notUpdatedToday: currentConfig.filters.temporal.notUpdatedToday,
     hierarchy: currentConfig.filters.hierarchy.mode,
     parentId: currentConfig.filters.hierarchy.parentId,
+    parentIds: currentConfig.filters.hierarchy.parentIds,
     includeSubstreams: currentConfig.filters.hierarchy.includeSubstreams,
   });
 
@@ -134,7 +135,6 @@ export default function Cockpit() {
     }
   };
 
-
   // Helper function to get sort comparator
   const getSortComparator = (sortField: typeof currentConfig.sort.field, sortDir: typeof currentConfig.sort.direction) => {
     return (a: Workstream, b: Workstream) => {
@@ -163,18 +163,17 @@ export default function Cockpit() {
   // Group workstreams by category and sort within each group
   const groupedWorkstreams = useMemo(() => {
     if (!workstreams) return [];
-    const filteredWorkstreams = applyCockpitHierarchyFilter(workstreams, currentConfig.filters.hierarchy);
-
     if (currentConfig.group.by === 'none') {
-      // Sort all workstreams
-      const sorted = [...filteredWorkstreams].sort(
+      // Sort all workstreams returned by the API. The API owns category/tag/hierarchy filtering;
+      // reapplying hierarchy client-side can drop nested sub-streams when intermediate rows are filtered out.
+      const sorted = [...workstreams].sort(
         getSortComparator(currentConfig.sort.field, currentConfig.sort.direction)
       );
       return [{ key: 'all', name: null, color: null, emoji: null, sortOrder: 0, parent: null, workstreams: sorted }];
     }
 
     if (currentConfig.group.by === 'parent') {
-      return groupWorkstreamsByParent(filteredWorkstreams).map((group, index) => ({
+      return groupWorkstreamsByParent(workstreams).map((group, index) => ({
         ...group,
         color: null,
         emoji: null,
@@ -185,7 +184,7 @@ export default function Cockpit() {
 
     // Group by category
     const groups = new Map<string, Workstream[]>();
-    filteredWorkstreams.forEach((ws) => {
+    workstreams.forEach((ws) => {
       const key = ws.category?.id || 'untagged';
       if (!groups.has(key)) {
         groups.set(key, []);
@@ -319,4 +318,3 @@ export default function Cockpit() {
     </>
   );
 }
-
