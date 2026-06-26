@@ -18,6 +18,28 @@ const router = Router();
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
 const HIERARCHY_FILTERS = new Set<WorkstreamHierarchyFilter>(['all', 'top-level', 'sub-streams', 'no-parent', 'has-substreams', 'under-parent']);
 
+function firstQueryValue(value: unknown): string | undefined {
+  if (Array.isArray(value)) return firstQueryValue(value[0]);
+  return typeof value === 'string' ? value : undefined;
+}
+
+function queryList(value: unknown): string[] | undefined {
+  if (value === undefined) return undefined;
+  const values = Array.isArray(value) ? value : [value];
+  return values
+    .flatMap(item => typeof item === 'string' ? item.split(',') : [])
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function parseQueryBoolean(value: unknown): boolean | undefined | null {
+  if (value === undefined) return undefined;
+  const normalized = firstQueryValue(value);
+  if (normalized === 'true' || normalized === '1') return true;
+  if (normalized === 'false' || normalized === '0') return false;
+  return null;
+}
+
 function validateNullableUuid(value: unknown, field: string, res: Response): value is string | null | undefined {
   if (value === undefined || value === null) return true;
   if (typeof value !== 'string' || !UUID_RE.test(value)) {
@@ -46,10 +68,9 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     const tagsQuery = req.query.tags as string | undefined;
     const categoryIdsQuery = req.query.categoryIds as string | undefined;
     const notUpdatedToday = req.query.notUpdatedToday === 'true';
-    const hierarchyQuery = req.query.hierarchy as string | undefined;
-    const parentIdQuery = req.query.parentId as string | undefined;
-    const parentIdsQuery = req.query.parentIds as string | undefined;
-    const includeSubstreamsQuery = req.query.includeSubstreams as string | undefined;
+    const hierarchyQuery = firstQueryValue(req.query.hierarchy);
+    const parentIdQuery = firstQueryValue(req.query.parentId);
+    const includeSubstreamsQuery = parseQueryBoolean(req.query.includeSubstreams);
 
     if (state !== undefined && !['active', 'closed', 'all'].includes(state)) {
       res.status(400).json({ error: 'state must be active, closed, or all' });
@@ -61,8 +82,8 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (includeSubstreamsQuery !== undefined && !['true', 'false'].includes(includeSubstreamsQuery)) {
-      res.status(400).json({ error: 'includeSubstreams must be true or false' });
+    if (includeSubstreamsQuery === null) {
+      res.status(400).json({ error: 'includeSubstreams must be true, false, 1, or 0' });
       return;
     }
 
@@ -82,9 +103,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const parentIds = parentIdsQuery
-      ? parentIdsQuery.split(',').map(id => id.trim()).filter(Boolean)
-      : undefined;
+    const parentIds = queryList(req.query.parentIds);
     if (parentIds?.some(id => !UUID_RE.test(id))) {
       res.status(400).json({ error: 'parentIds must be comma-separated valid UUIDs' });
       return;
@@ -95,7 +114,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
           mode: (hierarchyQuery as WorkstreamHierarchyFilter | undefined) ?? 'all',
           parentId,
           parentIds,
-          includeSubstreams: includeSubstreamsQuery === 'true',
+          includeSubstreams: includeSubstreamsQuery === true,
         }
       : undefined;
 

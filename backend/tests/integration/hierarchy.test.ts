@@ -143,9 +143,10 @@ describe('Parent streams and sub-streams backend contract', () => {
     expect(top.parentId).toBeNull();
 
     const response = await request(timelineApp).get('/').query({ eventTypes: 'parent_changed,sub_stream_created' }).expect(200);
-    const eventTypes = response.body.map((e: any) => e.eventType);
+    const events = response.body.events;
+    const eventTypes = events.map((e: any) => e.eventType);
     expect(eventTypes).toEqual(expect.arrayContaining(['sub_stream_created', 'parent_changed']));
-    const created = response.body.find((e: any) => e.eventType === 'sub_stream_created');
+    const created = events.find((e: any) => e.eventType === 'sub_stream_created');
     expect(created).toMatchObject({
       workstreamId: substream.id,
       oldParentId: null,
@@ -157,7 +158,7 @@ describe('Parent streams and sub-streams backend contract', () => {
       breadcrumb: 'Parent > Sub-stream',
       currentBreadcrumb: 'Sub-stream',
     });
-    const moved = response.body.find((e: any) => e.eventType === 'parent_changed');
+    const moved = events.find((e: any) => e.eventType === 'parent_changed');
     expect(moved).toMatchObject({ workstreamId: substream.id, oldParentId: parent.id, oldParentName: 'Parent', newParentId: null, newParentName: null, breadcrumb: 'Sub-stream', currentBreadcrumb: 'Sub-stream' });
   });
 
@@ -195,19 +196,19 @@ describe('Parent streams and sub-streams backend contract', () => {
     await createTestStatusUpdate(nestedSubstream.id, { status: 'nested sub-stream #scope' });
 
     const topLevel = await request(timelineApp).get('/').query({ eventTypes: 'status_update', tags: 'scope', streamScope: 'top-level' }).expect(200);
-    expect(topLevel.body.map((e: any) => e.workstreamId)).toEqual(expect.arrayContaining([parent.id, sibling.id]));
-    expect(topLevel.body.map((e: any) => e.workstreamId)).not.toEqual(expect.arrayContaining([substream.id, nestedSubstream.id]));
+    expect(topLevel.body.events.map((e: any) => e.workstreamId)).toEqual(expect.arrayContaining([parent.id, sibling.id]));
+    expect(topLevel.body.events.map((e: any) => e.workstreamId)).not.toEqual(expect.arrayContaining([substream.id, nestedSubstream.id]));
 
     const substreams = await request(timelineApp).get('/').query({ eventTypes: 'status_update', tags: 'scope', streamScope: 'sub-streams' }).expect(200);
-    expect(substreams.body.map((e: any) => e.workstreamId)).toEqual(expect.arrayContaining([substream.id, nestedSubstream.id]));
-    expect(substreams.body.map((e: any) => e.workstreamId)).not.toEqual(expect.arrayContaining([parent.id, sibling.id]));
+    expect(substreams.body.events.map((e: any) => e.workstreamId)).toEqual(expect.arrayContaining([substream.id, nestedSubstream.id]));
+    expect(substreams.body.events.map((e: any) => e.workstreamId)).not.toEqual(expect.arrayContaining([parent.id, sibling.id]));
 
     const direct = await request(timelineApp).get('/').query({ eventTypes: 'status_update', tags: 'scope', streamScope: 'under-parent', parentId: parent.id }).expect(200);
-    expect(direct.body.map((e: any) => e.workstreamId)).toEqual([parent.id]);
+    expect(direct.body.events.map((e: any) => e.workstreamId)).toEqual([parent.id]);
 
     const included = await request(timelineApp).get('/').query({ eventTypes: 'status_update', tags: 'scope', streamScope: 'under-parent', parentId: parent.id, includeSubstreams: 'true' }).expect(200);
-    expect(included.body.map((e: any) => e.workstreamId)).toEqual(expect.arrayContaining([parent.id, substream.id, nestedSubstream.id]));
-    expect(included.body.map((e: any) => e.workstreamId)).not.toContain(sibling.id);
+    expect(included.body.events.map((e: any) => e.workstreamId)).toEqual(expect.arrayContaining([parent.id, substream.id, nestedSubstream.id]));
+    expect(included.body.events.map((e: any) => e.workstreamId)).not.toContain(sibling.id);
   });
 
   it('uses full current parent stream path for deep structural timeline events', async () => {
@@ -216,7 +217,7 @@ describe('Parent streams and sub-streams backend contract', () => {
     const created = await request(workstreamsApp).post('/').send({ name: 'Leaf', parentId: mid.id }).expect(201);
 
     const response = await request(timelineApp).get('/').query({ eventTypes: 'sub_stream_created' }).expect(200);
-    const event = response.body.find((e: any) => e.workstreamId === created.body.id);
+    const event = response.body.events.find((e: any) => e.workstreamId === created.body.id);
     expect(event).toMatchObject({ breadcrumb: 'Root > Mid > Leaf', currentBreadcrumb: 'Root > Mid > Leaf', parentId: mid.id, parentName: 'Mid', newParentId: mid.id, newParentName: 'Mid' });
   });
 

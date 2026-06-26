@@ -184,6 +184,18 @@ describe('Workstreams API Integration Tests', () => {
 
       expect(overlappingParentsResponse.status).toBe(200);
       expect(overlappingParentsResponse.body.map((workstream: any) => workstream.id)).toEqual([streamC.id, streamB.id]);
+
+      const browserUrlStyleResponse = await request(app)
+        .get('/')
+        .query({
+          state: 'active',
+          hierarchy: 'under-parent',
+          parentIds: [streamA.id, streamB.id],
+          includeSubstreams: '1',
+        });
+
+      expect(browserUrlStyleResponse.status).toBe(200);
+      expect(browserUrlStyleResponse.body.map((workstream: any) => workstream.id)).toEqual([streamC.id, streamB.id]);
     });
   });
 
