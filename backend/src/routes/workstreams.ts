@@ -106,25 +106,14 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       : undefined;
 
     const parentId = parentIdQuery?.trim() || undefined;
-    if (parentId && !UUID_RE.test(parentId)) {
-      res.status(400).json({ error: 'parentId must be a valid UUID' });
+    if (!validateNullableWorkstreamReference(parentId, 'parentId', res)) {
       return;
     }
 
     const parentIds = queryList(req.query.parentIds);
-    if (parentIds?.some(id => !UUID_RE.test(id))) {
-      res.status(400).json({ error: 'parentIds must be comma-separated valid UUIDs' });
+    if (parentIds?.some(id => !validateNullableWorkstreamReference(id, 'parentIds', res))) {
       return;
     }
-
-    const hierarchy = hierarchyQuery || parentId || parentIds?.length || includeSubstreamsQuery !== undefined
-      ? {
-          mode: (hierarchyQuery as WorkstreamHierarchyFilter | undefined) ?? 'all',
-          parentId,
-          parentIds,
-          includeSubstreams: includeSubstreamsQuery === true,
-        }
-      : undefined;
 
     // Get user's projects (for Phase 1, we'll use the first/default project)
     const projects = await getProjectsByPersonId(personId);
@@ -135,6 +124,27 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     const projectId = projects[0].id;
+    const resolvedParentId = await resolveWorkstreamId(parentId, projectId);
+    if (parentId && !resolvedParentId) {
+      res.status(404).json({ error: 'Parent workstream not found' });
+      return;
+    }
+    const resolvedParentIds = parentIds
+      ? await Promise.all(parentIds.map(id => resolveWorkstreamId(id, projectId)))
+      : undefined;
+    if (resolvedParentIds?.some(id => !id)) {
+      res.status(404).json({ error: 'Parent workstream not found' });
+      return;
+    }
+
+    const hierarchy = hierarchyQuery || resolvedParentId || resolvedParentIds?.length || includeSubstreamsQuery !== undefined
+      ? {
+          mode: (hierarchyQuery as WorkstreamHierarchyFilter | undefined) ?? 'all',
+          parentId: resolvedParentId,
+          parentIds: resolvedParentIds?.filter((id): id is string => Boolean(id)),
+          includeSubstreams: includeSubstreamsQuery === true,
+        }
+      : undefined;
     const workstreams = await getWorkstreams(projectId, state, tags, categoryIds, notUpdatedToday, hierarchy);
 
     res.json(workstreams);

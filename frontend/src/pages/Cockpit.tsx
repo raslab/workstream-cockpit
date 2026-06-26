@@ -46,6 +46,10 @@ export default function Cockpit() {
     renameView,
   } = useViewManager();
 
+  // Keep an unfiltered reference list so URL state can resolve and serialize public stream numbers
+  // even when the visible list is scoped under parent streams and excludes those parents.
+  const { data: referenceWorkstreams } = useWorkstreams({ state: 'active' });
+
   // Fetch workstreams with current filter config
   const { data: workstreams, isLoading, error } = useWorkstreams({
     state: 'active',
@@ -71,13 +75,14 @@ export default function Cockpit() {
       views[0];
     if (!view) return;
 
-    const nextConfig = applyCockpitSearchToConfig(view.config, searchParams, { categories, workstreams });
+    const urlWorkstreams = referenceWorkstreams ?? workstreams;
+    const nextConfig = applyCockpitSearchToConfig(view.config, searchParams, { categories, workstreams: urlWorkstreams });
     const validUrlView = Boolean(resolvedViewId);
     const canonicalParams = serializeCockpitConfigSearch(
       validUrlView ? view.id : null,
       nextConfig,
       view.config,
-      { viewValue: validUrlView ? viewUrlValue(view) : null, categories, workstreams }
+      { viewValue: validUrlView ? viewUrlValue(view) : null, categories, workstreams: urlWorkstreams }
     );
 
     if (canonicalParams.toString() !== searchParams.toString()) {
@@ -85,7 +90,7 @@ export default function Cockpit() {
     }
     if (view.id !== activeViewId) switchView(view.id);
     setCurrentConfig(nextConfig);
-  }, [views, activeViewId, searchParams, setSearchParams, switchView, setCurrentConfig, categories, categoriesLoading, workstreams]);
+  }, [views, activeViewId, searchParams, setSearchParams, switchView, setCurrentConfig, categories, categoriesLoading, workstreams, referenceWorkstreams]);
 
   const activeView = views.find((view) => view.id === activeViewId);
 
@@ -112,7 +117,7 @@ export default function Cockpit() {
 
   const handleConfigChange = (nextConfig: typeof currentConfig) => {
     setCurrentConfig(nextConfig);
-    setSearchParams(serializeCockpitConfigSearch(activeViewId, nextConfig, activeView?.config, { viewValue: viewUrlValue(activeView), categories, workstreams }), { replace: true });
+    setSearchParams(serializeCockpitConfigSearch(activeViewId, nextConfig, activeView?.config, { viewValue: viewUrlValue(activeView), categories, workstreams: referenceWorkstreams ?? workstreams }), { replace: true });
   };
 
   const handleSaveCurrentView = async () => {

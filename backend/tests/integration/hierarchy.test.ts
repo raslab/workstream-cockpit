@@ -213,6 +213,21 @@ describe('Parent streams and sub-streams backend contract', () => {
     expect(timelineEvents(included.body).map((e: any) => e.workstreamId)).not.toContain(sibling.id);
   });
 
+  it('accepts public stream numbers for cockpit under-parent parentIds filters', async () => {
+    const parent = await createTestWorkstream(project.id, { name: 'Numbered Parent' });
+    const substream = await createTestWorkstream(project.id, { name: 'Numbered Sub-stream', parentId: parent.id } as any);
+    const sibling = await createTestWorkstream(project.id, { name: 'Numbered Sibling' });
+
+    const response = await request(workstreamsApp)
+      .get('/')
+      .query({ hierarchy: 'under-parent', parentIds: String(parent.number), includeSubstreams: 'true' })
+      .expect(200);
+
+    expect(response.body.map((w: any) => w.id)).toContain(substream.id);
+    expect(response.body.map((w: any) => w.id)).not.toContain(parent.id);
+    expect(response.body.map((w: any) => w.id)).not.toContain(sibling.id);
+  });
+
   it('uses full current parent stream path for deep structural timeline events', async () => {
     const root = await createTestWorkstream(project.id, { name: 'Root' });
     const mid = await createTestWorkstream(project.id, { name: 'Mid', parentId: root.id } as any);
