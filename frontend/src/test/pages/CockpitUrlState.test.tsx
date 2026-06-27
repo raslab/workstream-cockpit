@@ -195,6 +195,32 @@ describe('Cockpit URL state', () => {
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('parentIds=10'));
   });
 
+  it('groups nested sub-streams under the selected parent when under-parent filter includes sub-streams', async () => {
+    useWorkstreamsMock.mockReturnValue({
+      data: [
+        { id: 'stream-b', number: 11, projectId: 'project-1', name: 'B', categoryId: null, context: null, state: 'active', createdAt: '2026-06-02T00:00:00Z', closedAt: null, allTags: [], parentId: 'stream-a', parent: { id: 'stream-a', number: 10, name: 'A' }, parentStreams: [{ id: 'stream-a', number: 10, name: 'A' }] },
+        { id: 'stream-c', number: 12, projectId: 'project-1', name: 'C', categoryId: null, context: null, state: 'active', createdAt: '2026-06-03T00:00:00Z', closedAt: null, allTags: [], parentId: 'stream-b', parent: { id: 'stream-b', number: 11, name: 'B' }, parentStreams: [{ id: 'stream-a', number: 10, name: 'A' }, { id: 'stream-b', number: 11, name: 'B' }] },
+      ] satisfies Workstream[],
+      isLoading: false,
+      error: null,
+    });
+
+    renderCockpit('/?hierarchy=under-parent&parentIds=10&includeSubstreams=1&group=parent');
+
+    await waitFor(() => expect(useWorkstreamsMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      hierarchy: 'under-parent',
+      parentId: 'stream-a',
+      parentIds: ['stream-a'],
+      includeSubstreams: true,
+    })));
+    expect(screen.getByRole('link', { name: '#10 A' })).toHaveAttribute('href', '/workstreams/10');
+    expect(screen.getByText('(2)')).toBeInTheDocument();
+    expect(screen.getAllByTestId('workstream-card')).toHaveLength(2);
+    expect(screen.getByText(/B Parent: A/)).toBeInTheDocument();
+    expect(screen.getByText(/C Parent: B/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '#11 B' })).not.toBeInTheDocument();
+  });
+
   it('keeps parent grouping when not-updated-today filtering returns sub-streams without their parent row', async () => {
     useWorkstreamsMock.mockReturnValue({
       data: [

@@ -379,6 +379,36 @@ describe('MCP endpoint', () => {
     expect(await prisma.workstream.count({ where: { projectId: project.id } })).toBe(2);
   });
 
+  it('groups MCP recursive under-parent lists by the selected filter parent', async () => {
+    const person = await createTestPerson({ email: 'mcp-under-parent-grouping@example.com' });
+    const project = await createTestProject(person.id);
+    const token = await pat(person.id, ['mcp:read']);
+
+    const streamA = await createTestWorkstream(project.id, { name: 'A' });
+    const streamB = await createTestWorkstream(project.id, { name: 'B', parentId: streamA.id });
+    const streamC = await createTestWorkstream(project.id, { name: 'C', parentId: streamB.id });
+
+    const response = await callTool(app, token, 'workstreams_list', {
+      state: 'active',
+      hierarchy: 'under-parent',
+      parentIds: [streamA.id],
+      includeSubstreams: true,
+      groupBy: 'parent',
+    }).expect(200);
+
+    expect(response.body.result.structuredContent.workstreams.map((workstream: any) => workstream.id)).toEqual([streamC.id, streamB.id]);
+    expect(response.body.result.structuredContent.groups).toEqual([
+      expect.objectContaining({
+        key: streamA.id,
+        parent: expect.objectContaining({ id: streamA.id, name: 'A' }),
+        workstreams: [
+          expect.objectContaining({ id: streamC.id, parentId: streamB.id }),
+          expect.objectContaining({ id: streamB.id, parentId: streamA.id }),
+        ],
+      }),
+    ]);
+  });
+
   it('returns actionable MCP errors for parent stream rule violations without mutating rows', async () => {
     const person = await createTestPerson({ email: 'mcp-parent-path-negative@example.com' });
     const project = await createTestProject(person.id);

@@ -9,6 +9,10 @@ export interface ParentGroup {
   workstreams: Workstream[];
 }
 
+interface ParentGroupingOptions {
+  scopedParentIds?: string[];
+}
+
 export function getBreadcrumbItems(workstream: Workstream): WorkstreamSummary[] {
   return [...(workstream.parentStreams || []), { id: workstream.id, number: workstream.number, name: workstream.name, state: workstream.state, parentId: workstream.parentId, depth: workstream.depth }];
 }
@@ -120,8 +124,24 @@ export function getHierarchyTimestamp(workstream: Workstream, field: SortConfig[
   return value ? new Date(value).getTime() : new Date(workstream.createdAt).getTime();
 }
 
-export function groupWorkstreamsByParent(workstreams: Workstream[]): ParentGroup[] {
+function selectedAncestorForGrouping(ws: Workstream, selectedParentIds: Set<string>): WorkstreamSummary | null {
+  if (selectedParentIds.size === 0 || !ws.parentId) return null;
+
+  const ancestors = [...(ws.parentStreams || [])];
+  if (ws.parent && !ancestors.some((ancestor) => ancestor.id === ws.parent?.id)) {
+    ancestors.push(ws.parent);
+  }
+
+  for (const ancestor of ancestors.slice().reverse()) {
+    if (selectedParentIds.has(ancestor.id)) return ancestor;
+  }
+
+  return null;
+}
+
+export function groupWorkstreamsByParent(workstreams: Workstream[], options: ParentGroupingOptions = {}): ParentGroup[] {
   const byId = new Map(workstreams.map((ws) => [ws.id, ws]));
+  const scopedParentIds = new Set(options.scopedParentIds?.filter(Boolean) ?? []);
   const parentsById = new Map<string, Workstream | WorkstreamSummary>();
   const substreamsByParentId = new Map<string, Workstream[]>();
   const topLevel: Workstream[] = [];
@@ -132,11 +152,13 @@ export function groupWorkstreamsByParent(workstreams: Workstream[]): ParentGroup
       return;
     }
 
-    const parent = byId.get(ws.parentId) || ws.parent;
+    const scopedParent = selectedAncestorForGrouping(ws, scopedParentIds);
+    const groupParentId = scopedParent?.id ?? ws.parentId;
+    const parent = scopedParent || byId.get(groupParentId) || ws.parent;
     if (parent) {
-      if (!parentsById.has(ws.parentId)) parentsById.set(ws.parentId, parent);
-      if (!substreamsByParentId.has(ws.parentId)) substreamsByParentId.set(ws.parentId, []);
-      substreamsByParentId.get(ws.parentId)!.push(ws);
+      if (!parentsById.has(groupParentId)) parentsById.set(groupParentId, parent);
+      if (!substreamsByParentId.has(groupParentId)) substreamsByParentId.set(groupParentId, []);
+      substreamsByParentId.get(groupParentId)!.push(ws);
     } else {
       topLevel.push(ws);
     }
