@@ -861,9 +861,9 @@ describe('MCP endpoint', () => {
     }
     const updatesTooSmall = await callTool(app, token, 'updates_list', {
       workstreamId: w3.id,
-      limit: 49,
+      limit: 9,
     }).expect(200);
-    expect(expectToolFailure(updatesTooSmall)).toMatch(/limit.*at least 50/i);
+    expect(expectToolFailure(updatesTooSmall)).toMatch(/limit.*at least 10/i);
     const updatesBulkPage1 = await callTool(app, token, 'updates_list', {
       workstreamId: w3.id,
       limit: 50,

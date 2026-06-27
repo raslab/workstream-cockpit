@@ -157,7 +157,7 @@ export async function getStatusUpdatesByWorkstream(
       options.includeSubstreams && options.projectId
         ? [workstreamId, ...(await getSubstreamWorkstreamIds(options.projectId, workstreamId))]
         : [workstreamId];
-    const limit = options.limit ?? 50;
+    const limit = options.limit ?? 10;
     const cursorBoundary = options.cursor ? decodeStatusUpdateCursor(options.cursor) : undefined;
     const where: Prisma.StatusUpdateWhereInput = {
       workstreamId: { in: workstreamIds },

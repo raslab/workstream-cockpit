@@ -33,6 +33,8 @@ import {
   workstreamPath,
 } from '../components/Workstream/WorkstreamReference';
 
+const STATUS_HISTORY_PAGE_SIZE = 10;
+
 interface StatusEditDialogProps {
   statusUpdate: StatusUpdate;
   workstreamId: string;
@@ -233,7 +235,7 @@ export default function WorkstreamDetail() {
     hasNextPage = false,
     isFetchingNextPage = false,
     fetchNextPage,
-  } = useStatusHistory(id!, { includeSubstreams, pageSize: 50 });
+  } = useStatusHistory(id!, { includeSubstreams, pageSize: STATUS_HISTORY_PAGE_SIZE });
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

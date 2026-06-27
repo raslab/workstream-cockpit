@@ -124,7 +124,7 @@ describe('WorkstreamDetail history pagination', () => {
     await screen.findByTestId('status-update-first');
     expect(useStatusHistoryMock).toHaveBeenLastCalledWith('stream-1', {
       includeSubstreams: false,
-      pageSize: 50,
+      pageSize: 10,
     });
   });
 
