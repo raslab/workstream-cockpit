@@ -178,7 +178,10 @@ export default function Cockpit() {
     }
 
     if (currentConfig.group.by === 'parent') {
-      return groupWorkstreamsByParent(workstreams).map((group, index) => ({
+      const scopedParentIds = currentConfig.filters.hierarchy.mode === 'under-parent'
+        ? currentConfig.filters.hierarchy.parentIds ?? (currentConfig.filters.hierarchy.parentId ? [currentConfig.filters.hierarchy.parentId] : [])
+        : [];
+      return groupWorkstreamsByParent(workstreams, { scopedParentIds }).map((group, index) => ({
         ...group,
         color: null,
         emoji: null,

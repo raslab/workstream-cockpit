@@ -177,6 +177,12 @@ describe('Workstreams API Integration Tests', () => {
 
       expect(recursiveResponse.status).toBe(200);
       expect(recursiveResponse.body.map((workstream: any) => workstream.id)).toEqual([streamC.id, streamB.id]);
+      const nestedFromApi = recursiveResponse.body.find((workstream: any) => workstream.id === streamC.id);
+      expect(nestedFromApi.parent).toMatchObject({ id: streamB.id, name: 'B' });
+      expect(nestedFromApi.parentStreams).toEqual([
+        expect.objectContaining({ id: streamA.id, name: 'A' }),
+        expect.objectContaining({ id: streamB.id, name: 'B' }),
+      ]);
 
       const overlappingParentsResponse = await request(app).get(
         `/?state=active&hierarchy=under-parent&parentIds=${streamA.id},${streamB.id}&includeSubstreams=false`

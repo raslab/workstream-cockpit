@@ -139,6 +139,17 @@ describe('parent stream utilities', () => {
     }).map((w) => w.id)).toEqual(['b', 'c']);
   });
 
+  it('groups recursive under-parent results by the selected filter parent instead of the immediate parent', () => {
+    const streamB = base({ id: 'b', number: 2, name: 'B', parentId: 'a', parent: { id: 'a', number: 1, name: 'A' }, parentStreams: [{ id: 'a', number: 1, name: 'A' }], depth: 2 });
+    const streamC = base({ id: 'c', number: 3, name: 'C', parentId: 'b', parent: { id: 'b', number: 2, name: 'B' }, parentStreams: [{ id: 'a', number: 1, name: 'A' }, { id: 'b', number: 2, name: 'B' }], depth: 3 });
+
+    const groups = groupWorkstreamsByParent([streamB, streamC], { scopedParentIds: ['a'] });
+
+    expect(groups.map((g) => [g.key, g.name, g.workstreams.map((w) => w.id)])).toEqual([
+      ['a', '#1 A', ['b', 'c']],
+    ]);
+  });
+
   it('uses explicit parent stream timestamps for sorting', () => {
     const ws = base({
       latestStatus: { id: 's', workstreamId: 'ws', status: 'done', note: null, createdAt: '2026-01-02T00:00:00Z', updatedAt: '2026-01-02T00:00:00Z' },

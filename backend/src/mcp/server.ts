@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../utils/db';
 import { verifyPersonalAccessToken, VerifiedPersonalAccessToken } from '../services/personalAccessTokenService';
-import { getWorkstreams, getWorkstreamById, createWorkstream, updateWorkstream, closeWorkstream, reopenWorkstream } from '../services/workstreamService';
+import { getWorkstreams, getWorkstreamById, createWorkstream, updateWorkstream, closeWorkstream, reopenWorkstream, type WorkstreamHierarchyFilter, type WorkstreamWithLatestStatus } from '../services/workstreamService';
 import { createStatusUpdate, updateStatusUpdate, deleteStatusUpdate, getStatusUpdatesByWorkstream } from '../services/statusUpdateService';
 import { getCategoriesByProjectId, createCategory, updateCategory, deleteCategory, reorderCategories } from '../services/categoryService';
 import { getTagsByProjectId, createTag, updateTag, deleteTag } from '../services/tagService';
@@ -17,6 +17,8 @@ type CursorKind = 'workstreams_list' | 'updates_list' | 'timeline_query';
 interface ToolDef { name: string; description: string; scope: Scope; inputSchema: any; annotations?: any; handler: Handler }
 interface RateLimitBucket { windowStart: number; count: number }
 interface CursorPayload { v: 1; kind: CursorKind; createdAt: string; id: string }
+type WorkstreamGroupParent = NonNullable<WorkstreamWithLatestStatus['parent']> | WorkstreamWithLatestStatus;
+interface WorkstreamParentGroup { key: string; name: string; parent: WorkstreamGroupParent | null; workstreams: WorkstreamWithLatestStatus[] }
 
 const UUID_PATTERN = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$';
 const ISO_DATE_OR_TIMESTAMP_PATTERN = '^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?(?:Z|[+-]\\d{2}:\\d{2})?)?$';
@@ -296,6 +298,44 @@ function afterCursor<T extends { createdAt: Date | string; id: string }>(items: 
     return itemTime < cursorTime || (itemTime === cursorTime && item.id < cursor.id);
   });
 }
+function selectedAncestorForGrouping(workstream: WorkstreamWithLatestStatus, selectedParentIds: Set<string>): WorkstreamGroupParent | null {
+  if (selectedParentIds.size === 0 || !workstream.parentId) return null;
+  const ancestors: WorkstreamGroupParent[] = [...(workstream.parentStreams ?? [])];
+  if (workstream.parent && !ancestors.some((ancestor) => ancestor.id === workstream.parent?.id)) ancestors.push(workstream.parent);
+  for (const ancestor of ancestors.slice().reverse()) {
+    if (selectedParentIds.has(ancestor.id)) return ancestor;
+  }
+  return null;
+}
+function groupWorkstreamsByParent(workstreams: WorkstreamWithLatestStatus[], scopedParentIds: string[] = []) {
+  const selectedParentIds = new Set(scopedParentIds.filter(Boolean));
+  const byId = new Map(workstreams.map(workstream => [workstream.id, workstream]));
+  const groupsByParent = new Map<string, WorkstreamParentGroup>();
+  const topLevel: WorkstreamWithLatestStatus[] = [];
+
+  for (const workstream of workstreams) {
+    if (!workstream.parentId) {
+      topLevel.push(workstream);
+      continue;
+    }
+
+    const scopedParent = selectedAncestorForGrouping(workstream, selectedParentIds);
+    const groupParentId = scopedParent?.id ?? workstream.parentId;
+    const parent = scopedParent ?? byId.get(groupParentId) ?? workstream.parent;
+    if (!parent) {
+      topLevel.push(workstream);
+      continue;
+    }
+
+    const group: WorkstreamParentGroup = groupsByParent.get(groupParentId) ?? { key: groupParentId, name: parent.number ? `#${parent.number} ${parent.name}` : parent.name, parent, workstreams: [] };
+    group.workstreams.push(workstream);
+    groupsByParent.set(groupParentId, group);
+  }
+
+  const groups = Array.from(groupsByParent.values());
+  if (topLevel.length > 0) groups.push({ key: 'top-level', name: 'Top level / no parent', parent: null, workstreams: topLevel });
+  return groups;
+}
 function paginate<T extends { createdAt: Date | string; id: string }>(items: T[], pageLimit: number, kind: CursorKind): { page: T[]; nextCursor: string | null } {
   const page = items.slice(0, pageLimit);
   const hasMore = items.length > pageLimit;
@@ -307,14 +347,24 @@ function paginate<T extends { createdAt: Date | string; id: string }>(items: T[]
 }
 
 const tools: ToolDef[] = [
-  { name: 'workstreams_list', description: 'List workstreams', scope: 'mcp:read', inputSchema: schema({ state: { enum: ['active','closed','all'], default: 'active' }, tagNames: arrayProp(stringProp(1, 100)), categoryIds: arrayProp(uuidProp()), notUpdatedToday: { type: 'boolean', default: false }, limit: limitProp(), cursor: stringProp(1, 2048) }), handler: async (args, ctx) => {
+  { name: 'workstreams_list', description: 'List workstreams', scope: 'mcp:read', inputSchema: schema({ state: { enum: ['active','closed','all'], default: 'active' }, tagNames: arrayProp(stringProp(1, 100)), categoryIds: arrayProp(uuidProp()), notUpdatedToday: { type: 'boolean', default: false }, hierarchy: { enum: ['all','top-level','sub-streams','no-parent','has-substreams','under-parent'] }, parentId: uuidProp(), parentIds: arrayProp(uuidProp()), includeSubstreams: { type: 'boolean', default: false }, groupBy: { enum: ['none','parent'], default: 'none' }, limit: limitProp(), cursor: stringProp(1, 2048) }), handler: async (args, ctx) => {
     const state = args.state === 'all' ? undefined : (args.state ?? 'active');
     const pageLimit = limit(args);
     const cursor = decodeCursor(args.cursor, 'workstreams_list');
-    const allWorkstreams = await getWorkstreams(ctx.projectId, state, args.tagNames, args.categoryIds, args.notUpdatedToday);
+    const selectedParentIds = Array.isArray(args.parentIds) && args.parentIds.length ? args.parentIds : (args.parentId ? [args.parentId] : []);
+    const hierarchy = args.hierarchy || selectedParentIds.length || args.includeSubstreams !== undefined
+      ? {
+          mode: (args.hierarchy as WorkstreamHierarchyFilter | undefined) ?? (selectedParentIds.length ? 'under-parent' : 'all'),
+          parentId: args.parentId,
+          parentIds: selectedParentIds,
+          includeSubstreams: Boolean(args.includeSubstreams),
+        }
+      : undefined;
+    const allWorkstreams = await getWorkstreams(ctx.projectId, state, args.tagNames, args.categoryIds, args.notUpdatedToday, hierarchy);
     const sorted = afterCursor(allWorkstreams.sort(compareDesc), cursor);
     const { page, nextCursor } = paginate(sorted, pageLimit, 'workstreams_list');
-    return ok({ workstreams: page, nextCursor });
+    const groups = args.groupBy === 'parent' ? groupWorkstreamsByParent(page, hierarchy?.mode === 'under-parent' ? selectedParentIds : []) : undefined;
+    return ok({ workstreams: page, ...(groups ? { groups } : {}), nextCursor });
   }},
   { name: 'workstreams_get', description: 'Get a workstream', scope: 'mcp:read', inputSchema: schema({ id: uuidProp(), includeUpdates: { type: 'boolean', default: false }, updatesLimit: limitProp(50, 200) }, ['id']), handler: async (args, ctx) => {
     const workstream = await assertWorkstream(ctx.projectId, requireString(args, 'id'));
