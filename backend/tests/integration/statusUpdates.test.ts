@@ -23,12 +23,12 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await cleanDatabase();
-  
+
   // Create test user, project, and workstream
   person = await createTestPerson({ email: 'test@example.com', name: 'Test User' });
   project = await createTestProject(person.id, { name: 'Test Project' });
   workstream = await createTestWorkstream(project.id, { name: 'Test Workstream' });
-  
+
   // Create app with authenticated user
   app = createTestApp(statusUpdatesRoutes, person);
 });
@@ -200,7 +200,9 @@ describe('Status Updates API Integration Tests', () => {
     });
 
     it('should return status updates when the workstream is addressed by public number', async () => {
-      const statusUpdate = await createTestStatusUpdate(workstream.id, { status: 'Reference-friendly update' });
+      const statusUpdate = await createTestStatusUpdate(workstream.id, {
+        status: 'Reference-friendly update',
+      });
 
       const response = await request(app).get(`/workstreams/${workstream.number}/status-updates`);
 
@@ -213,9 +215,9 @@ describe('Status Updates API Integration Tests', () => {
     it('should return status updates ordered by createdAt DESC', async () => {
       // Create updates with slight delay to ensure different timestamps
       const update1 = await createTestStatusUpdate(workstream.id, { status: 'First' });
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       const update2 = await createTestStatusUpdate(workstream.id, { status: 'Second' });
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       const update3 = await createTestStatusUpdate(workstream.id, { status: 'Third' });
 
       const response = await request(app).get(`/workstreams/${workstream.id}/status-updates`);
@@ -229,72 +231,115 @@ describe('Status Updates API Integration Tests', () => {
     });
 
     it('paginates direct updates with an opaque cursor without duplicates or skipped same-timestamp rows', async () => {
-      const updates = await Promise.all(Array.from({ length: 52 }, (_, index) => createTestStatusUpdate(workstream.id, { status: `Direct update ${index}` })));
+      const updates = await Promise.all(
+        Array.from({ length: 12 }, (_, index) =>
+          createTestStatusUpdate(workstream.id, { status: `Direct update ${index}` }),
+        ),
+      );
       const sharedCreatedAt = new Date('2026-01-15T12:00:00.000Z');
       await prisma.statusUpdate.updateMany({
-        where: { id: { in: updates.map(update => update.id) } },
+        where: { id: { in: updates.map((update) => update.id) } },
         data: { createdAt: sharedCreatedAt },
       });
 
-      const firstPage = await request(app).get(`/workstreams/${workstream.id}/status-updates`).query({ limit: 50 });
+      const firstPage = await request(app)
+        .get(`/workstreams/${workstream.id}/status-updates`)
+        .query({ limit: 10 });
 
       expect(firstPage.status).toBe(200);
-      expect(firstPage.body.updates).toHaveLength(50);
+      expect(firstPage.body.updates).toHaveLength(10);
       expect(firstPage.body.nextCursor).toEqual(expect.any(String));
       expect(firstPage.body.nextCursor).not.toContain(updates[0].id);
-      expect(Buffer.from(firstPage.body.nextCursor, 'base64url').toString('utf8')).not.toContain(updates[0].id);
+      expect(Buffer.from(firstPage.body.nextCursor, 'base64url').toString('utf8')).not.toContain(
+        updates[0].id,
+      );
 
-      const secondPage = await request(app).get(`/workstreams/${workstream.id}/status-updates`).query({ limit: 50, cursor: firstPage.body.nextCursor });
+      const secondPage = await request(app)
+        .get(`/workstreams/${workstream.id}/status-updates`)
+        .query({ limit: 10, cursor: firstPage.body.nextCursor });
 
       expect(secondPage.status).toBe(200);
       expect(secondPage.body.updates).toHaveLength(2);
       expect(secondPage.body.nextCursor).toBeNull();
-      const seen = [...firstPage.body.updates, ...secondPage.body.updates].map((update: any) => update.id);
-      expect(new Set(seen).size).toBe(52);
-      expect(seen).toEqual([...updates].sort((a, b) => b.id.localeCompare(a.id)).map(update => update.id));
+      const seen = [...firstPage.body.updates, ...secondPage.body.updates].map(
+        (update: any) => update.id,
+      );
+      expect(new Set(seen).size).toBe(12);
+      expect(seen).toEqual(
+        [...updates].sort((a, b) => b.id.localeCompare(a.id)).map((update) => update.id),
+      );
     });
 
     it('paginates parent plus sub-stream updates in one stable newest-first history', async () => {
-      const substreamA = await createTestWorkstream(project.id, { name: 'Sub A', parentId: workstream.id });
-      const substreamB = await createTestWorkstream(project.id, { name: 'Sub B', parentId: substreamA.id });
-      const allUpdates = await Promise.all(Array.from({ length: 52 }, (_, index) => {
-        const target = index % 3 === 0 ? workstream : index % 3 === 1 ? substreamA : substreamB;
-        return createTestStatusUpdate(target.id, { status: `Mixed update ${index}` });
-      }));
+      const substreamA = await createTestWorkstream(project.id, {
+        name: 'Sub A',
+        parentId: workstream.id,
+      });
+      const substreamB = await createTestWorkstream(project.id, {
+        name: 'Sub B',
+        parentId: substreamA.id,
+      });
+      const allUpdates = await Promise.all(
+        Array.from({ length: 12 }, (_, index) => {
+          const target = index % 3 === 0 ? workstream : index % 3 === 1 ? substreamA : substreamB;
+          return createTestStatusUpdate(target.id, { status: `Mixed update ${index}` });
+        }),
+      );
       const sharedCreatedAt = new Date('2026-01-15T12:00:00.000Z');
-      await prisma.statusUpdate.updateMany({ where: { id: { in: allUpdates.map(update => update.id) } }, data: { createdAt: sharedCreatedAt } });
+      await prisma.statusUpdate.updateMany({
+        where: { id: { in: allUpdates.map((update) => update.id) } },
+        data: { createdAt: sharedCreatedAt },
+      });
 
-      const firstPage = await request(app).get(`/workstreams/${workstream.id}/status-updates`).query({ includeSubstreams: 'true', limit: 50 });
-      const secondPage = await request(app).get(`/workstreams/${workstream.id}/status-updates`).query({ includeSubstreams: 'true', limit: 50, cursor: firstPage.body.nextCursor });
+      const firstPage = await request(app)
+        .get(`/workstreams/${workstream.id}/status-updates`)
+        .query({ includeSubstreams: 'true', limit: 10 });
+      const secondPage = await request(app)
+        .get(`/workstreams/${workstream.id}/status-updates`)
+        .query({ includeSubstreams: 'true', limit: 10, cursor: firstPage.body.nextCursor });
 
       expect(firstPage.status).toBe(200);
       expect(secondPage.status).toBe(200);
-      expect(firstPage.body.updates).toHaveLength(50);
+      expect(firstPage.body.updates).toHaveLength(10);
       expect(secondPage.body.updates).toHaveLength(2);
       expect(secondPage.body.nextCursor).toBeNull();
       const seen = [...firstPage.body.updates, ...secondPage.body.updates];
-      expect(new Set(seen.map((update: any) => update.id)).size).toBe(52);
-      expect(seen.map((update: any) => update.workstreamId)).toEqual(expect.arrayContaining([workstream.id, substreamA.id, substreamB.id]));
-      expect(seen.map((update: any) => update.id)).toEqual([...allUpdates].sort((a, b) => b.id.localeCompare(a.id)).map(update => update.id));
-      expect(seen.find((update: any) => update.workstreamId === substreamA.id)?.source).toMatchObject({ id: substreamA.id, workstreamName: 'Sub A' });
+      expect(new Set(seen.map((update: any) => update.id)).size).toBe(12);
+      expect(seen.map((update: any) => update.workstreamId)).toEqual(
+        expect.arrayContaining([workstream.id, substreamA.id, substreamB.id]),
+      );
+      expect(seen.map((update: any) => update.id)).toEqual(
+        [...allUpdates].sort((a, b) => b.id.localeCompare(a.id)).map((update) => update.id),
+      );
+      expect(
+        seen.find((update: any) => update.workstreamId === substreamA.id)?.source,
+      ).toMatchObject({ id: substreamA.id, workstreamName: 'Sub A' });
     });
 
-    it('rejects detailed history page sizes outside 50 to 200 and invalid cursors', async () => {
-      const tooSmall = await request(app).get(`/workstreams/${workstream.id}/status-updates`).query({ limit: 49 });
+    it('rejects detailed history page sizes outside 10 to 200 and invalid cursors', async () => {
+      const tooSmall = await request(app)
+        .get(`/workstreams/${workstream.id}/status-updates`)
+        .query({ limit: 9 });
       expect(tooSmall.status).toBe(400);
-      expect(tooSmall.body.error).toMatch(/limit.*50.*200/i);
+      expect(tooSmall.body.error).toMatch(/limit.*10.*200/i);
 
-      const tooLarge = await request(app).get(`/workstreams/${workstream.id}/status-updates`).query({ limit: 201 });
+      const tooLarge = await request(app)
+        .get(`/workstreams/${workstream.id}/status-updates`)
+        .query({ limit: 201 });
       expect(tooLarge.status).toBe(400);
-      expect(tooLarge.body.error).toMatch(/limit.*50.*200/i);
+      expect(tooLarge.body.error).toMatch(/limit.*10.*200/i);
 
-      const invalidCursor = await request(app).get(`/workstreams/${workstream.id}/status-updates`).query({ cursor: 'not-a-valid-cursor' });
+      const invalidCursor = await request(app)
+        .get(`/workstreams/${workstream.id}/status-updates`)
+        .query({ cursor: 'not-a-valid-cursor' });
       expect(invalidCursor.status).toBe(400);
       expect(invalidCursor.body.error).toMatch(/cursor/i);
     });
 
     it('should return 404 when workstream does not exist', async () => {
-      const response = await request(app).get('/workstreams/00000000-0000-0000-0000-000000000000/status-updates');
+      const response = await request(app).get(
+        '/workstreams/00000000-0000-0000-0000-000000000000/status-updates',
+      );
 
       expect(response.status).toBe(404);
       expect(response.body.error).toBe('Workstream not found');
@@ -327,9 +372,9 @@ describe('Status Updates API Integration Tests', () => {
     });
 
     it('should update note', async () => {
-      const statusUpdate = await createTestStatusUpdate(workstream.id, { 
+      const statusUpdate = await createTestStatusUpdate(workstream.id, {
         status: 'Test status',
-        note: 'Old note' 
+        note: 'Old note',
       });
 
       const response = await request(app).put(`/${statusUpdate.id}`).send({
@@ -342,9 +387,9 @@ describe('Status Updates API Integration Tests', () => {
     });
 
     it('should update both status and note', async () => {
-      const statusUpdate = await createTestStatusUpdate(workstream.id, { 
+      const statusUpdate = await createTestStatusUpdate(workstream.id, {
         status: 'Old status',
-        note: 'Old note' 
+        note: 'Old note',
       });
 
       const response = await request(app).put(`/${statusUpdate.id}`).send({
@@ -359,9 +404,9 @@ describe('Status Updates API Integration Tests', () => {
     });
 
     it('should clear note by setting to null', async () => {
-      const statusUpdate = await createTestStatusUpdate(workstream.id, { 
+      const statusUpdate = await createTestStatusUpdate(workstream.id, {
         status: 'Test status',
-        note: 'Some note' 
+        note: 'Some note',
       });
 
       const response = await request(app).put(`/${statusUpdate.id}`).send({
@@ -374,12 +419,10 @@ describe('Status Updates API Integration Tests', () => {
     });
 
     it('should return 404 when status update does not exist', async () => {
-      const response = await request(app)
-        .put('/00000000-0000-0000-0000-000000000000')
-        .send({
-          workstreamId: workstream.id,
-          status: 'Updated',
-        });
+      const response = await request(app).put('/00000000-0000-0000-0000-000000000000').send({
+        workstreamId: workstream.id,
+        status: 'Updated',
+      });
 
       expect(response.status).toBe(404);
       expect(response.body.error).toBe('Status update not found');
@@ -411,10 +454,12 @@ describe('Status Updates API Integration Tests', () => {
     it('should return 400 when status exceeds 500 characters', async () => {
       const statusUpdate = await createTestStatusUpdate(workstream.id);
 
-      const response = await request(app).put(`/${statusUpdate.id}`).send({
-        workstreamId: workstream.id,
-        status: 'a'.repeat(501),
-      });
+      const response = await request(app)
+        .put(`/${statusUpdate.id}`)
+        .send({
+          workstreamId: workstream.id,
+          status: 'a'.repeat(501),
+        });
 
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('Status must be 500 characters or less');
@@ -423,10 +468,12 @@ describe('Status Updates API Integration Tests', () => {
     it('should return 400 when note exceeds 2000 characters', async () => {
       const statusUpdate = await createTestStatusUpdate(workstream.id);
 
-      const response = await request(app).put(`/${statusUpdate.id}`).send({
-        workstreamId: workstream.id,
-        note: 'a'.repeat(2001),
-      });
+      const response = await request(app)
+        .put(`/${statusUpdate.id}`)
+        .send({
+          workstreamId: workstream.id,
+          note: 'a'.repeat(2001),
+        });
 
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('Note must be 2000 characters or less');
@@ -436,7 +483,9 @@ describe('Status Updates API Integration Tests', () => {
       const person2 = await createTestPerson({ email: 'user2@example.com' });
       const project2 = await createTestProject(person2.id, { name: 'Other Project' });
       const workstream2 = await createTestWorkstream(project2.id, { name: 'Other Workstream' });
-      const statusUpdate2 = await createTestStatusUpdate(workstream2.id, { status: 'Other status' });
+      const statusUpdate2 = await createTestStatusUpdate(workstream2.id, {
+        status: 'Other status',
+      });
 
       const response = await request(app).put(`/${statusUpdate2.id}`).send({
         workstreamId: workstream2.id,
@@ -477,11 +526,17 @@ describe('Status Updates API Integration Tests', () => {
     });
 
     it('should not reuse public numbers after deleting the highest-numbered status update', async () => {
-      const first = await createTestStatusUpdate(workstream.id, { status: 'First numbered update' });
-      const second = await createTestStatusUpdate(workstream.id, { status: 'Second numbered update' });
+      const first = await createTestStatusUpdate(workstream.id, {
+        status: 'First numbered update',
+      });
+      const second = await createTestStatusUpdate(workstream.id, {
+        status: 'Second numbered update',
+      });
 
       await request(app).delete(`/${second.id}`).send({ workstreamId: workstream.id }).expect(204);
-      const response = await request(app).post('/').send({ workstreamId: workstream.id, status: 'Replacement update' });
+      const response = await request(app)
+        .post('/')
+        .send({ workstreamId: workstream.id, status: 'Replacement update' });
 
       expect(response.status).toBe(201);
       expect(response.body.number).toBeGreaterThan(second.number);
@@ -490,11 +545,9 @@ describe('Status Updates API Integration Tests', () => {
     });
 
     it('should return 404 when status update does not exist', async () => {
-      const response = await request(app)
-        .delete('/00000000-0000-0000-0000-000000000000')
-        .send({
-          workstreamId: workstream.id,
-        });
+      const response = await request(app).delete('/00000000-0000-0000-0000-000000000000').send({
+        workstreamId: workstream.id,
+      });
 
       expect(response.status).toBe(404);
       expect(response.body.error).toBe('Status update not found');
@@ -513,7 +566,9 @@ describe('Status Updates API Integration Tests', () => {
       const person2 = await createTestPerson({ email: 'user2@example.com' });
       const project2 = await createTestProject(person2.id, { name: 'Other Project' });
       const workstream2 = await createTestWorkstream(project2.id, { name: 'Other Workstream' });
-      const statusUpdate2 = await createTestStatusUpdate(workstream2.id, { status: 'Other status' });
+      const statusUpdate2 = await createTestStatusUpdate(workstream2.id, {
+        status: 'Other status',
+      });
 
       const response = await request(app).delete(`/${statusUpdate2.id}`).send({
         workstreamId: workstream2.id,
@@ -523,7 +578,8 @@ describe('Status Updates API Integration Tests', () => {
       expect(response.body.error).toBe('Status update not found');
 
       // Verify status update still exists
-      const { getStatusUpdatesByWorkstream } = await import('../../src/services/statusUpdateService');
+      const { getStatusUpdatesByWorkstream } =
+        await import('../../src/services/statusUpdateService');
       const updates = await getStatusUpdatesByWorkstream(workstream2.id);
       expect(updates.updates.find((su: any) => su.id === statusUpdate2.id)).toBeDefined();
     });
@@ -562,7 +618,8 @@ describe('Status Updates API Integration Tests', () => {
       expect(response.body.error).toBe('Workstream not found');
 
       // Verify no status update was created
-      const { getStatusUpdatesByWorkstream } = await import('../../src/services/statusUpdateService');
+      const { getStatusUpdatesByWorkstream } =
+        await import('../../src/services/statusUpdateService');
       const updates = await getStatusUpdatesByWorkstream(workstream2.id);
       expect(updates.updates).toHaveLength(0);
     });

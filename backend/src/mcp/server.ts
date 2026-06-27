@@ -705,7 +705,7 @@ const tools: ToolDef[] = [
         includeSubstreams: { type: 'boolean', default: false },
         startDate: dateProp(),
         endDate: dateProp(),
-        limit: limitProp(50, 200, 50),
+        limit: limitProp(10, 200, 10),
         cursor: stringProp(1, 2048),
       },
       ['workstreamId'],

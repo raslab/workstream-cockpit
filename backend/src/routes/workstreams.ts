@@ -55,9 +55,9 @@ function parseStatusUpdatePagination(
 ): { limit: number; cursor?: string } | null {
   const limitQuery = firstQueryValue(req.query.limit);
   const cursor = firstQueryValue(req.query.cursor);
-  const limit = limitQuery === undefined ? 50 : Number(limitQuery);
-  if (!Number.isInteger(limit) || limit < 50 || limit > 200) {
-    res.status(400).json({ error: 'limit must be an integer between 50 and 200' });
+  const limit = limitQuery === undefined ? 10 : Number(limitQuery);
+  if (!Number.isInteger(limit) || limit < 10 || limit > 200) {
+    res.status(400).json({ error: 'limit must be an integer between 10 and 200' });
     return null;
   }
   return { limit, cursor };
@@ -123,12 +123,10 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       hierarchyQuery !== undefined &&
       !HIERARCHY_FILTERS.has(hierarchyQuery as WorkstreamHierarchyFilter)
     ) {
-      res
-        .status(400)
-        .json({
-          error:
-            'hierarchy must be all, top-level, sub-streams, no-parent, has-substreams, or under-parent',
-        });
+      res.status(400).json({
+        error:
+          'hierarchy must be all, top-level, sub-streams, no-parent, has-substreams, or under-parent',
+      });
       return;
     }
 

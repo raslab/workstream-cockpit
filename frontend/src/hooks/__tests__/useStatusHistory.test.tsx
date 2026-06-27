@@ -41,14 +41,14 @@ describe('useStatusHistory pagination', () => {
     });
 
     const { result } = renderHook(
-      () => useStatusHistory('stream-1', { includeSubstreams: true, pageSize: 50 }),
+      () => useStatusHistory('stream-1', { includeSubstreams: true, pageSize: 10 }),
       { wrapper },
     );
 
     await waitFor(() => expect(result.current.data).toHaveLength(1));
 
     expect(apiGetMock).toHaveBeenCalledWith(
-      '/api/workstreams/stream-1/status-updates?includeSubstreams=true&limit=50',
+      '/api/workstreams/stream-1/status-updates?includeSubstreams=true&limit=10',
     );
     expect(result.current.hasNextPage).toBe(true);
   });
@@ -58,7 +58,7 @@ describe('useStatusHistory pagination', () => {
       .mockResolvedValueOnce({ data: { updates: [update('first')], nextCursor: 'cursor-2' } })
       .mockResolvedValueOnce({ data: { updates: [update('second')], nextCursor: null } });
 
-    const { result } = renderHook(() => useStatusHistory('stream-1', { pageSize: 50 }), {
+    const { result } = renderHook(() => useStatusHistory('stream-1', { pageSize: 10 }), {
       wrapper,
     });
 
@@ -71,7 +71,7 @@ describe('useStatusHistory pagination', () => {
     );
 
     expect(apiGetMock).toHaveBeenLastCalledWith(
-      '/api/workstreams/stream-1/status-updates?limit=50&cursor=cursor-2',
+      '/api/workstreams/stream-1/status-updates?limit=10&cursor=cursor-2',
     );
     expect(result.current.hasNextPage).toBe(false);
   });

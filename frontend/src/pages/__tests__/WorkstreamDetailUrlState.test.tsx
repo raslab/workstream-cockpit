@@ -85,7 +85,7 @@ describe('WorkstreamDetail URL state', () => {
     expect(checkbox).toBeChecked();
     expect(useStatusHistoryMock).toHaveBeenLastCalledWith('stream-1', {
       includeSubstreams: true,
-      pageSize: 50,
+      pageSize: 10,
     });
 
     fireEvent.click(checkbox);
@@ -93,7 +93,7 @@ describe('WorkstreamDetail URL state', () => {
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(''));
     expect(useStatusHistoryMock).toHaveBeenLastCalledWith('stream-1', {
       includeSubstreams: false,
-      pageSize: 50,
+      pageSize: 10,
     });
   });
 });
