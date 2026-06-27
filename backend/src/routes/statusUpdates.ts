@@ -12,6 +12,33 @@ import { logger } from '../utils/logger';
 
 const router = Router();
 
+function firstQueryValue(value: unknown): string | undefined {
+  if (Array.isArray(value)) return firstQueryValue(value[0]);
+  return typeof value === 'string' ? value : undefined;
+}
+
+function parseQueryBoolean(value: unknown): boolean | undefined | null {
+  if (value === undefined) return undefined;
+  const normalized = firstQueryValue(value);
+  if (normalized === 'true' || normalized === '1') return true;
+  if (normalized === 'false' || normalized === '0') return false;
+  return null;
+}
+
+function parseStatusUpdatePagination(
+  req: Request,
+  res: Response,
+): { limit: number; cursor?: string } | null {
+  const limitQuery = firstQueryValue(req.query.limit);
+  const cursor = firstQueryValue(req.query.cursor);
+  const limit = limitQuery === undefined ? 50 : Number(limitQuery);
+  if (!Number.isInteger(limit) || limit < 50 || limit > 200) {
+    res.status(400).json({ error: 'limit must be an integer between 50 and 200' });
+    return null;
+  }
+  return { limit, cursor };
+}
+
 // All routes require authentication
 router.use(requireUserContext);
 
@@ -47,7 +74,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.status(404).json({ error: 'Workstream not found' });
       return;
@@ -85,35 +112,53 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
  * GET /api/workstreams/:workstreamId/status-updates
  * Get all status updates for a workstream
  */
-router.get('/workstreams/:workstreamId/status-updates', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const personId = req.userContext!.personId;
-    const workstreamId = req.params.workstreamId;
+router.get(
+  '/workstreams/:workstreamId/status-updates',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const personId = req.userContext!.personId;
+      const workstreamId = req.params.workstreamId;
+      const includeSubstreams = parseQueryBoolean(req.query.includeSubstreams);
+      if (includeSubstreams === null) {
+        res.status(400).json({ error: 'includeSubstreams must be true, false, 1, or 0' });
+        return;
+      }
+      const pagination = parseStatusUpdatePagination(req, res);
+      if (!pagination) return;
 
-    // Get user's projects
-    const projects = await getProjectsByPersonId(personId);
-    
-    if (projects.length === 0) {
-      res.status(404).json({ error: 'Workstream not found' });
-      return;
+      // Get user's projects
+      const projects = await getProjectsByPersonId(personId);
+
+      if (projects.length === 0) {
+        res.status(404).json({ error: 'Workstream not found' });
+        return;
+      }
+
+      const projectId = projects[0].id;
+
+      // Verify workstream belongs to user's project
+      const workstream = await getWorkstreamByReference(workstreamId, projectId);
+      if (!workstream) {
+        res.status(404).json({ error: 'Workstream not found' });
+        return;
+      }
+
+      const statusUpdates = await getStatusUpdatesByWorkstream(workstream.id, {
+        includeSubstreams: includeSubstreams === true,
+        projectId,
+        ...pagination,
+      });
+      res.json(statusUpdates);
+    } catch (error: any) {
+      if (error.message === 'Invalid cursor') {
+        res.status(400).json({ error: 'Invalid cursor' });
+        return;
+      }
+      logger.error('Error fetching status updates:', error);
+      res.status(500).json({ error: 'Failed to fetch status updates' });
     }
-
-    const projectId = projects[0].id;
-
-    // Verify workstream belongs to user's project
-    const workstream = await getWorkstreamByReference(workstreamId, projectId);
-    if (!workstream) {
-      res.status(404).json({ error: 'Workstream not found' });
-      return;
-    }
-
-    const statusUpdates = await getStatusUpdatesByWorkstream(workstream.id);
-    res.json(statusUpdates);
-  } catch (error) {
-    logger.error('Error fetching status updates:', error);
-    res.status(500).json({ error: 'Failed to fetch status updates' });
-  }
-});
+  },
+);
 
 /**
  * PUT /api/status-updates/:id
@@ -150,7 +195,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.status(404).json({ error: 'Status update not found' });
       return;
@@ -169,7 +214,12 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
     if (status !== undefined) updates.status = status.trim();
     if (note !== undefined) updates.note = note;
 
-    const statusUpdate = await updateStatusUpdate(statusUpdateId, workstream.id, updates, projectId);
+    const statusUpdate = await updateStatusUpdate(
+      statusUpdateId,
+      workstream.id,
+      updates,
+      projectId,
+    );
     res.json(statusUpdate);
   } catch (error: any) {
     if (error.message === 'Status update not found or access denied') {
@@ -199,7 +249,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.status(404).json({ error: 'Status update not found' });
       return;

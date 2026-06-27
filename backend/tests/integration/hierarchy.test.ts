@@ -128,12 +128,12 @@ describe('Parent streams and sub-streams backend contract', () => {
     const substreamUpdate = await createTestStatusUpdate(substream.id, { status: 'Sub-stream status' });
 
     const direct = await request(workstreamsApp).get(`/${parent.id}/status-updates`).expect(200);
-    expect(direct.body.map((u: any) => u.id)).toContain(parentUpdate.id);
-    expect(direct.body.map((u: any) => u.id)).not.toContain(substreamUpdate.id);
+    expect(direct.body.updates.map((u: any) => u.id)).toContain(parentUpdate.id);
+    expect(direct.body.updates.map((u: any) => u.id)).not.toContain(substreamUpdate.id);
 
     const tree = await request(workstreamsApp).get(`/${parent.id}/status-updates?includeSubstreams=true`).expect(200);
-    expect(tree.body.map((u: any) => u.id)).toEqual(expect.arrayContaining([parentUpdate.id, substreamUpdate.id]));
-    const substreamRow = tree.body.find((u: any) => u.id === substreamUpdate.id);
+    expect(tree.body.updates.map((u: any) => u.id)).toEqual(expect.arrayContaining([parentUpdate.id, substreamUpdate.id]));
+    const substreamRow = tree.body.updates.find((u: any) => u.id === substreamUpdate.id);
     expect(substreamRow.source).toMatchObject({ workstreamId: substream.id, workstreamName: 'Sub-stream' });
     expect(substreamRow.breadcrumb).toBe('Parent > Sub-stream');
   });

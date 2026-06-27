@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -11,10 +11,27 @@ import { WorkstreamCreateDialog } from '../components/Workstream/WorkstreamCreat
 import { ParentSelectorDialog } from '../components/Workstream/ParentSelectorDialog';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 import { TagAutocomplete } from '../components/Tag/TagAutocomplete';
-import { getBreadcrumbItems, getDirectSubstreamCount, getLatestSubstreamActivityAt, getLatestSubstreamActivitySourceId, getStatusUpdateSource, getWorkstreamName, hierarchyErrorMessage } from '../utils/hierarchy';
-import { DEFAULT_CATEGORY_COLOR, DEFAULT_CATEGORY_EMOJI, getCategoryIconBandBackground } from '../utils/categoryColor';
+import {
+  getBreadcrumbItems,
+  getDirectSubstreamCount,
+  getLatestSubstreamActivityAt,
+  getLatestSubstreamActivitySourceId,
+  getStatusUpdateSource,
+  getWorkstreamName,
+  hierarchyErrorMessage,
+} from '../utils/hierarchy';
+import {
+  DEFAULT_CATEGORY_COLOR,
+  DEFAULT_CATEGORY_EMOJI,
+  getCategoryIconBandBackground,
+} from '../utils/categoryColor';
 import { handleRichHtmlTextareaPaste } from '../utils/richPasteTextarea';
-import { WorkstreamLink, WorkstreamNumber, WorkstreamReferenceContent, workstreamPath } from '../components/Workstream/WorkstreamReference';
+import {
+  WorkstreamLink,
+  WorkstreamNumber,
+  WorkstreamReferenceContent,
+  workstreamPath,
+} from '../components/Workstream/WorkstreamReference';
 
 interface StatusEditDialogProps {
   statusUpdate: StatusUpdate;
@@ -32,19 +49,37 @@ function formatRelativeTime(value: string): string {
   return formatDistanceToNow(parseISO(value), { addSuffix: true }).replace(/^about /, '');
 }
 
-function RelativeTime({ value, emptyLabel = 'No updates yet' }: { value: string | null | undefined; emptyLabel?: string }) {
+function RelativeTime({
+  value,
+  emptyLabel = 'No updates yet',
+}: {
+  value: string | null | undefined;
+  emptyLabel?: string;
+}) {
   if (!value) return <span>{emptyLabel}</span>;
-  return <time dateTime={value} title={formatDateTime(value)}>{formatRelativeTime(value)}</time>;
+  return (
+    <time dateTime={value} title={formatDateTime(value)}>
+      {formatRelativeTime(value)}
+    </time>
+  );
 }
 
-function statusUpdateReference(update: StatusUpdate, updateSource: ReturnType<typeof getStatusUpdateSource>, isSubstreamUpdate: boolean): string {
+function statusUpdateReference(
+  update: StatusUpdate,
+  updateSource: ReturnType<typeof getStatusUpdateSource>,
+  isSubstreamUpdate: boolean,
+): string {
   const updateNumber = update.number !== undefined ? ` #${update.number}` : '';
   if (isSubstreamUpdate && updateSource) return `update${updateNumber} from sub-stream`;
   return `self update${updateNumber}`;
 }
 
-
-export function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }: StatusEditDialogProps) {
+export function StatusEditDialog({
+  statusUpdate,
+  workstreamId,
+  isOpen,
+  onClose,
+}: StatusEditDialogProps) {
   const [status, setStatus] = useState(statusUpdate.status);
   const [note, setNote] = useState(statusUpdate.note || '');
   const queryClient = useQueryClient();
@@ -81,11 +116,16 @@ export function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70">
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Edit Status Update</h2>
+        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
+          Edit Status Update
+        </h2>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label htmlFor="status" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="status"
+              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Status <span className="text-red-500">*</span>
             </label>
             <div className="relative">
@@ -102,11 +142,16 @@ export function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }
               />
               <TagAutocomplete textareaRef={statusRef} value={status} onChange={setStatus} />
             </div>
-            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{status.length}/500 characters</div>
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {status.length}/500 characters
+            </div>
           </div>
 
           <div className="mb-4">
-            <label htmlFor="note" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="note"
+              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Note (optional)
             </label>
             <div className="relative">
@@ -122,7 +167,9 @@ export function StatusEditDialog({ statusUpdate, workstreamId, isOpen, onClose }
               />
               <TagAutocomplete textareaRef={noteRef} value={note} onChange={setNote} />
             </div>
-            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{note.length}/2000 characters</div>
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {note.length}/2000 characters
+            </div>
           </div>
 
           {updateMutation.isError && (
@@ -164,7 +211,9 @@ export default function WorkstreamDetail() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showCreateSubstreamDialog, setShowCreateSubstreamDialog] = useState(false);
   const [showParentDialog, setShowParentDialog] = useState(false);
-  const includeSubstreams = searchParams.get('includeSubstreams') === '1' || searchParams.get('includeSubstreams') === 'true';
+  const includeSubstreams =
+    searchParams.get('includeSubstreams') === '1' ||
+    searchParams.get('includeSubstreams') === 'true';
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [closeConfirm, setCloseConfirm] = useState(false);
   const [reopenConfirm, setReopenConfirm] = useState(false);
@@ -178,7 +227,39 @@ export default function WorkstreamDetail() {
     enabled: !!id,
   });
 
-  const { data: statusUpdates, isLoading: historyLoading } = useStatusHistory(id!, { includeSubstreams });
+  const {
+    data: statusUpdates,
+    isLoading: historyLoading,
+    hasNextPage = false,
+    isFetchingNextPage = false,
+    fetchNextPage,
+  } = useStatusHistory(id!, { includeSubstreams, pageSize: 50 });
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (
+      !sentinel ||
+      !hasNextPage ||
+      isFetchingNextPage ||
+      !fetchNextPage ||
+      typeof IntersectionObserver === 'undefined'
+    )
+      return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: '240px 0px' },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, statusUpdates?.length, workstream?.id]);
 
   const setIncludeSubstreams = (nextInclude: boolean) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -246,7 +327,10 @@ export default function WorkstreamDetail() {
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
           <p className="text-sm text-red-800 dark:text-red-200">Workstream not found.</p>
-          <Link to="/" className="mt-2 inline-block text-sm text-red-700 underline dark:text-red-300">
+          <Link
+            to="/"
+            className="mt-2 inline-block text-sm text-red-700 underline dark:text-red-300"
+          >
             Go back to Cockpit
           </Link>
         </div>
@@ -258,8 +342,14 @@ export default function WorkstreamDetail() {
   const categorySoft = getCategoryIconBandBackground(categoryColor, DEFAULT_CATEGORY_COLOR);
   const breadcrumbs = getBreadcrumbItems(workstream);
   const directSubstreams = workstream.substreams || [];
-  const latestSelfUpdateAt = workstream.lastDirectUpdateAt || workstream.latestStatus?.updatedAt || statusUpdates?.find((update) => update.workstreamId === workstream.id)?.updatedAt;
-  const latestSubstreamUpdateAt = workstream.lastSubstreamActivityAt || workstream.latestSubstreamActivitySource?.lastActivityAt || workstream.latestSubstreamActivitySource?.updatedAt;
+  const latestSelfUpdateAt =
+    workstream.lastDirectUpdateAt ||
+    workstream.latestStatus?.updatedAt ||
+    statusUpdates?.find((update) => update.workstreamId === workstream.id)?.updatedAt;
+  const latestSubstreamUpdateAt =
+    workstream.lastSubstreamActivityAt ||
+    workstream.latestSubstreamActivitySource?.lastActivityAt ||
+    workstream.latestSubstreamActivitySource?.updatedAt;
 
   return (
     <>
@@ -275,7 +365,11 @@ export default function WorkstreamDetail() {
           data-testid="workstream-detail-shell"
           className="grid overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:grid-cols-[8px_68px_minmax(0,1fr)]"
         >
-          <div data-testid="workstream-category-rail" className="hidden sm:block" style={{ backgroundColor: categoryColor }} />
+          <div
+            data-testid="workstream-category-rail"
+            className="hidden sm:block"
+            style={{ backgroundColor: categoryColor }}
+          />
           <div
             data-testid="workstream-category-icon-band"
             className="hidden justify-center border-r border-gray-100 pt-7 dark:border-gray-700 sm:flex"
@@ -293,7 +387,10 @@ export default function WorkstreamDetail() {
           <div className="min-w-0">
             <header className="grid gap-7 border-b border-gray-200 px-5 py-7 dark:border-gray-700 lg:grid-cols-[minmax(0,1fr)_190px] lg:px-7">
               <div className="min-w-0">
-                <nav aria-label="Workstream parent-stream breadcrumbs" className="mb-2 flex flex-wrap items-center gap-1 text-sm font-semibold text-gray-500 dark:text-gray-400">
+                <nav
+                  aria-label="Workstream parent-stream breadcrumbs"
+                  className="mb-2 flex flex-wrap items-center gap-1 text-sm font-semibold text-gray-500 dark:text-gray-400"
+                >
                   {breadcrumbs.map((crumb, index) => {
                     const isCurrent = crumb.id === workstream.id;
                     return (
@@ -301,7 +398,11 @@ export default function WorkstreamDetail() {
                         {index > 0 && <span className="text-gray-400 dark:text-gray-500">›</span>}
                         {isCurrent ? (
                           <span aria-current="page" className="text-gray-700 dark:text-gray-200">
-                            {crumb.number !== undefined ? <WorkstreamNumber workstream={crumb} /> : getWorkstreamName(crumb)}
+                            {crumb.number !== undefined ? (
+                              <WorkstreamNumber workstream={crumb} />
+                            ) : (
+                              getWorkstreamName(crumb)
+                            )}
                           </span>
                         ) : (
                           <WorkstreamLink workstream={crumb} />
@@ -311,7 +412,9 @@ export default function WorkstreamDetail() {
                   })}
                 </nav>
 
-                <h1 className="max-w-3xl text-3xl font-extrabold leading-tight text-gray-900 dark:text-gray-100 sm:text-4xl">{workstream.name}</h1>
+                <h1 className="max-w-3xl text-3xl font-extrabold leading-tight text-gray-900 dark:text-gray-100 sm:text-4xl">
+                  {workstream.name}
+                </h1>
                 {workstream.context && (
                   <div className="mt-4 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">
                     <MarkdownRenderer content={workstream.context} />
@@ -319,47 +422,84 @@ export default function WorkstreamDetail() {
                 )}
               </div>
 
-              <div data-testid="workstream-detail-actions" className="grid content-start gap-2 lg:w-[190px]">
+              <div
+                data-testid="workstream-detail-actions"
+                className="grid content-start gap-2 lg:w-[190px]"
+              >
                 {workstream.state !== 'closed' && (
-                  <button onClick={() => setShowNewStatusDialog(true)} className="h-10 rounded-md bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700">
+                  <button
+                    onClick={() => setShowNewStatusDialog(true)}
+                    className="h-10 rounded-md bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700"
+                  >
                     Add Update
                   </button>
                 )}
-                <button onClick={() => setShowCreateSubstreamDialog(true)} className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                <button
+                  onClick={() => setShowCreateSubstreamDialog(true)}
+                  className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
                   Create sub-stream
                 </button>
-                <button onClick={() => setShowEditDialog(true)} className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                <button
+                  onClick={() => setShowEditDialog(true)}
+                  className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
                   Edit
                 </button>
-                <button onClick={() => setShowParentDialog(true)} className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                <button
+                  onClick={() => setShowParentDialog(true)}
+                  className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
                   {workstream.parentId ? 'Change parent' : 'Set parent'}
                 </button>
                 {workstream.state !== 'closed' ? (
                   closeConfirm ? (
                     <>
-                      <button onClick={() => setCloseConfirm(false)} className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700" disabled={closeMutation.isPending}>
+                      <button
+                        onClick={() => setCloseConfirm(false)}
+                        className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                        disabled={closeMutation.isPending}
+                      >
                         Cancel close
                       </button>
-                      <button onClick={() => closeMutation.mutate()} className="h-10 rounded-md bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50" disabled={closeMutation.isPending}>
+                      <button
+                        onClick={() => closeMutation.mutate()}
+                        className="h-10 rounded-md bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                        disabled={closeMutation.isPending}
+                      >
                         {closeMutation.isPending ? 'Closing...' : 'Confirm close'}
                       </button>
                     </>
                   ) : (
-                    <button onClick={() => setCloseConfirm(true)} className="h-10 rounded-md border border-red-300 bg-white px-4 text-sm font-semibold text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-gray-800 dark:text-red-300 dark:hover:bg-red-900/40">
+                    <button
+                      onClick={() => setCloseConfirm(true)}
+                      className="h-10 rounded-md border border-red-300 bg-white px-4 text-sm font-semibold text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-gray-800 dark:text-red-300 dark:hover:bg-red-900/40"
+                    >
                       Close stream
                     </button>
                   )
                 ) : reopenConfirm ? (
                   <>
-                    <button onClick={() => setReopenConfirm(false)} className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700" disabled={reopenMutation.isPending}>
+                    <button
+                      onClick={() => setReopenConfirm(false)}
+                      className="h-10 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                      disabled={reopenMutation.isPending}
+                    >
                       Cancel reopen
                     </button>
-                    <button onClick={() => reopenMutation.mutate()} className="h-10 rounded-md bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50" disabled={reopenMutation.isPending}>
+                    <button
+                      onClick={() => reopenMutation.mutate()}
+                      className="h-10 rounded-md bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                      disabled={reopenMutation.isPending}
+                    >
                       {reopenMutation.isPending ? 'Reopening...' : 'Confirm reopen'}
                     </button>
                   </>
                 ) : (
-                  <button onClick={() => setReopenConfirm(true)} className="h-10 rounded-md border border-green-300 bg-white px-4 text-sm font-semibold text-green-700 hover:bg-green-50 dark:border-green-700 dark:bg-gray-800 dark:text-green-300 dark:hover:bg-green-900/40">
+                  <button
+                    onClick={() => setReopenConfirm(true)}
+                    className="h-10 rounded-md border border-green-300 bg-white px-4 text-sm font-semibold text-green-700 hover:bg-green-50 dark:border-green-700 dark:bg-gray-800 dark:text-green-300 dark:hover:bg-green-900/40"
+                  >
                     Reopen stream
                   </button>
                 )}
@@ -368,14 +508,24 @@ export default function WorkstreamDetail() {
 
             {(closeMutation.isError || reopenMutation.isError) && (
               <div className="mx-5 mt-5 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200 lg:mx-7">
-                {closeMutation.isError ? hierarchyErrorMessage(closeMutation.error) : hierarchyErrorMessage(reopenMutation.error)}
+                {closeMutation.isError
+                  ? hierarchyErrorMessage(closeMutation.error)
+                  : hierarchyErrorMessage(reopenMutation.error)}
               </div>
             )}
 
             <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
-              <section className="min-w-0 border-gray-200 px-5 py-6 dark:border-gray-700 lg:border-r lg:px-7" aria-labelledby="status-history-heading">
+              <section
+                className="min-w-0 border-gray-200 px-5 py-6 dark:border-gray-700 lg:border-r lg:px-7"
+                aria-labelledby="status-history-heading"
+              >
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <h2 id="status-history-heading" className="text-2xl font-bold text-gray-900 dark:text-gray-100">Status History</h2>
+                  <h2
+                    id="status-history-heading"
+                    className="text-2xl font-bold text-gray-900 dark:text-gray-100"
+                  >
+                    Status History
+                  </h2>
                   <label className="inline-flex items-center gap-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                     <input
                       type="checkbox"
@@ -389,7 +539,9 @@ export default function WorkstreamDetail() {
 
                 {statusUpdates && statusUpdates.length === 0 && (
                   <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">No status updates yet. Add the first one!</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      No status updates yet. Add the first one!
+                    </p>
                   </div>
                 )}
 
@@ -397,7 +549,9 @@ export default function WorkstreamDetail() {
                   {statusUpdates?.map((update) => {
                     const updateSource = getStatusUpdateSource(update);
                     const updateSourceId = getLatestSubstreamActivitySourceId(updateSource);
-                    const isSubstreamUpdate = Boolean(updateSourceId && updateSourceId !== workstream.id);
+                    const isSubstreamUpdate = Boolean(
+                      updateSourceId && updateSourceId !== workstream.id,
+                    );
                     return (
                       <article
                         key={update.id}
@@ -412,36 +566,67 @@ export default function WorkstreamDetail() {
                         <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
                           <div className="grid gap-2">
                             <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                              <time dateTime={update.createdAt} title={formatDateTime(update.createdAt)}>{formatRelativeTime(update.createdAt)}</time>
-                              {update.createdAt !== update.updatedAt && <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">(edited)</span>}
-                              <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">• {statusUpdateReference(update, updateSource, isSubstreamUpdate)}</span>
+                              <time
+                                dateTime={update.createdAt}
+                                title={formatDateTime(update.createdAt)}
+                              >
+                                {formatRelativeTime(update.createdAt)}
+                              </time>
+                              {update.createdAt !== update.updatedAt && (
+                                <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                                  (edited)
+                                </span>
+                              )}
+                              <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                                • {statusUpdateReference(update, updateSource, isSubstreamUpdate)}
+                              </span>
                             </div>
                             {isSubstreamUpdate && updateSource && updateSourceId && (
-                              <WorkstreamLink workstream={updateSource} className="w-fit rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700 hover:text-blue-800 dark:bg-blue-900 dark:text-blue-200 dark:hover:text-blue-100" />
+                              <WorkstreamLink
+                                workstream={updateSource}
+                                className="w-fit rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700 hover:text-blue-800 dark:bg-blue-900 dark:text-blue-200 dark:hover:text-blue-100"
+                              />
                             )}
                           </div>
 
                           <div className="flex gap-2">
                             {isSubstreamUpdate && updateSource && updateSourceId ? (
-                              <Link to={workstreamPath(updateSource)} className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                              <Link
+                                to={workstreamPath(updateSource)}
+                                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              >
                                 Open sub-stream
                               </Link>
                             ) : (
                               <>
-                                <button onClick={() => setEditingStatus(update)} className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                                <button
+                                  onClick={() => setEditingStatus(update)}
+                                  className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                                >
                                   Edit
                                 </button>
                                 {deleteConfirm === update.id ? (
                                   <>
-                                    <button onClick={() => setDeleteConfirm(null)} className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700" disabled={deleteMutation.isPending}>
+                                    <button
+                                      onClick={() => setDeleteConfirm(null)}
+                                      className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                                      disabled={deleteMutation.isPending}
+                                    >
                                       Cancel
                                     </button>
-                                    <button onClick={() => deleteMutation.mutate(update.id)} className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50" disabled={deleteMutation.isPending}>
+                                    <button
+                                      onClick={() => deleteMutation.mutate(update.id)}
+                                      className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                                      disabled={deleteMutation.isPending}
+                                    >
                                       {deleteMutation.isPending ? 'Deleting...' : 'Confirm'}
                                     </button>
                                   </>
                                 ) : (
-                                  <button onClick={() => setDeleteConfirm(update.id)} className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-gray-800 dark:text-red-300 dark:hover:bg-red-900/40">
+                                  <button
+                                    onClick={() => setDeleteConfirm(update.id)}
+                                    className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-gray-800 dark:text-red-300 dark:hover:bg-red-900/40"
+                                  >
                                     Delete
                                   </button>
                                 )}
@@ -450,35 +635,79 @@ export default function WorkstreamDetail() {
                           </div>
                         </div>
 
-                        <MarkdownRenderer content={update.status} className="text-sm leading-6 text-gray-700 dark:text-gray-300" />
+                        <MarkdownRenderer
+                          content={update.status}
+                          className="text-sm leading-6 text-gray-700 dark:text-gray-300"
+                        />
                         {update.note && (
                           <div className="mt-4 border-t border-gray-900/80 pt-4 dark:border-gray-200/40">
-                            <MarkdownRenderer content={update.note} className="text-sm leading-6 text-gray-600 dark:text-gray-400" />
+                            <MarkdownRenderer
+                              content={update.note}
+                              className="text-sm leading-6 text-gray-600 dark:text-gray-400"
+                            />
                           </div>
                         )}
                       </article>
                     );
                   })}
                 </div>
+
+                {statusUpdates && statusUpdates.length > 0 && (
+                  <div
+                    ref={loadMoreSentinelRef}
+                    data-testid="status-history-load-more-sentinel"
+                    className="py-5 text-center text-sm text-gray-500 dark:text-gray-400"
+                  >
+                    {isFetchingNextPage
+                      ? 'Loading more status updates...'
+                      : hasNextPage
+                        ? 'Scroll for more status updates'
+                        : 'All status updates loaded.'}
+                  </div>
+                )}
               </section>
 
-              <aside data-testid="workstream-detail-sidebar" className="bg-gray-50 px-5 py-6 dark:bg-gray-900/40 lg:px-6">
+              <aside
+                data-testid="workstream-detail-sidebar"
+                className="bg-gray-50 px-5 py-6 dark:bg-gray-900/40 lg:px-6"
+              >
                 <section className="border-b border-gray-200 pb-6 dark:border-gray-700">
                   <h3 className="mb-3 flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100">
-                    Sub-streams <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{getDirectSubstreamCount(workstream)}</span>
+                    Sub-streams{' '}
+                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      {getDirectSubstreamCount(workstream)}
+                    </span>
                   </h3>
-                  <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">Direct sub-streams of this stream. No sibling or neighbor parent-stream path shown here.</p>
+                  <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">
+                    Direct sub-streams of this stream. No sibling or neighbor parent-stream path
+                    shown here.
+                  </p>
                   <div className="mt-4 grid gap-3">
-                    {directSubstreams.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">No direct sub-streams yet.</p>}
+                    {directSubstreams.length === 0 && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        No direct sub-streams yet.
+                      </p>
+                    )}
                     {directSubstreams.map((substream) => {
-                      const substreamActivity = getLatestSubstreamActivityAt(substream) || substream.lastActivityAt;
+                      const substreamActivity =
+                        getLatestSubstreamActivityAt(substream) || substream.lastActivityAt;
                       return (
-                        <Link key={substream.id} to={workstreamPath(substream)} className="rounded-lg border border-gray-200 bg-white p-3 hover:border-primary-300 hover:shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:hover:border-primary-700">
+                        <Link
+                          key={substream.id}
+                          to={workstreamPath(substream)}
+                          className="rounded-lg border border-gray-200 bg-white p-3 hover:border-primary-300 hover:shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:hover:border-primary-700"
+                        >
                           <div className="flex justify-between gap-3 text-sm font-bold text-gray-900 dark:text-gray-100">
-                            <span className="text-primary-700 dark:text-primary-300"><WorkstreamReferenceContent workstream={substream} /></span>
-                            <span className="h-fit rounded-full bg-gray-100 px-2 py-1 text-[11px] font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-300">{substream.state || 'active'}</span>
+                            <span className="text-primary-700 dark:text-primary-300">
+                              <WorkstreamReferenceContent workstream={substream} />
+                            </span>
+                            <span className="h-fit rounded-full bg-gray-100 px-2 py-1 text-[11px] font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                              {substream.state || 'active'}
+                            </span>
                           </div>
-                          <div className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Latest update: <RelativeTime value={substreamActivity} /></div>
+                          <div className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                            Latest update: <RelativeTime value={substreamActivity} />
+                          </div>
                         </Link>
                       );
                     })}
@@ -486,42 +715,69 @@ export default function WorkstreamDetail() {
                 </section>
 
                 <section className="pt-6">
-                  <h3 className="mb-4 text-lg font-bold text-gray-900 dark:text-gray-100">Metadata</h3>
+                  <h3 className="mb-4 text-lg font-bold text-gray-900 dark:text-gray-100">
+                    Metadata
+                  </h3>
                   <dl className="grid gap-4">
                     <div>
-                      <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Category</dt>
-                      <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">{workstream.category?.name || 'Uncategorized'}</dd>
+                      <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
+                        Category
+                      </dt>
+                      <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        {workstream.category?.name || 'Uncategorized'}
+                      </dd>
                     </div>
                     {workstream.parent && (
                       <div>
-                        <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Parent stream</dt>
+                        <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
+                          Parent stream
+                        </dt>
                         <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
-                          <WorkstreamLink workstream={workstream.parent} className="text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200" />
+                          <WorkstreamLink
+                            workstream={workstream.parent}
+                            className="text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200"
+                          />
                         </dd>
                       </div>
                     )}
                     <div>
-                      <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Created</dt>
-                      <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200"><RelativeTime value={workstream.createdAt} /></dd>
+                      <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
+                        Created
+                      </dt>
+                      <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        <RelativeTime value={workstream.createdAt} />
+                      </dd>
                     </div>
                     <div>
-                      <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Latest self update</dt>
-                      <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200"><RelativeTime value={latestSelfUpdateAt} /></dd>
+                      <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
+                        Latest self update
+                      </dt>
+                      <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        <RelativeTime value={latestSelfUpdateAt} />
+                      </dd>
                     </div>
                     <div>
-                      <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Latest sub-stream update</dt>
+                      <dt className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
+                        Latest sub-stream update
+                      </dt>
                       <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
                         {latestSubstreamUpdateAt ? (
                           <>
                             <RelativeTime value={latestSubstreamUpdateAt} />
                             {workstream.latestSubstreamActivitySource && (
                               <>
-                                {' '}•{' '}
-                                <WorkstreamLink workstream={workstream.latestSubstreamActivitySource} className="text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200" />
+                                {' '}
+                                •{' '}
+                                <WorkstreamLink
+                                  workstream={workstream.latestSubstreamActivitySource}
+                                  className="text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200"
+                                />
                               </>
                             )}
                           </>
-                        ) : 'No sub-stream updates yet'}
+                        ) : (
+                          'No sub-stream updates yet'
+                        )}
                       </dd>
                     </div>
                   </dl>
@@ -532,17 +788,40 @@ export default function WorkstreamDetail() {
         </article>
       </main>
 
-      <StatusUpdateDialog workstreamId={workstream.id} workstreamName={workstream.name} workstreamNumber={workstream.number} isOpen={showNewStatusDialog} onClose={() => setShowNewStatusDialog(false)} />
+      <StatusUpdateDialog
+        workstreamId={workstream.id}
+        workstreamName={workstream.name}
+        workstreamNumber={workstream.number}
+        isOpen={showNewStatusDialog}
+        onClose={() => setShowNewStatusDialog(false)}
+      />
 
       {editingStatus && (
-        <StatusEditDialog statusUpdate={editingStatus} workstreamId={workstream.id} isOpen={!!editingStatus} onClose={() => setEditingStatus(null)} />
+        <StatusEditDialog
+          statusUpdate={editingStatus}
+          workstreamId={workstream.id}
+          isOpen={!!editingStatus}
+          onClose={() => setEditingStatus(null)}
+        />
       )}
 
-      <WorkstreamEditDialog workstream={workstream} isOpen={showEditDialog} onClose={() => setShowEditDialog(false)} />
+      <WorkstreamEditDialog
+        workstream={workstream}
+        isOpen={showEditDialog}
+        onClose={() => setShowEditDialog(false)}
+      />
 
-      <WorkstreamCreateDialog isOpen={showCreateSubstreamDialog} onClose={() => setShowCreateSubstreamDialog(false)} parent={workstream} />
+      <WorkstreamCreateDialog
+        isOpen={showCreateSubstreamDialog}
+        onClose={() => setShowCreateSubstreamDialog(false)}
+        parent={workstream}
+      />
 
-      <ParentSelectorDialog workstream={workstream} isOpen={showParentDialog} onClose={() => setShowParentDialog(false)} />
+      <ParentSelectorDialog
+        workstream={workstream}
+        isOpen={showParentDialog}
+        onClose={() => setShowParentDialog(false)}
+      />
     </>
   );
 }

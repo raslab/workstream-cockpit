@@ -313,7 +313,7 @@ describe('Authorization & Project Isolation Tests', () => {
       const workstreamApp = createTestApp(statusUpdatesRoutes, alicePerson);
       const aliceCheck = await request(workstreamApp).get(`/workstreams/${aliceWorkstream.id}/status-updates`);
       expect(aliceCheck.status).toBe(200);
-      const statusUpdate = aliceCheck.body.find((su: any) => su.id === aliceStatusUpdate.id);
+      const statusUpdate = aliceCheck.body.updates.find((su: any) => su.id === aliceStatusUpdate.id);
       expect(statusUpdate).toBeDefined();
       expect(statusUpdate.note).toBe('Alice status update');
     });
@@ -327,7 +327,7 @@ describe('Authorization & Project Isolation Tests', () => {
       const workstreamApp = createTestApp(statusUpdatesRoutes, alicePerson);
       const aliceCheck = await request(workstreamApp).get(`/workstreams/${aliceWorkstream.id}/status-updates`);
       expect(aliceCheck.status).toBe(200);
-      const statusUpdate = aliceCheck.body.find((su: any) => su.id === aliceStatusUpdate.id);
+      const statusUpdate = aliceCheck.body.updates.find((su: any) => su.id === aliceStatusUpdate.id);
       expect(statusUpdate).toBeDefined();
     });
   });

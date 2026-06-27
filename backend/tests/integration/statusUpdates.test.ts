@@ -176,14 +176,14 @@ describe('Status Updates API Integration Tests', () => {
   });
 
   describe('GET /workstreams/:workstreamId/status-updates', () => {
-    it('should return empty array when no status updates exist', async () => {
+    it('should return empty updates page when no status updates exist', async () => {
       const response = await request(app).get(`/workstreams/${workstream.id}/status-updates`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual([]);
+      expect(response.body).toEqual({ updates: [], nextCursor: null });
     });
 
-    it('should return all status updates for workstream', async () => {
+    it('should return the first status update page for workstream', async () => {
       await createTestStatusUpdate(workstream.id, { status: 'First update' });
       await createTestStatusUpdate(workstream.id, { status: 'Second update' });
       await createTestStatusUpdate(workstream.id, { status: 'Third update' });
@@ -191,11 +191,12 @@ describe('Status Updates API Integration Tests', () => {
       const response = await request(app).get(`/workstreams/${workstream.id}/status-updates`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveLength(3);
-      expect(response.body[0].number).toBeDefined();
-      expect(response.body[0].status).toBeDefined();
-      expect(response.body[1].status).toBeDefined();
-      expect(response.body[2].status).toBeDefined();
+      expect(response.body.updates).toHaveLength(3);
+      expect(response.body.nextCursor).toBeNull();
+      expect(response.body.updates[0].number).toBeDefined();
+      expect(response.body.updates[0].status).toBeDefined();
+      expect(response.body.updates[1].status).toBeDefined();
+      expect(response.body.updates[2].status).toBeDefined();
     });
 
     it('should return status updates when the workstream is addressed by public number', async () => {
@@ -204,9 +205,9 @@ describe('Status Updates API Integration Tests', () => {
       const response = await request(app).get(`/workstreams/${workstream.number}/status-updates`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveLength(1);
-      expect(response.body[0].id).toBe(statusUpdate.id);
-      expect(response.body[0].number).toBe(statusUpdate.number);
+      expect(response.body.updates).toHaveLength(1);
+      expect(response.body.updates[0].id).toBe(statusUpdate.id);
+      expect(response.body.updates[0].number).toBe(statusUpdate.number);
     });
 
     it('should return status updates ordered by createdAt DESC', async () => {
@@ -220,11 +221,76 @@ describe('Status Updates API Integration Tests', () => {
       const response = await request(app).get(`/workstreams/${workstream.id}/status-updates`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveLength(3);
+      expect(response.body.updates).toHaveLength(3);
       // Newest first
-      expect(response.body[0].id).toBe(update3.id);
-      expect(response.body[1].id).toBe(update2.id);
-      expect(response.body[2].id).toBe(update1.id);
+      expect(response.body.updates[0].id).toBe(update3.id);
+      expect(response.body.updates[1].id).toBe(update2.id);
+      expect(response.body.updates[2].id).toBe(update1.id);
+    });
+
+    it('paginates direct updates with an opaque cursor without duplicates or skipped same-timestamp rows', async () => {
+      const updates = await Promise.all(Array.from({ length: 52 }, (_, index) => createTestStatusUpdate(workstream.id, { status: `Direct update ${index}` })));
+      const sharedCreatedAt = new Date('2026-01-15T12:00:00.000Z');
+      await prisma.statusUpdate.updateMany({
+        where: { id: { in: updates.map(update => update.id) } },
+        data: { createdAt: sharedCreatedAt },
+      });
+
+      const firstPage = await request(app).get(`/workstreams/${workstream.id}/status-updates`).query({ limit: 50 });
+
+      expect(firstPage.status).toBe(200);
+      expect(firstPage.body.updates).toHaveLength(50);
+      expect(firstPage.body.nextCursor).toEqual(expect.any(String));
+      expect(firstPage.body.nextCursor).not.toContain(updates[0].id);
+      expect(Buffer.from(firstPage.body.nextCursor, 'base64url').toString('utf8')).not.toContain(updates[0].id);
+
+      const secondPage = await request(app).get(`/workstreams/${workstream.id}/status-updates`).query({ limit: 50, cursor: firstPage.body.nextCursor });
+
+      expect(secondPage.status).toBe(200);
+      expect(secondPage.body.updates).toHaveLength(2);
+      expect(secondPage.body.nextCursor).toBeNull();
+      const seen = [...firstPage.body.updates, ...secondPage.body.updates].map((update: any) => update.id);
+      expect(new Set(seen).size).toBe(52);
+      expect(seen).toEqual([...updates].sort((a, b) => b.id.localeCompare(a.id)).map(update => update.id));
+    });
+
+    it('paginates parent plus sub-stream updates in one stable newest-first history', async () => {
+      const substreamA = await createTestWorkstream(project.id, { name: 'Sub A', parentId: workstream.id });
+      const substreamB = await createTestWorkstream(project.id, { name: 'Sub B', parentId: substreamA.id });
+      const allUpdates = await Promise.all(Array.from({ length: 52 }, (_, index) => {
+        const target = index % 3 === 0 ? workstream : index % 3 === 1 ? substreamA : substreamB;
+        return createTestStatusUpdate(target.id, { status: `Mixed update ${index}` });
+      }));
+      const sharedCreatedAt = new Date('2026-01-15T12:00:00.000Z');
+      await prisma.statusUpdate.updateMany({ where: { id: { in: allUpdates.map(update => update.id) } }, data: { createdAt: sharedCreatedAt } });
+
+      const firstPage = await request(app).get(`/workstreams/${workstream.id}/status-updates`).query({ includeSubstreams: 'true', limit: 50 });
+      const secondPage = await request(app).get(`/workstreams/${workstream.id}/status-updates`).query({ includeSubstreams: 'true', limit: 50, cursor: firstPage.body.nextCursor });
+
+      expect(firstPage.status).toBe(200);
+      expect(secondPage.status).toBe(200);
+      expect(firstPage.body.updates).toHaveLength(50);
+      expect(secondPage.body.updates).toHaveLength(2);
+      expect(secondPage.body.nextCursor).toBeNull();
+      const seen = [...firstPage.body.updates, ...secondPage.body.updates];
+      expect(new Set(seen.map((update: any) => update.id)).size).toBe(52);
+      expect(seen.map((update: any) => update.workstreamId)).toEqual(expect.arrayContaining([workstream.id, substreamA.id, substreamB.id]));
+      expect(seen.map((update: any) => update.id)).toEqual([...allUpdates].sort((a, b) => b.id.localeCompare(a.id)).map(update => update.id));
+      expect(seen.find((update: any) => update.workstreamId === substreamA.id)?.source).toMatchObject({ id: substreamA.id, workstreamName: 'Sub A' });
+    });
+
+    it('rejects detailed history page sizes outside 50 to 200 and invalid cursors', async () => {
+      const tooSmall = await request(app).get(`/workstreams/${workstream.id}/status-updates`).query({ limit: 49 });
+      expect(tooSmall.status).toBe(400);
+      expect(tooSmall.body.error).toMatch(/limit.*50.*200/i);
+
+      const tooLarge = await request(app).get(`/workstreams/${workstream.id}/status-updates`).query({ limit: 201 });
+      expect(tooLarge.status).toBe(400);
+      expect(tooLarge.body.error).toMatch(/limit.*50.*200/i);
+
+      const invalidCursor = await request(app).get(`/workstreams/${workstream.id}/status-updates`).query({ cursor: 'not-a-valid-cursor' });
+      expect(invalidCursor.status).toBe(400);
+      expect(invalidCursor.body.error).toMatch(/cursor/i);
     });
 
     it('should return 404 when workstream does not exist', async () => {
@@ -407,7 +473,7 @@ describe('Status Updates API Integration Tests', () => {
 
       // Verify it's deleted
       const getResponse = await request(app).get(`/workstreams/${workstream.id}/status-updates`);
-      expect(getResponse.body.find((su: any) => su.id === statusUpdate.id)).toBeUndefined();
+      expect(getResponse.body.updates.find((su: any) => su.id === statusUpdate.id)).toBeUndefined();
     });
 
     it('should not reuse public numbers after deleting the highest-numbered status update', async () => {
@@ -459,7 +525,7 @@ describe('Status Updates API Integration Tests', () => {
       // Verify status update still exists
       const { getStatusUpdatesByWorkstream } = await import('../../src/services/statusUpdateService');
       const updates = await getStatusUpdatesByWorkstream(workstream2.id);
-      expect(updates.find((su) => su.id === statusUpdate2.id)).toBeDefined();
+      expect(updates.updates.find((su: any) => su.id === statusUpdate2.id)).toBeDefined();
     });
   });
 
@@ -478,8 +544,8 @@ describe('Status Updates API Integration Tests', () => {
       const response = await request(app).get(`/workstreams/${workstream.id}/status-updates`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveLength(1);
-      expect(response.body[0].status).toBe('My update');
+      expect(response.body.updates).toHaveLength(1);
+      expect(response.body.updates[0].status).toBe('My update');
     });
 
     it('should not create status update for other user workstream', async () => {
@@ -498,7 +564,7 @@ describe('Status Updates API Integration Tests', () => {
       // Verify no status update was created
       const { getStatusUpdatesByWorkstream } = await import('../../src/services/statusUpdateService');
       const updates = await getStatusUpdatesByWorkstream(workstream2.id);
-      expect(updates).toHaveLength(0);
+      expect(updates.updates).toHaveLength(0);
     });
   });
 });
