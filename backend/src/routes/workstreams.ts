@@ -16,8 +16,16 @@ import { getStatusUpdatesByWorkstream } from '../services/statusUpdateService';
 import { logger } from '../utils/logger';
 
 const router = Router();
-const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
-const HIERARCHY_FILTERS = new Set<WorkstreamHierarchyFilter>(['all', 'top-level', 'sub-streams', 'no-parent', 'has-substreams', 'under-parent']);
+const UUID_RE =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+const HIERARCHY_FILTERS = new Set<WorkstreamHierarchyFilter>([
+  'all',
+  'top-level',
+  'sub-streams',
+  'no-parent',
+  'has-substreams',
+  'under-parent',
+]);
 
 function firstQueryValue(value: unknown): string | undefined {
   if (Array.isArray(value)) return firstQueryValue(value[0]);
@@ -28,8 +36,8 @@ function queryList(value: unknown): string[] | undefined {
   if (value === undefined) return undefined;
   const values = Array.isArray(value) ? value : [value];
   return values
-    .flatMap(item => typeof item === 'string' ? item.split(',') : [])
-    .map(item => item.trim())
+    .flatMap((item) => (typeof item === 'string' ? item.split(',') : []))
+    .map((item) => item.trim())
     .filter(Boolean);
 }
 
@@ -41,7 +49,25 @@ function parseQueryBoolean(value: unknown): boolean | undefined | null {
   return null;
 }
 
-function validateNullableUuid(value: unknown, field: string, res: Response): value is string | null | undefined {
+function parseStatusUpdatePagination(
+  req: Request,
+  res: Response,
+): { limit: number; cursor?: string } | null {
+  const limitQuery = firstQueryValue(req.query.limit);
+  const cursor = firstQueryValue(req.query.cursor);
+  const limit = limitQuery === undefined ? 50 : Number(limitQuery);
+  if (!Number.isInteger(limit) || limit < 50 || limit > 200) {
+    res.status(400).json({ error: 'limit must be an integer between 50 and 200' });
+    return null;
+  }
+  return { limit, cursor };
+}
+
+function validateNullableUuid(
+  value: unknown,
+  field: string,
+  res: Response,
+): value is string | null | undefined {
   if (value === undefined || value === null) return true;
   if (typeof value !== 'string' || !UUID_RE.test(value)) {
     res.status(400).json({ error: `${field} must be a valid UUID or null` });
@@ -50,9 +76,17 @@ function validateNullableUuid(value: unknown, field: string, res: Response): val
   return true;
 }
 
-function validateNullableWorkstreamReference(value: unknown, field: string, res: Response): value is string | number | null | undefined {
+function validateNullableWorkstreamReference(
+  value: unknown,
+  field: string,
+  res: Response,
+): value is string | number | null | undefined {
   if (value === undefined || value === null) return true;
-  if ((typeof value === 'string' && (UUID_RE.test(value) || /^[1-9]\d*$/.test(value))) || (typeof value === 'number' && Number.isInteger(value) && value > 0)) return true;
+  if (
+    (typeof value === 'string' && (UUID_RE.test(value) || /^[1-9]\d*$/.test(value))) ||
+    (typeof value === 'number' && Number.isInteger(value) && value > 0)
+  )
+    return true;
   res.status(400).json({ error: `${field} must be a valid UUID, positive number, or null` });
   return false;
 }
@@ -85,8 +119,16 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (hierarchyQuery !== undefined && !HIERARCHY_FILTERS.has(hierarchyQuery as WorkstreamHierarchyFilter)) {
-      res.status(400).json({ error: 'hierarchy must be all, top-level, sub-streams, no-parent, has-substreams, or under-parent' });
+    if (
+      hierarchyQuery !== undefined &&
+      !HIERARCHY_FILTERS.has(hierarchyQuery as WorkstreamHierarchyFilter)
+    ) {
+      res
+        .status(400)
+        .json({
+          error:
+            'hierarchy must be all, top-level, sub-streams, no-parent, has-substreams, or under-parent',
+        });
       return;
     }
 
@@ -96,13 +138,19 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     // Parse comma-separated tags
-    const tags = tagsQuery 
-      ? tagsQuery.split(',').map(t => t.trim()).filter(Boolean)
+    const tags = tagsQuery
+      ? tagsQuery
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
       : undefined;
 
     // Parse comma-separated category IDs
     const categoryIds = categoryIdsQuery
-      ? categoryIdsQuery.split(',').map(id => id.trim()).filter(Boolean)
+      ? categoryIdsQuery
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean)
       : undefined;
 
     const parentId = parentIdQuery?.trim() || undefined;
@@ -111,13 +159,13 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     const parentIds = queryList(req.query.parentIds);
-    if (parentIds?.some(id => !validateNullableWorkstreamReference(id, 'parentIds', res))) {
+    if (parentIds?.some((id) => !validateNullableWorkstreamReference(id, 'parentIds', res))) {
       return;
     }
 
     // Get user's projects (for Phase 1, we'll use the first/default project)
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.json([]);
       return;
@@ -130,22 +178,33 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
     const resolvedParentIds = parentIds
-      ? await Promise.all(parentIds.map(id => resolveWorkstreamId(id, projectId)))
+      ? await Promise.all(parentIds.map((id) => resolveWorkstreamId(id, projectId)))
       : undefined;
-    if (resolvedParentIds?.some(id => !id)) {
+    if (resolvedParentIds?.some((id) => !id)) {
       res.status(404).json({ error: 'Parent workstream not found' });
       return;
     }
 
-    const hierarchy = hierarchyQuery || resolvedParentId || resolvedParentIds?.length || includeSubstreamsQuery !== undefined
-      ? {
-          mode: (hierarchyQuery as WorkstreamHierarchyFilter | undefined) ?? 'all',
-          parentId: resolvedParentId,
-          parentIds: resolvedParentIds?.filter((id): id is string => Boolean(id)),
-          includeSubstreams: includeSubstreamsQuery === true,
-        }
-      : undefined;
-    const workstreams = await getWorkstreams(projectId, state, tags, categoryIds, notUpdatedToday, hierarchy);
+    const hierarchy =
+      hierarchyQuery ||
+      resolvedParentId ||
+      resolvedParentIds?.length ||
+      includeSubstreamsQuery !== undefined
+        ? {
+            mode: (hierarchyQuery as WorkstreamHierarchyFilter | undefined) ?? 'all',
+            parentId: resolvedParentId,
+            parentIds: resolvedParentIds?.filter((id): id is string => Boolean(id)),
+            includeSubstreams: includeSubstreamsQuery === true,
+          }
+        : undefined;
+    const workstreams = await getWorkstreams(
+      projectId,
+      state,
+      tags,
+      categoryIds,
+      notUpdatedToday,
+      hierarchy,
+    );
 
     res.json(workstreams);
   } catch (error) {
@@ -165,7 +224,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.status(404).json({ error: 'Workstream not found' });
       return;
@@ -221,11 +280,15 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (!validateNullableUuid(categoryId, 'categoryId', res) || !validateNullableWorkstreamReference(parentId, 'parentId', res)) return;
+    if (
+      !validateNullableUuid(categoryId, 'categoryId', res) ||
+      !validateNullableWorkstreamReference(parentId, 'parentId', res)
+    )
+      return;
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.status(400).json({ error: 'No project found for user' });
       return;
@@ -294,11 +357,15 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (!validateNullableUuid(categoryId, 'categoryId', res) || !validateNullableWorkstreamReference(parentId, 'parentId', res)) return;
+    if (
+      !validateNullableUuid(categoryId, 'categoryId', res) ||
+      !validateNullableWorkstreamReference(parentId, 'parentId', res)
+    )
+      return;
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.status(404).json({ error: 'Workstream not found' });
       return;
@@ -316,7 +383,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
       return;
     }
     const updates: any = {};
-    
+
     if (name !== undefined) updates.name = name.trim();
     if (categoryId !== undefined) updates.categoryId = categoryId;
     if (parentId !== undefined) updates.parentId = resolvedParentId;
@@ -358,7 +425,7 @@ router.put('/:id/close', async (req: Request, res: Response): Promise<void> => {
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.status(404).json({ error: 'Workstream not found' });
       return;
@@ -398,7 +465,7 @@ router.put('/:id/reopen', async (req: Request, res: Response): Promise<void> => 
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.status(404).json({ error: 'Workstream not found' });
       return;
@@ -438,7 +505,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.status(404).json({ error: 'Workstream not found' });
       return;
@@ -475,10 +542,17 @@ router.get('/:id/status-updates', async (req: Request, res: Response): Promise<v
   try {
     const personId = req.userContext!.personId;
     const workstreamId = req.params.id;
+    const includeSubstreams = parseQueryBoolean(req.query.includeSubstreams);
+    if (includeSubstreams === null) {
+      res.status(400).json({ error: 'includeSubstreams must be true, false, 1, or 0' });
+      return;
+    }
+    const pagination = parseStatusUpdatePagination(req, res);
+    if (!pagination) return;
 
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
-    
+
     if (projects.length === 0) {
       res.status(404).json({ error: 'Workstream not found' });
       return;
@@ -494,11 +568,16 @@ router.get('/:id/status-updates', async (req: Request, res: Response): Promise<v
     }
 
     const statusUpdates = await getStatusUpdatesByWorkstream(workstream.id, {
-      includeSubstreams: req.query.includeSubstreams === 'true',
+      includeSubstreams: includeSubstreams === true,
       projectId,
+      ...pagination,
     });
     res.json(statusUpdates);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Invalid cursor') {
+      res.status(400).json({ error: 'Invalid cursor' });
+      return;
+    }
     logger.error('Error fetching status updates:', error);
     res.status(500).json({ error: 'Failed to fetch status updates' });
   }

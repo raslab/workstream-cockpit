@@ -38,15 +38,25 @@ function LocationProbe() {
 }
 
 function renderDetail(initialEntry: string) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
-          <Route path="/workstreams/:id" element={<><WorkstreamDetail /><LocationProbe /></>} />
+          <Route
+            path="/workstreams/:id"
+            element={
+              <>
+                <WorkstreamDetail />
+                <LocationProbe />
+              </>
+            }
+          />
         </Routes>
       </MemoryRouter>
-    </QueryClientProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -73,11 +83,17 @@ describe('WorkstreamDetail URL state', () => {
 
     const checkbox = await screen.findByRole('checkbox', { name: /Include sub-stream updates/ });
     expect(checkbox).toBeChecked();
-    expect(useStatusHistoryMock).toHaveBeenLastCalledWith('stream-1', { includeSubstreams: true });
+    expect(useStatusHistoryMock).toHaveBeenLastCalledWith('stream-1', {
+      includeSubstreams: true,
+      pageSize: 50,
+    });
 
     fireEvent.click(checkbox);
 
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(''));
-    expect(useStatusHistoryMock).toHaveBeenLastCalledWith('stream-1', { includeSubstreams: false });
+    expect(useStatusHistoryMock).toHaveBeenLastCalledWith('stream-1', {
+      includeSubstreams: false,
+      pageSize: 50,
+    });
   });
 });
