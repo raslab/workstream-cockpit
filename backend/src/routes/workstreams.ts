@@ -13,6 +13,15 @@ import {
   type WorkstreamHierarchyFilter,
 } from '../services/workstreamService';
 import { getStatusUpdatesByWorkstream } from '../services/statusUpdateService';
+import {
+  abandonNextStepWithDetails,
+  createNextStep,
+  deleteNextStep,
+  listNextSteps,
+  reorderNextSteps,
+  solveNextStepWithDetails,
+  updateNextStep,
+} from '../services/nextStepService';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -89,6 +98,35 @@ function validateNullableWorkstreamReference(
     return true;
   res.status(400).json({ error: `${field} must be a valid UUID, positive number, or null` });
   return false;
+}
+
+async function getProjectIdForPerson(personId: string): Promise<string | null> {
+  const projects = await getProjectsByPersonId(personId);
+  return projects[0]?.id ?? null;
+}
+
+async function resolveAccessibleWorkstream(
+  workstreamReference: string | number,
+  projectId: string,
+): Promise<string | null> {
+  return (await resolveWorkstreamId(workstreamReference, projectId)) ?? null;
+}
+
+function handleNextStepError(error: any, res: Response, operation: string): void {
+  if (/Workstream not found/i.test(error.message)) {
+    res.status(404).json({ error: 'Workstream not found' });
+    return;
+  }
+  if (/Next step not found/i.test(error.message)) {
+    res.status(404).json({ error: 'Next step not found' });
+    return;
+  }
+  if (/required|500 characters|duplicates|every open next step|closed workstream/i.test(error.message)) {
+    res.status(400).json({ error: error.message });
+    return;
+  }
+  logger.error(`Error ${operation} next step:`, error);
+  res.status(500).json({ error: `Failed to ${operation} next step` });
 }
 
 // All routes require authentication
@@ -491,6 +529,152 @@ router.put('/:id/reopen', async (req: Request, res: Response): Promise<void> => 
     }
     logger.error('Error reopening workstream:', error);
     res.status(500).json({ error: 'Failed to reopen workstream' });
+  }
+});
+
+router.get('/:id/next-steps', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const projectId = await getProjectIdForPerson(req.userContext!.personId);
+    if (!projectId) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    const workstreamId = await resolveAccessibleWorkstream(req.params.id, projectId);
+    if (!workstreamId) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    res.json(await listNextSteps(projectId, workstreamId));
+  } catch (error: any) {
+    handleNextStepError(error, res, 'list');
+  }
+});
+
+router.post('/:id/next-steps', async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (typeof req.body.text !== 'string') {
+      res.status(400).json({ error: 'Next step text is required' });
+      return;
+    }
+    const projectId = await getProjectIdForPerson(req.userContext!.personId);
+    if (!projectId) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    const workstreamId = await resolveAccessibleWorkstream(req.params.id, projectId);
+    if (!workstreamId) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    const nextStep = await createNextStep({ projectId, workstreamId, text: req.body.text });
+    res.status(201).json(nextStep);
+  } catch (error: any) {
+    handleNextStepError(error, res, 'create');
+  }
+});
+
+router.put('/:id/next-steps/reorder', async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!Array.isArray(req.body.nextStepIds)) {
+      res.status(400).json({ error: 'nextStepIds is required' });
+      return;
+    }
+    const projectId = await getProjectIdForPerson(req.userContext!.personId);
+    if (!projectId) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    const workstreamId = await resolveAccessibleWorkstream(req.params.id, projectId);
+    if (!workstreamId) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    res.json(await reorderNextSteps({ projectId, workstreamId, orderedIds: req.body.nextStepIds }));
+  } catch (error: any) {
+    handleNextStepError(error, res, 'reorder');
+  }
+});
+
+router.put('/:id/next-steps/:nextStepId', async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (typeof req.body.text !== 'string') {
+      res.status(400).json({ error: 'Next step text is required' });
+      return;
+    }
+    const projectId = await getProjectIdForPerson(req.userContext!.personId);
+    if (!projectId) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    const workstreamId = await resolveAccessibleWorkstream(req.params.id, projectId);
+    if (!workstreamId) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    res.json(await updateNextStep({ projectId, workstreamId, nextStepId: req.params.nextStepId, text: req.body.text }));
+  } catch (error: any) {
+    handleNextStepError(error, res, 'update');
+  }
+});
+
+async function handleSolveNextStep(req: Request, res: Response): Promise<void> {
+  try {
+    const projectId = await getProjectIdForPerson(req.userContext!.personId);
+    if (!projectId) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    const workstreamId = await resolveAccessibleWorkstream(req.params.id, projectId);
+    if (!workstreamId) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    res.json(await solveNextStepWithDetails({ projectId, workstreamId, nextStepId: req.params.nextStepId }));
+  } catch (error: any) {
+    handleNextStepError(error, res, 'solve');
+  }
+}
+
+router.post('/:id/next-steps/:nextStepId/solve', handleSolveNextStep);
+router.put('/:id/next-steps/:nextStepId/solve', handleSolveNextStep);
+
+async function handleAbandonNextStep(req: Request, res: Response): Promise<void> {
+  try {
+    const projectId = await getProjectIdForPerson(req.userContext!.personId);
+    if (!projectId) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    const workstreamId = await resolveAccessibleWorkstream(req.params.id, projectId);
+    if (!workstreamId) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    res.json(await abandonNextStepWithDetails({ projectId, workstreamId, nextStepId: req.params.nextStepId }));
+  } catch (error: any) {
+    handleNextStepError(error, res, 'abandon');
+  }
+}
+
+router.post('/:id/next-steps/:nextStepId/abandon', handleAbandonNextStep);
+router.put('/:id/next-steps/:nextStepId/abandon', handleAbandonNextStep);
+
+router.delete('/:id/next-steps/:nextStepId', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const projectId = await getProjectIdForPerson(req.userContext!.personId);
+    if (!projectId) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    const workstreamId = await resolveAccessibleWorkstream(req.params.id, projectId);
+    if (!workstreamId) {
+      res.status(404).json({ error: 'Workstream not found' });
+      return;
+    }
+    await deleteNextStep({ projectId, workstreamId, nextStepId: req.params.nextStepId });
+    res.status(204).send();
+  } catch (error: any) {
+    handleNextStepError(error, res, 'delete');
   }
 });
 

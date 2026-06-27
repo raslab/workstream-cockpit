@@ -139,6 +139,13 @@ describe('MCP endpoint', () => {
       'workstreams_update',
       'workstreams_close',
       'workstreams_reopen',
+      'next_steps_list',
+      'next_steps_create',
+      'next_steps_update',
+      'next_steps_reorder',
+      'next_steps_solve',
+      'next_steps_abandon',
+      'next_steps_delete',
       'updates_list',
       'updates_get',
       'updates_create',
@@ -409,6 +416,64 @@ describe('MCP endpoint', () => {
       confirm: true,
     }).expect(200);
     expect(deleteOk.body.result.structuredContent.deletedId).toBe(newUpdateId);
+  });
+
+  it('exposes next steps lifecycle tools with active/passive update semantics', async () => {
+    const person = await createTestPerson({ email: 'mcp-next-steps@example.com' });
+    const project = await createTestProject(person.id);
+    const workstream = await createTestWorkstream(project.id, { name: 'MCP Next Steps' });
+    const token = await pat(person.id, ['mcp:read', 'mcp:write']);
+
+    const first = await callTool(app, token, 'next_steps_create', {
+      workstreamId: workstream.id,
+      text: 'Draft rollout note',
+    }).expect(200);
+    const second = await callTool(app, token, 'next_steps_create', {
+      workstreamId: workstream.id,
+      text: 'Retire risky shortcut',
+    }).expect(200);
+    const firstId = first.body.result.structuredContent.nextStep.id;
+    const secondId = second.body.result.structuredContent.nextStep.id;
+
+    const renamed = await callTool(app, token, 'next_steps_update', {
+      workstreamId: workstream.id,
+      id: firstId,
+      text: 'Draft final rollout note',
+    }).expect(200);
+    expect(renamed.body.result.structuredContent.nextStep.text).toBe('Draft final rollout note');
+
+    const reordered = await callTool(app, token, 'next_steps_reorder', {
+      workstreamId: workstream.id,
+      nextStepIds: [secondId, firstId],
+    }).expect(200);
+    expect(reordered.body.result.structuredContent.nextSteps.map((step: any) => step.id)).toEqual([secondId, firstId]);
+
+    const listed = await callTool(app, token, 'next_steps_list', { workstreamId: workstream.id }).expect(200);
+    expect(listed.body.result.structuredContent.nextSteps.map((step: any) => step.text)).toEqual([
+      'Retire risky shortcut',
+      'Draft final rollout note',
+    ]);
+
+    const solved = await callTool(app, token, 'next_steps_solve', {
+      workstreamId: workstream.id,
+      id: firstId,
+    }).expect(200);
+    expect(solved.body.result.structuredContent.update).toMatchObject({
+      status: 'Solved next step: Draft final rollout note',
+      impact: 'active',
+    });
+
+    const abandoned = await callTool(app, token, 'next_steps_abandon', {
+      workstreamId: workstream.id,
+      id: secondId,
+    }).expect(200);
+    expect(abandoned.body.result.structuredContent.update).toMatchObject({
+      status: 'Abandoned next step: Retire risky shortcut',
+      impact: 'passive',
+    });
+
+    const remaining = await callTool(app, token, 'next_steps_list', { workstreamId: workstream.id }).expect(200);
+    expect(remaining.body.result.structuredContent.nextSteps).toEqual([]);
   });
 
   it('covers workstream get/update and update get/update positive paths plus cross-workstream safety', async () => {

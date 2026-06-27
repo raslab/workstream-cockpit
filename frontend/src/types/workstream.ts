@@ -28,6 +28,7 @@ export interface StatusUpdate {
   workstreamId: string;
   status: string;
   note: string | null;
+  impact?: 'active' | 'passive';
   createdAt: string;
   updatedAt: string;
   workstream?: WorkstreamSummary;
@@ -39,6 +40,23 @@ export interface LatestSubstreamActivitySource extends WorkstreamSummary {
   updatedAt?: string;
   lastActivityAt?: string;
 }
+
+export type NextStepState = 'open' | 'solved' | 'abandoned';
+
+export interface NextStep {
+  id: string;
+  projectId?: string;
+  workstreamId: string;
+  text: string;
+  state?: NextStepState;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  solvedAt?: string | null;
+  abandonedAt?: string | null;
+}
+
+export type NextStepIdOrder = string[];
 
 export interface Workstream {
   id: string;
@@ -63,6 +81,8 @@ export interface Workstream {
   directSubstreamCount?: number;
   activeSubstreamCount?: number;
   closedSubstreamCount?: number;
+  nextStepCount?: number;
+  openNextStepCount?: number;
   depth?: number;
   lastDirectUpdateAt?: string | null;
   lastSubstreamActivityAt?: string | null;

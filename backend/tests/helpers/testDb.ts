@@ -99,6 +99,7 @@ export async function cleanDatabase(): Promise<void> {
   const tables = [
     'personal_access_tokens',
     'views',
+    'next_steps',
     'workstream_events',
     'status_updates',
     'workstreams',
@@ -217,7 +218,7 @@ export async function createTestWorkstream(
  */
 export async function createTestStatusUpdate(
   workstreamId: string,
-  data?: { status?: string; note?: string; number?: number },
+  data?: { status?: string; note?: string; number?: number; impact?: 'active' | 'passive' },
 ) {
   const workstream = await prisma.workstream.findUniqueOrThrow({ where: { id: workstreamId }, select: { projectId: true } });
   const number = reserveStatusUpdateNumber(workstream.projectId, data?.number);
@@ -228,6 +229,7 @@ export async function createTestStatusUpdate(
       workstreamId,
       status: data?.status || 'Test status update',
       note: data?.note,
+      impact: data?.impact ?? 'active',
     },
   });
   await prisma.project.update({ where: { id: workstream.projectId }, data: { nextStatusUpdateNumber: nextStatusUpdateNumberByProject.get(workstream.projectId) ?? number + 1 } });

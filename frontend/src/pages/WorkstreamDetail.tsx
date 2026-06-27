@@ -2,8 +2,9 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
-import { Workstream, StatusUpdate } from '../types/workstream';
+import { Workstream, StatusUpdate, NextStep } from '../types/workstream';
 import { useStatusHistory } from '../hooks/useStatusHistory';
+import { useNextSteps } from '../hooks/useNextSteps';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { StatusUpdateDialog } from '../components/StatusUpdate/StatusUpdateDialog';
 import { WorkstreamEditDialog } from '../components/Workstream/WorkstreamEditDialog';
@@ -198,6 +199,224 @@ export function StatusEditDialog({
         </form>
       </div>
     </div>
+  );
+}
+
+function nextStepCountText(count: number, prefixOpen = true): string {
+  const label = count === 1 ? 'next step' : 'next steps';
+  return `${count}${prefixOpen ? ' open' : ''} ${label}`;
+}
+
+function moveStepIds(nextSteps: NextStep[], nextStepId: string, direction: -1 | 1): string[] | null {
+  const index = nextSteps.findIndex((step) => step.id === nextStepId);
+  const targetIndex = index + direction;
+  if (index < 0 || targetIndex < 0 || targetIndex >= nextSteps.length) return null;
+
+  const reordered = [...nextSteps];
+  const [step] = reordered.splice(index, 1);
+  reordered.splice(targetIndex, 0, step);
+  return reordered.map((nextStep) => nextStep.id);
+}
+
+function NextStepsSection({ workstreamId, isClosed }: { workstreamId: string; isClosed: boolean }) {
+  const {
+    nextSteps,
+    isLoading,
+    isError,
+    createNextStep,
+    updateNextStep,
+    reorderNextSteps,
+    solveNextStep,
+    abandonNextStep,
+  } = useNextSteps(workstreamId);
+  const [newText, setNewText] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
+  const isMutating =
+    createNextStep.isPending ||
+    updateNextStep.isPending ||
+    reorderNextSteps.isPending ||
+    solveNextStep.isPending ||
+    abandonNextStep.isPending;
+
+  const handleAdd = (event: React.FormEvent) => {
+    event.preventDefault();
+    const text = newText.trim();
+    if (!text) return;
+    createNextStep.mutate(text, {
+      onSuccess: () => setNewText(''),
+    });
+  };
+
+  const beginEdit = (step: NextStep) => {
+    setEditingId(step.id);
+    setEditingText(step.text);
+  };
+
+  const saveEdit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editingId) return;
+    const text = editingText.trim();
+    if (!text) return;
+    updateNextStep.mutate(
+      { nextStepId: editingId, text },
+      {
+        onSuccess: () => {
+          setEditingId(null);
+          setEditingText('');
+        },
+      },
+    );
+  };
+
+  const moveStep = (step: NextStep, direction: -1 | 1) => {
+    const ids = moveStepIds(nextSteps, step.id, direction);
+    if (ids) reorderNextSteps.mutate(ids);
+  };
+
+  return (
+    <section
+      aria-labelledby="next-steps-heading"
+      className="border-b border-gray-200 px-5 py-5 dark:border-gray-700 lg:px-7"
+    >
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="next-steps-heading" className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          Next steps
+        </h2>
+        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+          {nextStepCountText(nextSteps.length)}
+        </span>
+      </div>
+
+      {isError && (
+        <div className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+          Failed to load Next steps. Please try again.
+        </div>
+      )}
+
+      {isLoading ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400">Loading Next steps...</p>
+      ) : nextSteps.length === 0 ? (
+        <p className="rounded-md border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+          No open next steps.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {nextSteps.map((step, index) => (
+            <div
+              key={step.id}
+              data-testid="next-step-row"
+              className="flex items-start gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+            >
+              <div className="flex pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => moveStep(step, -1)}
+                  disabled={index === 0 || isMutating || isClosed}
+                  aria-label={`Move ${step.text} up`}
+                  className="rounded px-1.5 py-0.5 text-gray-500 hover:bg-gray-100 disabled:opacity-40 dark:text-gray-400 dark:hover:bg-gray-700"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveStep(step, 1)}
+                  disabled={index === nextSteps.length - 1 || isMutating || isClosed}
+                  aria-label={`Move ${step.text} down`}
+                  className="rounded px-1.5 py-0.5 text-gray-500 hover:bg-gray-100 disabled:opacity-40 dark:text-gray-400 dark:hover:bg-gray-700"
+                >
+                  ↓
+                </button>
+              </div>
+
+              {editingId === step.id ? (
+                <form onSubmit={saveEdit} className="flex min-w-0 flex-1 gap-2">
+                  <input
+                    value={editingText}
+                    onChange={(event) => setEditingText(event.target.value)}
+                    className="min-w-0 flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                    maxLength={500}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={!editingText.trim() || updateNextStep.isPending}
+                    className="rounded-md bg-primary-600 px-3 py-1 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    Save next step
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(null)}
+                    className="rounded-md border border-gray-300 px-3 py-1 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <span className="min-w-0 flex-1 whitespace-pre-wrap break-words pt-1 text-gray-700 dark:text-gray-200">
+                    {step.text}
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    <button
+                      type="button"
+                      onClick={() => beginEdit(step)}
+                      disabled={isMutating || isClosed}
+                      aria-label={`Edit ${step.text}`}
+                      className="rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => solveNextStep.mutate(step.id)}
+                      disabled={isMutating || isClosed}
+                      aria-label={`Solve ${step.text}`}
+                      className="rounded-md border border-green-300 px-2 py-1 text-xs font-semibold text-green-700 hover:bg-green-50 disabled:opacity-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/40"
+                    >
+                      Solve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => abandonNextStep.mutate(step.id)}
+                      disabled={isMutating || isClosed}
+                      aria-label={`Abandon ${step.text}`}
+                      className="rounded-md border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/40"
+                    >
+                      Abandon
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!isClosed && (
+        <form onSubmit={handleAdd} className="mt-3 flex gap-2">
+          <label htmlFor="new-next-step" className="sr-only">
+            New next step
+          </label>
+          <input
+            id="new-next-step"
+            value={newText}
+            onChange={(event) => setNewText(event.target.value)}
+            placeholder="Add a next step"
+            className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+            maxLength={500}
+          />
+          <button
+            type="submit"
+            disabled={!newText.trim() || createNextStep.isPending}
+            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+          >
+            Add next step
+          </button>
+        </form>
+      )}
+    </section>
   );
 }
 
@@ -513,6 +732,8 @@ export default function WorkstreamDetail() {
                   : hierarchyErrorMessage(reopenMutation.error)}
               </div>
             )}
+
+            <NextStepsSection workstreamId={workstream.id} isClosed={workstream.state === 'closed'} />
 
             <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
               <section

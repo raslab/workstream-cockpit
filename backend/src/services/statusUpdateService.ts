@@ -16,6 +16,7 @@ export interface CreateStatusUpdateInput {
   projectId?: string;
   status: string;
   note?: string;
+  impact?: 'active' | 'passive';
 }
 
 export interface UpdateStatusUpdateInput {
@@ -135,6 +136,7 @@ export async function createStatusUpdate(input: CreateStatusUpdateInput): Promis
             workstreamId: input.workstreamId,
             status: input.status,
             note: input.note || null,
+            impact: input.impact ?? 'active',
           },
         });
       },

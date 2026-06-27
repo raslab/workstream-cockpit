@@ -201,6 +201,9 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
   const substreamCountsText = substreamCount > 0
     ? `${workstream.activeSubstreamCount ?? 0} active / ${workstream.closedSubstreamCount ?? 0} closed sub-streams`
     : null;
+  const nextStepCount = workstream.openNextStepCount ?? workstream.nextStepCount ?? 0;
+  const nextStepsText = nextStepCount > 0 ? `${nextStepCount} next ${nextStepCount === 1 ? 'step' : 'steps'}` : null;
+  const hasCountRow = Boolean(substreamCountsText || nextStepsText);
 
   const categoryStyle = {
     '--workstream-category': categoryColor,
@@ -281,7 +284,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
           )}
         </Link>
 
-        <div className={`relative z-10 col-start-3 col-end-5 flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden pl-3 pr-14 ${workstream.parent ? 'row-start-4 mt-2' : 'row-start-3 mt-2'} ${hasTags || substreamCountsText ? '' : 'pb-3'}`}>
+        <div className={`relative z-10 col-start-3 col-end-5 flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden pl-3 pr-14 ${workstream.parent ? 'row-start-4 mt-2' : 'row-start-3 mt-2'} ${hasTags || hasCountRow ? '' : 'pb-3'}`}>
           <span className={`inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1 text-xs text-gray-600 dark:text-gray-300 ${directActivityAt ? 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/40' : 'border-gray-100 bg-gray-50/70 text-gray-500 dark:border-gray-700 dark:bg-gray-900/20 dark:text-gray-400'}`}>
             <ClockIcon />
             <strong className="font-bold text-gray-700 dark:text-gray-200">Self:</strong>
@@ -298,18 +301,25 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
           )}
         </div>
 
-        {substreamCountsText && (
-          <div className={`relative z-10 col-start-3 col-end-5 flex min-w-0 items-center pl-3 pr-14 pt-2 ${workstream.parent ? 'row-start-5' : 'row-start-4'} ${hasTags ? '' : 'pb-3'}`}>
-            <span className="inline-flex max-w-full items-center truncate whitespace-nowrap rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300">
-              {substreamCountsText}
-            </span>
+        {hasCountRow && (
+          <div className={`relative z-10 col-start-3 col-end-5 flex min-w-0 flex-wrap items-center gap-2 pl-3 pr-14 pt-2 ${workstream.parent ? 'row-start-5' : 'row-start-4'} ${hasTags ? '' : 'pb-3'}`}>
+            {substreamCountsText && (
+              <span className="inline-flex max-w-full items-center truncate whitespace-nowrap rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300">
+                {substreamCountsText}
+              </span>
+            )}
+            {nextStepsText && (
+              <span className="inline-flex max-w-full items-center truncate whitespace-nowrap rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200">
+                {nextStepsText}
+              </span>
+            )}
           </div>
         )}
 
         {hasTags && (
           <div
             data-testid="workstream-tags"
-            className={`relative z-10 col-start-3 col-end-5 flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden pb-3 pl-3 pr-14 pt-2 ${workstream.parent ? (substreamCountsText ? 'row-start-6' : 'row-start-5') : (substreamCountsText ? 'row-start-5' : 'row-start-4')} [&_button]:min-w-0 [&_button]:max-w-full [&_button]:flex-none [&_button]:overflow-hidden [&_button]:text-ellipsis [&_button]:whitespace-nowrap`}
+            className={`relative z-10 col-start-3 col-end-5 flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden pb-3 pl-3 pr-14 pt-2 ${workstream.parent ? (hasCountRow ? 'row-start-6' : 'row-start-5') : (hasCountRow ? 'row-start-5' : 'row-start-4')} [&_button]:min-w-0 [&_button]:max-w-full [&_button]:flex-none [&_button]:overflow-hidden [&_button]:text-ellipsis [&_button]:whitespace-nowrap`}
           >
             <MeasuredTagList tags={tags} />
           </div>
