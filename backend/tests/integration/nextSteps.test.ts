@@ -42,7 +42,11 @@ describe('Next steps API integration', () => {
       .post(`/${workstream.id}/next-steps`)
       .send({ text: 'Draft API contract' })
       .expect(201);
-    expect(first.body).toMatchObject({ workstreamId: workstream.id, text: 'Draft API contract', sortOrder: 0 });
+    expect(first.body).toMatchObject({
+      workstreamId: workstream.id,
+      text: 'Draft API contract',
+      sortOrder: 0,
+    });
 
     const second = await request(workstreamsApp)
       .post(`/${workstream.id}/next-steps`)
@@ -51,7 +55,10 @@ describe('Next steps API integration', () => {
     expect(second.body.sortOrder).toBe(1);
 
     const listed = await request(workstreamsApp).get(`/${workstream.id}/next-steps`).expect(200);
-    expect(listed.body.map((step: any) => step.text)).toEqual(['Draft API contract', 'Review edge cases']);
+    expect(listed.body.map((step: any) => step.text)).toEqual([
+      'Draft API contract',
+      'Review edge cases',
+    ]);
 
     await request(workstreamsApp)
       .put(`/${workstream.id}/next-steps/${first.body.id}`)
@@ -63,21 +70,29 @@ describe('Next steps API integration', () => {
       .put(`/${workstream.id}/next-steps/reorder`)
       .send({ nextStepIds: [second.body.id, first.body.id] })
       .expect(200)
-      .expect((res) => expect(res.body.map((step: any) => step.id)).toEqual([second.body.id, first.body.id]));
+      .expect((res) =>
+        expect(res.body.map((step: any) => step.id)).toEqual([second.body.id, first.body.id]),
+      );
 
-    const afterReorder = await request(workstreamsApp).get(`/${workstream.id}/next-steps`).expect(200);
+    const afterReorder = await request(workstreamsApp)
+      .get(`/${workstream.id}/next-steps`)
+      .expect(200);
     expect(afterReorder.body.map((step: any) => step.id)).toEqual([second.body.id, first.body.id]);
 
     const tile = await request(workstreamsApp).get('/').expect(200);
     expect(tile.body[0].nextStepCount).toBe(2);
 
-    await request(workstreamsApp).delete(`/${workstream.id}/next-steps/${first.body.id}`).expect(204);
-    await expect(prisma.statusUpdate.count({ where: { workstreamId: workstream.id } })).resolves.toBe(0);
+    await request(workstreamsApp)
+      .delete(`/${workstream.id}/next-steps/${first.body.id}`)
+      .expect(204);
+    await expect(
+      prisma.statusUpdate.count({ where: { workstreamId: workstream.id } }),
+    ).resolves.toBe(0);
     const finalTile = await request(workstreamsApp).get('/').expect(200);
     expect(finalTile.body[0].nextStepCount).toBe(1);
   });
 
-  it('solves and abandons next steps atomically with active/passive updates', async () => {
+  it('solves and abandons next steps atomically with active/info updates', async () => {
     const solveStep = await request(workstreamsApp)
       .post(`/${workstream.id}/next-steps`)
       .send({ text: 'Ship migration' })
@@ -103,7 +118,7 @@ describe('Next steps API integration', () => {
     expect(abandoned.body.update).toMatchObject({
       workstreamId: workstream.id,
       status: 'Abandoned next step: Try risky shortcut',
-      impact: 'passive',
+      impact: 'info',
     });
 
     const remaining = await request(workstreamsApp).get(`/${workstream.id}/next-steps`).expect(200);
@@ -112,11 +127,13 @@ describe('Next steps API integration', () => {
     const history = await request(statusUpdatesApp)
       .get(`/workstreams/${workstream.id}/status-updates`)
       .expect(200);
-    expect(history.body.updates.map((update: any) => update.impact)).toEqual(['passive', 'active']);
+    expect(history.body.updates.map((update: any) => update.impact)).toEqual(['info', 'active']);
   });
 
-  it('passive updates appear in history but do not affect latest active status or not-updated-today freshness', async () => {
-    const active = await createTestStatusUpdate(workstream.id, { status: 'Meaningful active progress' });
+  it('info updates appear in history but do not affect latest active status or not-updated-today freshness', async () => {
+    const active = await createTestStatusUpdate(workstream.id, {
+      status: 'Meaningful active progress',
+    });
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const activeAt = await prisma.statusUpdate.update({
       where: { id: active.id },
@@ -136,11 +153,15 @@ describe('Next steps API integration', () => {
       .expect(200);
     expect(history.body.updates[0]).toMatchObject({
       status: 'Abandoned next step: Drop stale idea',
-      impact: 'passive',
+      impact: 'info',
     });
 
     const detail = await request(workstreamsApp).get(`/${workstream.id}`).expect(200);
-    expect(detail.body.latestStatus).toMatchObject({ id: active.id, status: 'Meaningful active progress', impact: 'active' });
+    expect(detail.body.latestStatus).toMatchObject({
+      id: active.id,
+      status: 'Meaningful active progress',
+      impact: 'active',
+    });
     expect(detail.body.lastDirectUpdateAt).toBe(activeAt.createdAt.toISOString());
 
     const notUpdatedToday = await request(workstreamsApp).get('/?notUpdatedToday=true').expect(200);

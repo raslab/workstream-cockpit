@@ -717,31 +717,60 @@ const tools: ToolDef[] = [
     name: 'next_steps_create',
     description: 'Create a stream-local next step',
     scope: 'mcp:write',
-    inputSchema: schema({ workstreamId: uuidProp(), text: stringProp(1, 500) }, ['workstreamId', 'text']),
+    inputSchema: schema({ workstreamId: uuidProp(), text: stringProp(1, 500) }, [
+      'workstreamId',
+      'text',
+    ]),
     handler: async (args, ctx) => {
       const workstream = await assertWorkstream(ctx.projectId, requireString(args, 'workstreamId'));
-      return ok({ nextStep: await createNextStep({ projectId: ctx.projectId, workstreamId: workstream.id, text: requireString(args, 'text', 500) }) });
+      return ok({
+        nextStep: await createNextStep({
+          projectId: ctx.projectId,
+          workstreamId: workstream.id,
+          text: requireString(args, 'text', 500),
+        }),
+      });
     },
   },
   {
     name: 'next_steps_update',
     description: 'Update next step text',
     scope: 'mcp:write',
-    inputSchema: schema({ workstreamId: uuidProp(), id: uuidProp(), text: stringProp(1, 500) }, ['workstreamId', 'id', 'text']),
+    inputSchema: schema({ workstreamId: uuidProp(), id: uuidProp(), text: stringProp(1, 500) }, [
+      'workstreamId',
+      'id',
+      'text',
+    ]),
     handler: async (args, ctx) => {
       const workstream = await assertWorkstream(ctx.projectId, requireString(args, 'workstreamId'));
-      return ok({ nextStep: await updateNextStep({ projectId: ctx.projectId, workstreamId: workstream.id, nextStepId: requireString(args, 'id'), text: requireString(args, 'text', 500) }) });
+      return ok({
+        nextStep: await updateNextStep({
+          projectId: ctx.projectId,
+          workstreamId: workstream.id,
+          nextStepId: requireString(args, 'id'),
+          text: requireString(args, 'text', 500),
+        }),
+      });
     },
   },
   {
     name: 'next_steps_reorder',
     description: 'Persist manual next step order for a workstream',
     scope: 'mcp:write',
-    inputSchema: schema({ workstreamId: uuidProp(), nextStepIds: arrayProp(uuidProp(), 200) }, ['workstreamId', 'nextStepIds']),
+    inputSchema: schema({ workstreamId: uuidProp(), nextStepIds: arrayProp(uuidProp(), 200) }, [
+      'workstreamId',
+      'nextStepIds',
+    ]),
     handler: async (args, ctx) => {
       const workstream = await assertWorkstream(ctx.projectId, requireString(args, 'workstreamId'));
       if (!Array.isArray(args.nextStepIds)) throw new ToolError('nextStepIds is required');
-      return ok({ nextSteps: await reorderNextSteps({ projectId: ctx.projectId, workstreamId: workstream.id, orderedIds: args.nextStepIds }) });
+      return ok({
+        nextSteps: await reorderNextSteps({
+          projectId: ctx.projectId,
+          workstreamId: workstream.id,
+          orderedIds: args.nextStepIds,
+        }),
+      });
     },
   },
   {
@@ -751,28 +780,47 @@ const tools: ToolDef[] = [
     inputSchema: schema({ workstreamId: uuidProp(), id: uuidProp() }, ['workstreamId', 'id']),
     handler: async (args, ctx) => {
       const workstream = await assertWorkstream(ctx.projectId, requireString(args, 'workstreamId'));
-      return ok(await solveNextStepWithDetails({ projectId: ctx.projectId, workstreamId: workstream.id, nextStepId: requireString(args, 'id') }));
+      return ok(
+        await solveNextStepWithDetails({
+          projectId: ctx.projectId,
+          workstreamId: workstream.id,
+          nextStepId: requireString(args, 'id'),
+        }),
+      );
     },
   },
   {
     name: 'next_steps_abandon',
-    description: 'Abandon a next step, removing it and creating a passive update',
+    description: 'Abandon a next step, removing it and creating an info update',
     scope: 'mcp:write',
     inputSchema: schema({ workstreamId: uuidProp(), id: uuidProp() }, ['workstreamId', 'id']),
     handler: async (args, ctx) => {
       const workstream = await assertWorkstream(ctx.projectId, requireString(args, 'workstreamId'));
-      return ok(await abandonNextStepWithDetails({ projectId: ctx.projectId, workstreamId: workstream.id, nextStepId: requireString(args, 'id') }));
+      return ok(
+        await abandonNextStepWithDetails({
+          projectId: ctx.projectId,
+          workstreamId: workstream.id,
+          nextStepId: requireString(args, 'id'),
+        }),
+      );
     },
   },
   {
     name: 'next_steps_delete',
     description: 'Delete a next step for mistake cleanup',
     scope: 'mcp:write',
-    inputSchema: schema({ workstreamId: uuidProp(), id: uuidProp(), confirm: { type: 'boolean' } }, ['workstreamId', 'id', 'confirm']),
+    inputSchema: schema(
+      { workstreamId: uuidProp(), id: uuidProp(), confirm: { type: 'boolean' } },
+      ['workstreamId', 'id', 'confirm'],
+    ),
     handler: async (args, ctx) => {
       requireConfirm(args);
       const workstream = await assertWorkstream(ctx.projectId, requireString(args, 'workstreamId'));
-      await deleteNextStep({ projectId: ctx.projectId, workstreamId: workstream.id, nextStepId: requireString(args, 'id') });
+      await deleteNextStep({
+        projectId: ctx.projectId,
+        workstreamId: workstream.id,
+        nextStepId: requireString(args, 'id'),
+      });
       return ok({ deleted: true });
     },
   },

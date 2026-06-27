@@ -13,13 +13,19 @@ const nextStatusUpdateNumberByProject = new Map<string, number>();
 
 function reserveWorkstreamNumber(projectId: string, explicitNumber?: number): number {
   const next = explicitNumber ?? nextWorkstreamNumberByProject.get(projectId) ?? 1;
-  nextWorkstreamNumberByProject.set(projectId, Math.max(nextWorkstreamNumberByProject.get(projectId) ?? 1, next + 1));
+  nextWorkstreamNumberByProject.set(
+    projectId,
+    Math.max(nextWorkstreamNumberByProject.get(projectId) ?? 1, next + 1),
+  );
   return next;
 }
 
 function reserveStatusUpdateNumber(projectId: string, explicitNumber?: number): number {
   const next = explicitNumber ?? nextStatusUpdateNumberByProject.get(projectId) ?? 1000;
-  nextStatusUpdateNumberByProject.set(projectId, Math.max(nextStatusUpdateNumberByProject.get(projectId) ?? 1000, next + 1));
+  nextStatusUpdateNumberByProject.set(
+    projectId,
+    Math.max(nextStatusUpdateNumberByProject.get(projectId) ?? 1000, next + 1),
+  );
   return next;
 }
 
@@ -209,7 +215,10 @@ export async function createTestWorkstream(
       state: data?.state || 'active',
     },
   });
-  await prisma.project.update({ where: { id: projectId }, data: { nextWorkstreamNumber: nextWorkstreamNumberByProject.get(projectId) ?? number + 1 } });
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { nextWorkstreamNumber: nextWorkstreamNumberByProject.get(projectId) ?? number + 1 },
+  });
   return workstream;
 }
 
@@ -218,9 +227,12 @@ export async function createTestWorkstream(
  */
 export async function createTestStatusUpdate(
   workstreamId: string,
-  data?: { status?: string; note?: string; number?: number; impact?: 'active' | 'passive' },
+  data?: { status?: string; note?: string; number?: number; impact?: 'active' | 'info' },
 ) {
-  const workstream = await prisma.workstream.findUniqueOrThrow({ where: { id: workstreamId }, select: { projectId: true } });
+  const workstream = await prisma.workstream.findUniqueOrThrow({
+    where: { id: workstreamId },
+    select: { projectId: true },
+  });
   const number = reserveStatusUpdateNumber(workstream.projectId, data?.number);
   const statusUpdate = await prisma.statusUpdate.create({
     data: {
@@ -232,7 +244,13 @@ export async function createTestStatusUpdate(
       impact: data?.impact ?? 'active',
     },
   });
-  await prisma.project.update({ where: { id: workstream.projectId }, data: { nextStatusUpdateNumber: nextStatusUpdateNumberByProject.get(workstream.projectId) ?? number + 1 } });
+  await prisma.project.update({
+    where: { id: workstream.projectId },
+    data: {
+      nextStatusUpdateNumber:
+        nextStatusUpdateNumberByProject.get(workstream.projectId) ?? number + 1,
+    },
+  });
   return statusUpdate;
 }
 

@@ -418,7 +418,7 @@ describe('MCP endpoint', () => {
     expect(deleteOk.body.result.structuredContent.deletedId).toBe(newUpdateId);
   });
 
-  it('exposes next steps lifecycle tools with active/passive update semantics', async () => {
+  it('exposes next steps lifecycle tools with active/info update semantics', async () => {
     const person = await createTestPerson({ email: 'mcp-next-steps@example.com' });
     const project = await createTestProject(person.id);
     const workstream = await createTestWorkstream(project.id, { name: 'MCP Next Steps' });
@@ -446,9 +446,14 @@ describe('MCP endpoint', () => {
       workstreamId: workstream.id,
       nextStepIds: [secondId, firstId],
     }).expect(200);
-    expect(reordered.body.result.structuredContent.nextSteps.map((step: any) => step.id)).toEqual([secondId, firstId]);
+    expect(reordered.body.result.structuredContent.nextSteps.map((step: any) => step.id)).toEqual([
+      secondId,
+      firstId,
+    ]);
 
-    const listed = await callTool(app, token, 'next_steps_list', { workstreamId: workstream.id }).expect(200);
+    const listed = await callTool(app, token, 'next_steps_list', {
+      workstreamId: workstream.id,
+    }).expect(200);
     expect(listed.body.result.structuredContent.nextSteps.map((step: any) => step.text)).toEqual([
       'Retire risky shortcut',
       'Draft final rollout note',
@@ -469,10 +474,12 @@ describe('MCP endpoint', () => {
     }).expect(200);
     expect(abandoned.body.result.structuredContent.update).toMatchObject({
       status: 'Abandoned next step: Retire risky shortcut',
-      impact: 'passive',
+      impact: 'info',
     });
 
-    const remaining = await callTool(app, token, 'next_steps_list', { workstreamId: workstream.id }).expect(200);
+    const remaining = await callTool(app, token, 'next_steps_list', {
+      workstreamId: workstream.id,
+    }).expect(200);
     expect(remaining.body.result.structuredContent.nextSteps).toEqual([]);
   });
 

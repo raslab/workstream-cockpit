@@ -16,7 +16,7 @@ export interface CreateStatusUpdateInput {
   projectId?: string;
   status: string;
   note?: string;
-  impact?: 'active' | 'passive';
+  impact?: 'active' | 'info';
 }
 
 export interface UpdateStatusUpdateInput {

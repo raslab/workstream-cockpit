@@ -40,8 +40,15 @@ function cleanText(text: string): string {
   return value;
 }
 
-async function assertWorkstream(client: PrismaExecutor, projectId: string, workstreamId: string): Promise<void> {
-  const workstream = await client.workstream.findFirst({ where: { id: workstreamId, projectId }, select: { id: true } });
+async function assertWorkstream(
+  client: PrismaExecutor,
+  projectId: string,
+  workstreamId: string,
+): Promise<void> {
+  const workstream = await client.workstream.findFirst({
+    where: { id: workstreamId, projectId },
+    select: { id: true },
+  });
   if (!workstream) throw new Error('Workstream not found');
 }
 
@@ -86,7 +93,11 @@ export async function updateNextStep(input: UpdateNextStepInput): Promise<NextSt
     return await prisma.$transaction(async (tx) => {
       await assertWorkstream(tx, input.projectId, input.workstreamId);
       const nextStep = await tx.nextStep.findFirst({
-        where: { id: input.nextStepId, projectId: input.projectId, workstreamId: input.workstreamId },
+        where: {
+          id: input.nextStepId,
+          projectId: input.projectId,
+          workstreamId: input.workstreamId,
+        },
       });
       if (!nextStep) throw new Error('Next step not found');
       return tx.nextStep.update({
@@ -110,7 +121,10 @@ export async function reorderNextSteps(input: ReorderNextStepsInput): Promise<Ne
       });
       const existingIds = existing.map((step) => step.id).sort();
       const orderedIds = [...input.orderedIds].sort();
-      if (existingIds.length !== orderedIds.length || existingIds.some((id, index) => id !== orderedIds[index])) {
+      if (
+        existingIds.length !== orderedIds.length ||
+        existingIds.some((id, index) => id !== orderedIds[index])
+      ) {
         throw new Error('Reorder must include every open next step exactly once');
       }
       await Promise.all(
@@ -129,13 +143,21 @@ export async function reorderNextSteps(input: ReorderNextStepsInput): Promise<Ne
   }
 }
 
-async function resolveNextStep(input: ResolveNextStepInput, impact: 'active' | 'passive', statusPrefix: string): Promise<ResolvedNextStepResult> {
+async function resolveNextStep(
+  input: ResolveNextStepInput,
+  impact: 'active' | 'info',
+  statusPrefix: string,
+): Promise<ResolvedNextStepResult> {
   try {
     return await prisma.$transaction(
       async (tx) => {
         await assertWorkstream(tx, input.projectId, input.workstreamId);
         const nextStep = await tx.nextStep.findFirst({
-          where: { id: input.nextStepId, projectId: input.projectId, workstreamId: input.workstreamId },
+          where: {
+            id: input.nextStepId,
+            projectId: input.projectId,
+            workstreamId: input.workstreamId,
+          },
         });
         if (!nextStep) throw new Error('Next step not found');
         await tx.nextStep.delete({ where: { id: nextStep.id } });
@@ -163,15 +185,19 @@ export async function solveNextStep(input: ResolveNextStepInput): Promise<Status
 }
 
 export async function abandonNextStep(input: ResolveNextStepInput): Promise<StatusUpdate> {
-  return (await resolveNextStep(input, 'passive', 'Abandoned next step')).update;
+  return (await resolveNextStep(input, 'info', 'Abandoned next step')).update;
 }
 
-export async function solveNextStepWithDetails(input: ResolveNextStepInput): Promise<ResolvedNextStepResult> {
+export async function solveNextStepWithDetails(
+  input: ResolveNextStepInput,
+): Promise<ResolvedNextStepResult> {
   return resolveNextStep(input, 'active', 'Solved next step');
 }
 
-export async function abandonNextStepWithDetails(input: ResolveNextStepInput): Promise<ResolvedNextStepResult> {
-  return resolveNextStep(input, 'passive', 'Abandoned next step');
+export async function abandonNextStepWithDetails(
+  input: ResolveNextStepInput,
+): Promise<ResolvedNextStepResult> {
+  return resolveNextStep(input, 'info', 'Abandoned next step');
 }
 
 export async function deleteNextStep(input: ResolveNextStepInput): Promise<void> {

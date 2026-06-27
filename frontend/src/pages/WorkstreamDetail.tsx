@@ -75,6 +75,22 @@ function statusUpdateReference(
   return `self update${updateNumber}`;
 }
 
+function UpdateImpactChip({ impact }: { impact?: StatusUpdate['impact'] }) {
+  const normalizedImpact = impact ?? 'active';
+  const className =
+    normalizedImpact === 'info'
+      ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-200'
+      : 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-200';
+
+  return (
+    <span
+      className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${className}`}
+    >
+      {normalizedImpact}
+    </span>
+  );
+}
+
 export function StatusEditDialog({
   statusUpdate,
   workstreamId,
@@ -207,10 +223,15 @@ function nextStepCountText(count: number, prefixOpen = true): string {
   return `${count}${prefixOpen ? ' open' : ''} ${label}`;
 }
 
-function moveStepIds(nextSteps: NextStep[], nextStepId: string, direction: -1 | 1): string[] | null {
-  const index = nextSteps.findIndex((step) => step.id === nextStepId);
-  const targetIndex = index + direction;
-  if (index < 0 || targetIndex < 0 || targetIndex >= nextSteps.length) return null;
+function reorderStepIds(
+  nextSteps: NextStep[],
+  draggedId: string,
+  targetId: string,
+): string[] | null {
+  if (draggedId === targetId) return null;
+  const index = nextSteps.findIndex((step) => step.id === draggedId);
+  const targetIndex = nextSteps.findIndex((step) => step.id === targetId);
+  if (index < 0 || targetIndex < 0) return null;
 
   const reordered = [...nextSteps];
   const [step] = reordered.splice(index, 1);
@@ -232,6 +253,7 @@ function NextStepsSection({ workstreamId, isClosed }: { workstreamId: string; is
   const [newText, setNewText] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
+  const [draggedId, setDraggedId] = useState<string | null>(null);
   const isMutating =
     createNextStep.isPending ||
     updateNextStep.isPending ||
@@ -269,9 +291,11 @@ function NextStepsSection({ workstreamId, isClosed }: { workstreamId: string; is
     );
   };
 
-  const moveStep = (step: NextStep, direction: -1 | 1) => {
-    const ids = moveStepIds(nextSteps, step.id, direction);
+  const dropStep = (targetId: string) => {
+    if (!draggedId || isMutating || isClosed) return;
+    const ids = reorderStepIds(nextSteps, draggedId, targetId);
     if (ids) reorderNextSteps.mutate(ids);
+    setDraggedId(null);
   };
 
   return (
@@ -302,32 +326,29 @@ function NextStepsSection({ workstreamId, isClosed }: { workstreamId: string; is
         </p>
       ) : (
         <div className="space-y-2">
-          {nextSteps.map((step, index) => (
+          {nextSteps.map((step) => (
             <div
               key={step.id}
               data-testid="next-step-row"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => dropStep(step.id)}
               className="flex items-start gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
             >
-              <div className="flex pt-0.5">
-                <button
-                  type="button"
-                  onClick={() => moveStep(step, -1)}
-                  disabled={index === 0 || isMutating || isClosed}
-                  aria-label={`Move ${step.text} up`}
-                  className="rounded px-1.5 py-0.5 text-gray-500 hover:bg-gray-100 disabled:opacity-40 dark:text-gray-400 dark:hover:bg-gray-700"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveStep(step, 1)}
-                  disabled={index === nextSteps.length - 1 || isMutating || isClosed}
-                  aria-label={`Move ${step.text} down`}
-                  className="rounded px-1.5 py-0.5 text-gray-500 hover:bg-gray-100 disabled:opacity-40 dark:text-gray-400 dark:hover:bg-gray-700"
-                >
-                  ↓
-                </button>
-              </div>
+              <button
+                type="button"
+                draggable={!isClosed && !isMutating}
+                onDragStart={(event) => {
+                  setDraggedId(step.id);
+                  event.dataTransfer?.setData('text/plain', step.id);
+                  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragEnd={() => setDraggedId(null)}
+                disabled={isClosed || isMutating || nextSteps.length < 2}
+                aria-label={`Drag to reorder ${step.text}`}
+                className="rounded px-1.5 py-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+              >
+                ⋮⋮
+              </button>
 
               {editingId === step.id ? (
                 <form onSubmit={saveEdit} className="flex min-w-0 flex-1 gap-2">
@@ -355,19 +376,16 @@ function NextStepsSection({ workstreamId, isClosed }: { workstreamId: string; is
                 </form>
               ) : (
                 <>
-                  <span className="min-w-0 flex-1 whitespace-pre-wrap break-words pt-1 text-gray-700 dark:text-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => beginEdit(step)}
+                    disabled={isMutating || isClosed}
+                    aria-label={`Edit next step ${step.text}`}
+                    className="min-w-0 flex-1 whitespace-pre-wrap break-words rounded px-1 py-1 text-left text-gray-700 hover:bg-gray-50 disabled:cursor-default disabled:hover:bg-transparent dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
                     {step.text}
-                  </span>
+                  </button>
                   <div className="flex flex-wrap gap-1">
-                    <button
-                      type="button"
-                      onClick={() => beginEdit(step)}
-                      disabled={isMutating || isClosed}
-                      aria-label={`Edit ${step.text}`}
-                      className="rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-                    >
-                      Edit
-                    </button>
                     <button
                       type="button"
                       onClick={() => solveNextStep.mutate(step.id)}
@@ -733,7 +751,10 @@ export default function WorkstreamDetail() {
               </div>
             )}
 
-            <NextStepsSection workstreamId={workstream.id} isClosed={workstream.state === 'closed'} />
+            <NextStepsSection
+              workstreamId={workstream.id}
+              isClosed={workstream.state === 'closed'}
+            />
 
             <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
               <section
@@ -800,6 +821,7 @@ export default function WorkstreamDetail() {
                               )}
                               <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">
                                 • {statusUpdateReference(update, updateSource, isSubstreamUpdate)}
+                                <UpdateImpactChip impact={update.impact} />
                               </span>
                             </div>
                             {isSubstreamUpdate && updateSource && updateSourceId && (

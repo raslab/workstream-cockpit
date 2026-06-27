@@ -24,7 +24,9 @@ vi.mock('../../hooks/useStatusHistory', () => ({
 }));
 
 vi.mock('../../components/Markdown/MarkdownRenderer', () => ({
-  MarkdownRenderer: ({ content, className }: { content: string; className?: string }) => <div className={className}>{content}</div>,
+  MarkdownRenderer: ({ content, className }: { content: string; className?: string }) => (
+    <div className={className}>{content}</div>
+  ),
 }));
 
 import WorkstreamDetail from '../WorkstreamDetail';
@@ -95,7 +97,8 @@ describe('WorkstreamDetail next steps', () => {
     apiPutMock.mockReset();
     apiGetMock.mockImplementation(mockGet);
     apiPostMock.mockImplementation((url: string, body: { text: string }) => {
-      if (url !== '/api/workstreams/stream-1/next-steps') return Promise.reject(new Error(`unexpected POST ${url}`));
+      if (url !== '/api/workstreams/stream-1/next-steps')
+        return Promise.reject(new Error(`unexpected POST ${url}`));
       const created = {
         id: 'step-3',
         workstreamId: 'stream-1',
@@ -110,12 +113,17 @@ describe('WorkstreamDetail next steps', () => {
     });
     apiPutMock.mockImplementation((url: string, body?: unknown) => {
       if (url === '/api/workstreams/stream-1/next-steps/step-1') {
-        nextSteps = nextSteps.map((step) => step.id === 'step-1' ? { ...step, text: (body as { text: string }).text } : step);
+        nextSteps = nextSteps.map((step) =>
+          step.id === 'step-1' ? { ...step, text: (body as { text: string }).text } : step,
+        );
         return Promise.resolve({ data: nextSteps[0] });
       }
       if (url === '/api/workstreams/stream-1/next-steps/reorder') {
         const ids = (body as { nextStepIds: string[] }).nextStepIds;
-        nextSteps = ids.map((stepId, index) => ({ ...nextSteps.find((step) => step.id === stepId)!, sortOrder: index }));
+        nextSteps = ids.map((stepId, index) => ({
+          ...nextSteps.find((step) => step.id === stepId)!,
+          sortOrder: index,
+        }));
         return Promise.resolve({ data: nextSteps });
       }
       if (url === '/api/workstreams/stream-1/next-steps/step-1/solve') {
@@ -142,31 +150,67 @@ describe('WorkstreamDetail next steps', () => {
     expect(section).toHaveTextContent('Confirm support owner');
     expect(section.textContent?.toLowerCase()).not.toContain('todo');
 
-    fireEvent.change(within(section).getByLabelText('New next step'), { target: { value: 'Publish release notes' } });
+    fireEvent.change(within(section).getByLabelText('New next step'), {
+      target: { value: 'Publish release notes' },
+    });
     fireEvent.click(within(section).getByRole('button', { name: 'Add next step' }));
-    await waitFor(() => expect(apiPostMock).toHaveBeenCalledWith('/api/workstreams/stream-1/next-steps', { text: 'Publish release notes' }));
+    await waitFor(() =>
+      expect(apiPostMock).toHaveBeenCalledWith('/api/workstreams/stream-1/next-steps', {
+        text: 'Publish release notes',
+      }),
+    );
     expect(await within(section).findByText('Publish release notes')).toBeInTheDocument();
     expect(within(section).getByText('3 open next steps')).toBeInTheDocument();
 
-    fireEvent.click(within(section).getByRole('button', { name: 'Edit Draft launch checklist' }));
+    expect(
+      within(section).queryByRole('button', { name: /Edit Draft launch checklist/ }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      within(section).getByRole('button', { name: 'Edit next step Draft launch checklist' }),
+    );
     const editInput = within(section).getByDisplayValue('Draft launch checklist');
     fireEvent.change(editInput, { target: { value: 'Draft final launch checklist' } });
     fireEvent.click(within(section).getByRole('button', { name: 'Save next step' }));
-    await waitFor(() => expect(apiPutMock).toHaveBeenCalledWith('/api/workstreams/stream-1/next-steps/step-1', { text: 'Draft final launch checklist' }));
+    await waitFor(() =>
+      expect(apiPutMock).toHaveBeenCalledWith('/api/workstreams/stream-1/next-steps/step-1', {
+        text: 'Draft final launch checklist',
+      }),
+    );
     expect(await within(section).findByText('Draft final launch checklist')).toBeInTheDocument();
 
-    fireEvent.click(within(section).getByRole('button', { name: 'Move Draft final launch checklist down' }));
-    await waitFor(() => expect(apiPutMock).toHaveBeenCalledWith('/api/workstreams/stream-1/next-steps/reorder', { nextStepIds: ['step-2', 'step-1', 'step-3'] }));
+    const dragHandle = within(section).getByRole('button', {
+      name: 'Drag to reorder Draft final launch checklist',
+    });
+    const targetRow = within(section)
+      .getByText('Confirm support owner')
+      .closest('[data-testid="next-step-row"]')!;
+    fireEvent.dragStart(dragHandle);
+    fireEvent.dragOver(targetRow);
+    fireEvent.drop(targetRow);
+    fireEvent.dragEnd(dragHandle);
+    await waitFor(() =>
+      expect(apiPutMock).toHaveBeenCalledWith('/api/workstreams/stream-1/next-steps/reorder', {
+        nextStepIds: ['step-2', 'step-1', 'step-3'],
+      }),
+    );
     const rowsAfterReorder = within(section).getAllByTestId('next-step-row');
     expect(rowsAfterReorder[0]).toHaveTextContent('Confirm support owner');
     expect(rowsAfterReorder[1]).toHaveTextContent('Draft final launch checklist');
 
-    fireEvent.click(within(section).getByRole('button', { name: 'Solve Draft final launch checklist' }));
-    await waitFor(() => expect(apiPutMock).toHaveBeenCalledWith('/api/workstreams/stream-1/next-steps/step-1/solve'));
+    fireEvent.click(
+      within(section).getByRole('button', { name: 'Solve Draft final launch checklist' }),
+    );
+    await waitFor(() =>
+      expect(apiPutMock).toHaveBeenCalledWith('/api/workstreams/stream-1/next-steps/step-1/solve'),
+    );
     expect(within(section).queryByText('Draft final launch checklist')).not.toBeInTheDocument();
 
     fireEvent.click(within(section).getByRole('button', { name: 'Abandon Confirm support owner' }));
-    await waitFor(() => expect(apiPutMock).toHaveBeenCalledWith('/api/workstreams/stream-1/next-steps/step-2/abandon'));
+    await waitFor(() =>
+      expect(apiPutMock).toHaveBeenCalledWith(
+        '/api/workstreams/stream-1/next-steps/step-2/abandon',
+      ),
+    );
     expect(within(section).queryByText('Confirm support owner')).not.toBeInTheDocument();
     expect(within(section).getByText('1 open next step')).toBeInTheDocument();
   }, 30000);

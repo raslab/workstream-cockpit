@@ -1,4 +1,4 @@
--- Add stream-local Next steps and active/passive status update impact.
+-- Add stream-local Next steps and active/info status update impact.
 ALTER TABLE "status_updates"
   ADD COLUMN "impact" TEXT NOT NULL DEFAULT 'active';
 

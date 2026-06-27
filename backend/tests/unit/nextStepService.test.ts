@@ -41,14 +41,34 @@ describe('NextStepService', () => {
     const { project, workstream } = await seedStream();
     const before = await getWorkstreamById(workstream.id, project.id);
 
-    const first = await createNextStep({ projectId: project.id, workstreamId: workstream.id, text: 'Draft launch note' });
-    const second = await createNextStep({ projectId: project.id, workstreamId: workstream.id, text: 'Book review slot' });
+    const first = await createNextStep({
+      projectId: project.id,
+      workstreamId: workstream.id,
+      text: 'Draft launch note',
+    });
+    const second = await createNextStep({
+      projectId: project.id,
+      workstreamId: workstream.id,
+      text: 'Book review slot',
+    });
 
-    await updateNextStep({ projectId: project.id, workstreamId: workstream.id, nextStepId: second.id, text: 'Book product review slot' });
-    await reorderNextSteps({ projectId: project.id, workstreamId: workstream.id, orderedIds: [second.id, first.id] });
+    await updateNextStep({
+      projectId: project.id,
+      workstreamId: workstream.id,
+      nextStepId: second.id,
+      text: 'Book product review slot',
+    });
+    await reorderNextSteps({
+      projectId: project.id,
+      workstreamId: workstream.id,
+      orderedIds: [second.id, first.id],
+    });
 
     const steps = await listNextSteps(project.id, workstream.id);
-    expect(steps.map((step) => step.text)).toEqual(['Book product review slot', 'Draft launch note']);
+    expect(steps.map((step) => step.text)).toEqual([
+      'Book product review slot',
+      'Draft launch note',
+    ]);
     expect(steps.map((step) => step.sortOrder)).toEqual([0, 1]);
 
     const after = await getWorkstreamById(workstream.id, project.id);
@@ -58,9 +78,17 @@ describe('NextStepService', () => {
 
   it('solves a next step atomically by removing it and creating an active update', async () => {
     const { project, workstream } = await seedStream();
-    const step = await createNextStep({ projectId: project.id, workstreamId: workstream.id, text: 'Buy sealant' });
+    const step = await createNextStep({
+      projectId: project.id,
+      workstreamId: workstream.id,
+      text: 'Buy sealant',
+    });
 
-    const update = await solveNextStep({ projectId: project.id, workstreamId: workstream.id, nextStepId: step.id });
+    const update = await solveNextStep({
+      projectId: project.id,
+      workstreamId: workstream.id,
+      nextStepId: step.id,
+    });
 
     expect(update.status).toBe('Solved next step: Buy sealant');
     expect(update.impact).toBe('active');
@@ -73,7 +101,7 @@ describe('NextStepService', () => {
     expect(refreshed?.nextStepCount).toBe(0);
   });
 
-  it('abandons a next step atomically by removing it and creating a passive update that does not refresh activity', async () => {
+  it('abandons a next step atomically by removing it and creating an info update that does not refresh activity', async () => {
     const { project, workstream } = await seedStream();
     const activeUpdate = await prisma.statusUpdate.create({
       data: {
@@ -85,12 +113,20 @@ describe('NextStepService', () => {
         createdAt: new Date('2026-01-01T00:00:00Z'),
       },
     });
-    const step = await createNextStep({ projectId: project.id, workstreamId: workstream.id, text: 'Buy sealant' });
+    const step = await createNextStep({
+      projectId: project.id,
+      workstreamId: workstream.id,
+      text: 'Buy sealant',
+    });
 
-    const passiveUpdate = await abandonNextStep({ projectId: project.id, workstreamId: workstream.id, nextStepId: step.id });
+    const infoUpdate = await abandonNextStep({
+      projectId: project.id,
+      workstreamId: workstream.id,
+      nextStepId: step.id,
+    });
 
-    expect(passiveUpdate.status).toBe('Abandoned next step: Buy sealant');
-    expect(passiveUpdate.impact).toBe('passive');
+    expect(infoUpdate.status).toBe('Abandoned next step: Buy sealant');
+    expect(infoUpdate.impact).toBe('info');
     await expect(prisma.nextStep.findUnique({ where: { id: step.id } })).resolves.toBeNull();
 
     const refreshed = await getWorkstreamById(workstream.id, project.id);

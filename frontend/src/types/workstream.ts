@@ -28,7 +28,7 @@ export interface StatusUpdate {
   workstreamId: string;
   status: string;
   note: string | null;
-  impact?: 'active' | 'passive';
+  impact?: 'active' | 'info';
   createdAt: string;
   updatedAt: string;
   workstream?: WorkstreamSummary;

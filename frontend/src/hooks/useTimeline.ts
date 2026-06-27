@@ -2,7 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import type { WorkstreamSummary } from '../types/workstream';
 
-export type TimelineEventType = 'status_update' | 'workstream_created' | 'workstream_closed' | 'parent_changed' | 'sub_stream_created';
+export type TimelineEventType =
+  | 'status_update'
+  | 'workstream_created'
+  | 'workstream_closed'
+  | 'parent_changed'
+  | 'sub_stream_created';
 
 export interface TimelineEntry {
   id: string;
@@ -11,6 +16,7 @@ export interface TimelineEntry {
   workstreamNumber?: number;
   workstreamName: string;
   statusUpdateNumber?: number;
+  impact?: 'active' | 'info';
   status?: string;
   note?: string | null;
   createdAt: string;
