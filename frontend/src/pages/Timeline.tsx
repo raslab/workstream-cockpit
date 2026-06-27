@@ -1,22 +1,79 @@
 import { useMemo, useState } from 'react';
-import { endOfDay, endOfMonth, endOfQuarter, format, isToday, isYesterday, parseISO, startOfDay, startOfMonth, startOfQuarter, subDays, subMonths, subQuarters } from 'date-fns';
-import { useTimeline, TimelineEntry, TimelineEventType, TimelineResponse } from '../hooks/useTimeline';
+import {
+  endOfDay,
+  endOfMonth,
+  endOfQuarter,
+  format,
+  isToday,
+  isYesterday,
+  parseISO,
+  startOfDay,
+  startOfMonth,
+  startOfQuarter,
+  subDays,
+  subMonths,
+  subQuarters,
+} from 'date-fns';
+import {
+  useTimeline,
+  TimelineEntry,
+  TimelineEventType,
+  TimelineResponse,
+} from '../hooks/useTimeline';
 import { useWorkstreams } from '../hooks/useWorkstreams';
 import { useCategories } from '../hooks/useCategories';
 import { FilterBar } from '../components/Timeline/FilterBar';
 import { Link, useSearchParams } from 'react-router-dom';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
-import { WorkstreamLink, WorkstreamReferenceContent, workstreamPath, workstreamReferenceText } from '../components/Workstream/WorkstreamReference';
+import {
+  WorkstreamLink,
+  WorkstreamReferenceContent,
+  workstreamPath,
+  workstreamReferenceText,
+} from '../components/Workstream/WorkstreamReference';
 import { SelectMenu } from '../components/UI/SelectMenu';
 import { ExportButton } from '../components/Timeline/ExportButton';
 import { DateRangeQuickPreset } from '../components/Timeline/DateRangeFilter';
-import { dateToUrlDate, parseTimelineSearch, serializeTimelineSearch, TimelineUrlState, urlDateToDate } from '../utils/urlState';
+import {
+  dateToUrlDate,
+  parseTimelineSearch,
+  serializeTimelineSearch,
+  TimelineUrlState,
+  urlDateToDate,
+} from '../utils/urlState';
 
 function timelineTrail(entry: TimelineEntry) {
   return [...(entry.parentStreams || []), entry].map((stream) => {
-    const ref = stream as { id?: string; number?: number; name?: string; workstreamId?: string; workstreamNumber?: number; workstreamName?: string };
-    return { id: ref.workstreamId || ref.id, number: ref.workstreamNumber ?? ref.number, name: ref.workstreamName || ref.name };
+    const ref = stream as {
+      id?: string;
+      number?: number;
+      name?: string;
+      workstreamId?: string;
+      workstreamNumber?: number;
+      workstreamName?: string;
+    };
+    return {
+      id: ref.workstreamId || ref.id,
+      number: ref.workstreamNumber ?? ref.number,
+      name: ref.workstreamName || ref.name,
+    };
   });
+}
+
+function UpdateImpactChip({ impact }: { impact?: TimelineEntry['impact'] }) {
+  const normalizedImpact = impact ?? 'active';
+  const className =
+    normalizedImpact === 'info'
+      ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-200'
+      : 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-200';
+
+  return (
+    <span
+      className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${className}`}
+    >
+      {normalizedImpact}
+    </span>
+  );
 }
 
 export default function Timeline() {
@@ -49,7 +106,10 @@ export default function Timeline() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: categories = [] } = useCategories();
   const { data: workstreams = [] } = useWorkstreams({ state: 'active' });
-  const urlState = useMemo(() => parseTimelineSearch(searchParams, { categories, workstreams }), [searchParams, categories, workstreams]);
+  const urlState = useMemo(
+    () => parseTimelineSearch(searchParams, { categories, workstreams }),
+    [searchParams, categories, workstreams],
+  );
   const quickPreset = urlState.quickPreset as DateRangeQuickPreset | undefined;
   const quickRange = quickPreset ? getQuickDateRange(quickPreset) : undefined;
   const selectedCategoryIds = urlState.categoryIds;
@@ -70,32 +130,55 @@ export default function Timeline() {
   };
 
   const writeTimelineSearch = (patch: Partial<TimelineUrlState>) => {
-    setSearchParams(serializeTimelineSearch({ ...urlState, ...patch }, { categories, workstreams }), { replace: true });
+    setSearchParams(
+      serializeTimelineSearch({ ...urlState, ...patch }, { categories, workstreams }),
+      { replace: true },
+    );
     resetPagination();
   };
 
   const setSelectedCategoryIds = (categoryIds: string[]) => writeTimelineSearch({ categoryIds });
   const setSelectedTags = (tags: string[]) => writeTimelineSearch({ tags });
-  const setStreamScope = (nextScope: 'all' | 'top-level' | 'sub-streams' | 'under-parent') => writeTimelineSearch({ streamScope: nextScope });
-  const setParentId = (nextParentId: string) => writeTimelineSearch({ parentId: nextParentId || undefined });
-  const setIncludeSubstreams = (nextInclude: boolean) => writeTimelineSearch({ includeSubstreams: nextInclude });
-  const setActivityFilter = (nextActivity: 'all' | TimelineEventType) => writeTimelineSearch({ activity: nextActivity });
+  const setStreamScope = (nextScope: 'all' | 'top-level' | 'sub-streams' | 'under-parent') =>
+    writeTimelineSearch({ streamScope: nextScope });
+  const setParentId = (nextParentId: string) =>
+    writeTimelineSearch({ parentId: nextParentId || undefined });
+  const setIncludeSubstreams = (nextInclude: boolean) =>
+    writeTimelineSearch({ includeSubstreams: nextInclude });
+  const setActivityFilter = (nextActivity: 'all' | TimelineEventType) =>
+    writeTimelineSearch({ activity: nextActivity });
 
   const currentCursor = pageCursors[pageIndex];
 
   const handleQuickPresetChange = (preset: DateRangeQuickPreset | undefined) => {
-    writeTimelineSearch({ quickPreset: preset ?? 'last-7-days', startDate: undefined, endDate: undefined });
+    writeTimelineSearch({
+      quickPreset: preset ?? 'last-7-days',
+      startDate: undefined,
+      endDate: undefined,
+    });
   };
 
   const handleCustomStartDateChange = (date: Date | undefined) => {
-    writeTimelineSearch({ quickPreset: undefined, startDate: dateToUrlDate(date), endDate: dateToUrlDate(customEndDate) });
+    writeTimelineSearch({
+      quickPreset: undefined,
+      startDate: dateToUrlDate(date),
+      endDate: dateToUrlDate(customEndDate),
+    });
   };
 
   const handleCustomEndDateChange = (date: Date | undefined) => {
-    writeTimelineSearch({ quickPreset: undefined, startDate: dateToUrlDate(customStartDate), endDate: dateToUrlDate(date) });
+    writeTimelineSearch({
+      quickPreset: undefined,
+      startDate: dateToUrlDate(customStartDate),
+      endDate: dateToUrlDate(date),
+    });
   };
 
-  const { data: timelineResponse, isLoading, error } = useTimeline({
+  const {
+    data: timelineResponse,
+    isLoading,
+    error,
+  } = useTimeline({
     startDate: customStartDate,
     endDate: customEndDate,
     limit: pageSize,
@@ -115,7 +198,7 @@ export default function Timeline() {
     : timelineData?.events;
   const nextCursor = Array.isArray(timelineData)
     ? undefined
-    : timelineData?.nextCursor ?? undefined;
+    : (timelineData?.nextCursor ?? undefined);
   const currentPageTimeline = timeline?.slice(0, pageSize);
 
   const handleNextPage = () => {
@@ -129,7 +212,8 @@ export default function Timeline() {
     setPageIndex((index) => index - 1);
   };
 
-  const paginationButtonClassName = "h-9 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800";
+  const paginationButtonClassName =
+    'h-9 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800';
 
   const renderPaginationControls = (options: { className?: string; testId?: string } = {}) => (
     <div
@@ -146,7 +230,9 @@ export default function Timeline() {
         >
           Previous
         </button>
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Page {pageIndex + 1}</span>
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Page {pageIndex + 1}
+        </span>
         <button
           type="button"
           aria-label="Next page"
@@ -179,14 +265,17 @@ export default function Timeline() {
   );
 
   // Group timeline entries by date
-  const groupedEntries = currentPageTimeline?.reduce((groups, entry) => {
-    const date = format(parseISO(entry.createdAt), 'yyyy-MM-dd');
-    if (!groups[date]) {
-      groups[date] = [];
-    }
-    groups[date].push(entry);
-    return groups;
-  }, {} as Record<string, TimelineEntry[]>);
+  const groupedEntries = currentPageTimeline?.reduce(
+    (groups, entry) => {
+      const date = format(parseISO(entry.createdAt), 'yyyy-MM-dd');
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(entry);
+      return groups;
+    },
+    {} as Record<string, TimelineEntry[]>,
+  );
 
   const formatDateHeader = (dateStr: string) => {
     const date = parseISO(dateStr);
@@ -222,7 +311,8 @@ export default function Timeline() {
               Parent changed
             </span>
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              Moved from {entry.oldParentName || entry.metadata?.oldParentName || 'top level'} to {entry.newParentName || entry.metadata?.newParentName || 'top level'}
+              Moved from {entry.oldParentName || entry.metadata?.oldParentName || 'top level'} to{' '}
+              {entry.newParentName || entry.metadata?.newParentName || 'top level'}
             </span>
           </div>
         );
@@ -233,7 +323,15 @@ export default function Timeline() {
               Sub-stream created
             </span>
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              Created under {entry.parent ? <WorkstreamLink workstream={entry.parent} /> : entry.parentName || entry.newParentName || entry.metadata?.newParentName || 'parent stream'}
+              Created under{' '}
+              {entry.parent ? (
+                <WorkstreamLink workstream={entry.parent} />
+              ) : (
+                entry.parentName ||
+                entry.newParentName ||
+                entry.metadata?.newParentName ||
+                'parent stream'
+              )}
             </span>
           </div>
         );
@@ -241,10 +339,16 @@ export default function Timeline() {
       default:
         return (
           <div>
-            <MarkdownRenderer content={entry.status!} className="text-sm text-gray-700 dark:text-gray-300" />
+            <MarkdownRenderer
+              content={entry.status!}
+              className="text-sm text-gray-700 dark:text-gray-300"
+            />
             {entry.note && (
               <div className="mt-3 border-t border-gray-900 pt-2 dark:border-gray-700">
-                <MarkdownRenderer content={entry.note} className="text-sm text-gray-600 dark:text-gray-400" />
+                <MarkdownRenderer
+                  content={entry.note}
+                  className="text-sm text-gray-600 dark:text-gray-400"
+                />
               </div>
             )}
           </div>
@@ -312,7 +416,10 @@ export default function Timeline() {
                 buttonClassName="min-w-64"
                 options={[
                   { value: '', label: 'Select a parent' },
-                  ...workstreams.map((stream) => ({ value: String(stream.number ?? stream.id), label: workstreamReferenceText(stream) })),
+                  ...workstreams.map((stream) => ({
+                    value: String(stream.number ?? stream.id),
+                    label: workstreamReferenceText(stream),
+                  })),
                 ]}
               />
             </div>
@@ -348,13 +455,18 @@ export default function Timeline() {
             Include sub-stream activity
           </label>
           <div className="ml-auto flex items-end gap-3">
-            <span className="pb-2 text-xs text-gray-500 dark:text-gray-400">Exports current page</span>
+            <span className="pb-2 text-xs text-gray-500 dark:text-gray-400">
+              Exports current page
+            </span>
             <ExportButton entries={currentPageTimeline ?? []} />
           </div>
         </div>
       </div>
 
-      {renderPaginationControls({ testId: 'timeline-pagination-top', className: 'mb-4 border-b border-gray-200 pb-3 dark:border-gray-700' })}
+      {renderPaginationControls({
+        testId: 'timeline-pagination-top',
+        className: 'mb-4 border-b border-gray-200 pb-3 dark:border-gray-700',
+      })}
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
@@ -367,7 +479,10 @@ export default function Timeline() {
       {isLoading && (
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="animate-pulse rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+            <div
+              key={i}
+              className="animate-pulse rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
+            >
               <div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700" />
               <div className="mt-2 h-3 w-full rounded bg-gray-200 dark:bg-gray-700" />
             </div>
@@ -394,55 +509,68 @@ export default function Timeline() {
                 {entries.map((entry) => {
                   const trail = timelineTrail(entry);
                   return (
-                  <div
-                    key={entry.id}
-                    className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
-                  >
-                    <div className="flex items-start gap-3">
-                      {entry.category && (
-                        <div
-                          className="mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-xs"
-                          style={{ backgroundColor: entry.category.color }}
-                          title={entry.category.name}
-                        >
-                          {entry.category.emoji}
-                        </div>
-                      )}
-                      <div className="flex-1">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <Link
-                            to={workstreamPath({ id: entry.workstreamId, number: entry.workstreamNumber })}
-                            className="font-medium text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400"
+                    <div
+                      key={entry.id}
+                      className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                    >
+                      <div className="flex items-start gap-3">
+                        {entry.category && (
+                          <div
+                            className="mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-xs"
+                            style={{ backgroundColor: entry.category.color }}
+                            title={entry.category.name}
                           >
-                            {trail.map((stream, index) => (
-                              <span key={`${stream.id ?? stream.number}-${index}`}>
-                                {index > 0 && <span className="mx-1 text-gray-400 dark:text-gray-500">›</span>}
-                                <WorkstreamReferenceContent workstream={stream} />
-                              </span>
-                            ))}
-                            {entry.eventType === 'status_update' && entry.statusUpdateNumber !== undefined && (
-                              <span><span className="mx-1 text-gray-400 dark:text-gray-500">›</span>update #{entry.statusUpdateNumber}</span>
-                            )}
-                          </Link>
-                          <time className="text-xs text-gray-500 dark:text-gray-400">
-                            {format(parseISO(entry.createdAt), 'h:mm a')}
-                          </time>
-                        </div>
-                        <div className="mt-1">
-                          {renderEventContent(entry)}
+                            {entry.category.emoji}
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <Link
+                              to={workstreamPath({
+                                id: entry.workstreamId,
+                                number: entry.workstreamNumber,
+                              })}
+                              className="font-medium text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-400"
+                            >
+                              {trail.map((stream, index) => (
+                                <span key={`${stream.id ?? stream.number}-${index}`}>
+                                  {index > 0 && (
+                                    <span className="mx-1 text-gray-400 dark:text-gray-500">›</span>
+                                  )}
+                                  <WorkstreamReferenceContent workstream={stream} />
+                                </span>
+                              ))}
+                              {entry.eventType === 'status_update' &&
+                                entry.statusUpdateNumber !== undefined && (
+                                  <span>
+                                    <span className="mx-1 text-gray-400 dark:text-gray-500">›</span>
+                                    update #{entry.statusUpdateNumber}
+                                    <UpdateImpactChip impact={entry.impact} />
+                                  </span>
+                                )}
+                            </Link>
+                            <time className="text-xs text-gray-500 dark:text-gray-400">
+                              {format(parseISO(entry.createdAt), 'h:mm a')}
+                            </time>
+                          </div>
+                          <div className="mt-1">{renderEventContent(entry)}</div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );})}
+                  );
+                })}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {!isLoading && timeline && renderPaginationControls({ testId: 'timeline-pagination-bottom', className: 'mt-6 border-t border-gray-200 pt-3 dark:border-gray-700' })}
+      {!isLoading &&
+        timeline &&
+        renderPaginationControls({
+          testId: 'timeline-pagination-bottom',
+          className: 'mt-6 border-t border-gray-200 pt-3 dark:border-gray-700',
+        })}
     </div>
   );
 }
-

@@ -23,7 +23,9 @@ vi.mock('../../hooks/useStatusHistory', () => ({
 }));
 
 vi.mock('../../components/Markdown/MarkdownRenderer', () => ({
-  MarkdownRenderer: ({ content, className }: { content: string; className?: string }) => <div className={className}>{content}</div>,
+  MarkdownRenderer: ({ content, className }: { content: string; className?: string }) => (
+    <div className={className}>{content}</div>
+  ),
 }));
 
 import WorkstreamDetail from '../WorkstreamDetail';
@@ -33,7 +35,8 @@ const workstream: Workstream = {
   projectId: 'project-1',
   name: 'Payments latency regression follow-up',
   categoryId: 'cat-1',
-  context: 'Goal: track mitigation work after checkout p95 latency crossed the SLO twice last week. #Customers #Latency #Observability',
+  context:
+    'Goal: track mitigation work after checkout p95 latency crossed the SLO twice last week. #Customers #Latency #Observability',
   state: 'active',
   createdAt: '2026-06-06T16:30:00Z',
   closedAt: null,
@@ -69,7 +72,11 @@ const workstream: Workstream = {
   closedSubstreamCount: 1,
   lastDirectUpdateAt: '2026-06-18T11:00:00Z',
   lastSubstreamActivityAt: '2026-06-20T10:15:00Z',
-  latestSubstreamActivitySource: { id: 'substream-1', name: 'run CoE', lastActivityAt: '2026-06-20T10:15:00Z' },
+  latestSubstreamActivitySource: {
+    id: 'substream-1',
+    name: 'run CoE',
+    lastActivityAt: '2026-06-20T10:15:00Z',
+  },
   allTags: ['Customers', 'Latency', 'Observability'],
   parentId: 'parent-stream-4',
   parent: { id: 'parent-stream-4', name: 'Team Payments' },
@@ -125,11 +132,15 @@ describe('WorkstreamDetail reference redesign', () => {
 
     expect(await screen.findByTestId('workstream-detail-shell')).toBeInTheDocument();
     expect(screen.getByTestId('workstream-category-rail')).toBeInTheDocument();
-    const expectedCategoryBandBackground = getCategoryIconBandBackground(workstream.category?.color);
+    const expectedCategoryBandBackground = getCategoryIconBandBackground(
+      workstream.category?.color,
+    );
     const iconBand = screen.getByTestId('workstream-category-icon-band');
     expect(iconBand).toHaveTextContent('🚀');
     expect(iconBand).toHaveStyle({ backgroundColor: expectedCategoryBandBackground });
-    expect(iconBand.firstElementChild).toHaveStyle({ backgroundColor: expectedCategoryBandBackground });
+    expect(iconBand.firstElementChild).toHaveStyle({
+      backgroundColor: expectedCategoryBandBackground,
+    });
     expect(screen.getByRole('button', { name: /back to cockpit/i })).toBeInTheDocument();
 
     const breadcrumbs = screen.getByLabelText('Workstream parent-stream breadcrumbs');
@@ -137,10 +148,15 @@ describe('WorkstreamDetail reference redesign', () => {
     expect(within(breadcrumbs).getByText('Reliability')).toBeInTheDocument();
     expect(within(breadcrumbs).getByText('Checkout')).toBeInTheDocument();
     expect(within(breadcrumbs).getByText('Team Payments')).toBeInTheDocument();
-    expect(within(breadcrumbs).getByText('Payments latency regression follow-up')).toHaveAttribute('aria-current', 'page');
+    expect(within(breadcrumbs).getByText('Payments latency regression follow-up')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
 
     expect(screen.getByRole('heading', { level: 1, name: workstream.name })).toBeInTheDocument();
-    expect(screen.getByText(/Goal: track mitigation work/)).toHaveTextContent('#Customers #Latency #Observability');
+    expect(screen.getByText(/Goal: track mitigation work/)).toHaveTextContent(
+      '#Customers #Latency #Observability',
+    );
     expect(screen.queryByLabelText('Workstream tags')).not.toBeInTheDocument();
     expect(screen.queryByText(/^#Customers$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^#Latency$/)).not.toBeInTheDocument();
@@ -158,14 +174,19 @@ describe('WorkstreamDetail reference redesign', () => {
     await screen.findByTestId('workstream-detail-shell');
 
     const expectedFallbackColor = '#5b8ca0';
-    const expectedCategoryBandBackground = getCategoryIconBandBackground(expectedFallbackColor, expectedFallbackColor);
+    const expectedCategoryBandBackground = getCategoryIconBandBackground(
+      expectedFallbackColor,
+      expectedFallbackColor,
+    );
     const rail = screen.getByTestId('workstream-category-rail');
     const iconBand = screen.getByTestId('workstream-category-icon-band');
 
     expect(rail).toHaveStyle({ backgroundColor: expectedFallbackColor });
     expect(iconBand).toHaveTextContent('🏷️');
     expect(iconBand).toHaveStyle({ backgroundColor: expectedCategoryBandBackground });
-    expect(iconBand.firstElementChild).toHaveStyle({ backgroundColor: expectedCategoryBandBackground });
+    expect(iconBand.firstElementChild).toHaveStyle({
+      backgroundColor: expectedCategoryBandBackground,
+    });
   });
 
   it('keeps primary actions reachable as a right-side stack and exposes the include-substreams control', async () => {
@@ -180,7 +201,9 @@ describe('WorkstreamDetail reference redesign', () => {
     expect(within(actions).getByRole('button', { name: 'Close stream' })).toBeInTheDocument();
 
     expect(screen.getByRole('heading', { level: 2, name: 'Status History' })).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: /include sub-stream updates/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: /include sub-stream updates/i }),
+    ).toBeInTheDocument();
   });
 
   it('shows stream and update public numbers and uses them for shareable stream links', async () => {
@@ -192,14 +215,31 @@ describe('WorkstreamDetail reference redesign', () => {
         { id: 'parent-stream-2', number: 8, name: 'Reliability' },
       ],
       parent: { id: 'parent-stream-2', number: 8, name: 'Reliability' },
-      substreams: [{ id: 'substream-1', number: 29, name: 'run CoE', state: 'active', lastActivityAt: '2026-06-20T10:15:00Z' }],
-      latestSubstreamActivitySource: { id: 'substream-1', number: 29, name: 'run CoE', lastActivityAt: '2026-06-20T10:15:00Z' },
+      substreams: [
+        {
+          id: 'substream-1',
+          number: 29,
+          name: 'run CoE',
+          state: 'active',
+          lastActivityAt: '2026-06-20T10:15:00Z',
+        },
+      ],
+      latestSubstreamActivitySource: {
+        id: 'substream-1',
+        number: 29,
+        name: 'run CoE',
+        lastActivityAt: '2026-06-20T10:15:00Z',
+      },
     };
     apiGetMock.mockResolvedValueOnce({ data: numberedWorkstream });
     useStatusHistoryMock.mockReturnValue({
       data: [
-        { ...updates[0], number: 42, sourceWorkstream: { id: 'substream-1', number: 29, name: 'run CoE' } },
-        { ...updates[1], number: 41 },
+        {
+          ...updates[0],
+          number: 42,
+          sourceWorkstream: { id: 'substream-1', number: 29, name: 'run CoE' },
+        },
+        { ...updates[1], number: 41, impact: 'info' },
       ],
       isLoading: false,
     });
@@ -208,15 +248,29 @@ describe('WorkstreamDetail reference redesign', () => {
     await screen.findByTestId('workstream-detail-shell');
 
     expect(screen.queryByText('Stream #28')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '#3 Platform Ops' })).toHaveAttribute('href', '/workstreams/3');
-    expect(screen.getAllByRole('link', { name: '#8 Reliability' })[0]).toHaveAttribute('href', '/workstreams/8');
+    expect(screen.getByRole('link', { name: '#3 Platform Ops' })).toHaveAttribute(
+      'href',
+      '/workstreams/3',
+    );
+    expect(screen.getAllByRole('link', { name: '#8 Reliability' })[0]).toHaveAttribute(
+      'href',
+      '/workstreams/8',
+    );
     expect(screen.getByText(/update #42 from sub-stream$/)).toBeInTheDocument();
-    expect(screen.getByText(/self update #41/)).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: '#29 run CoE' })[0]).toHaveAttribute('href', '/workstreams/29');
+    const selfUpdate = screen.getByText(/self update #41/).parentElement;
+    expect(selfUpdate).toHaveTextContent('info');
+    expect(screen.getAllByRole('link', { name: '#29 run CoE' })[0]).toHaveAttribute(
+      'href',
+      '/workstreams/29',
+    );
   });
 
   it('does not expose Add Update when the stream is closed', async () => {
-    const closedWorkstream = { ...workstream, state: 'closed' as const, closedAt: '2026-06-20T11:00:00Z' };
+    const closedWorkstream = {
+      ...workstream,
+      state: 'closed' as const,
+      closedAt: '2026-06-20T11:00:00Z',
+    };
     apiGetMock.mockResolvedValueOnce({ data: closedWorkstream });
 
     renderDetail(closedWorkstream);
@@ -233,8 +287,14 @@ describe('WorkstreamDetail reference redesign', () => {
 
     const substreamUpdate = screen.getByTestId('status-update-substream-update');
     expect(substreamUpdate).toHaveAttribute('data-source', 'sub-stream');
-    expect(within(substreamUpdate).getByRole('link', { name: 'run CoE' })).toHaveAttribute('href', '/workstreams/substream-1');
-    expect(within(substreamUpdate).getByRole('link', { name: 'Open sub-stream' })).toHaveAttribute('href', '/workstreams/substream-1');
+    expect(within(substreamUpdate).getByRole('link', { name: 'run CoE' })).toHaveAttribute(
+      'href',
+      '/workstreams/substream-1',
+    );
+    expect(within(substreamUpdate).getByRole('link', { name: 'Open sub-stream' })).toHaveAttribute(
+      'href',
+      '/workstreams/substream-1',
+    );
     expect(substreamUpdate).toHaveTextContent('#Production');
     expect(within(substreamUpdate).queryByText(/^#Production$/)).not.toBeInTheDocument();
 
@@ -254,7 +314,11 @@ describe('WorkstreamDetail reference redesign', () => {
 
     const sidebar = screen.getByTestId('workstream-detail-sidebar');
     expect(within(sidebar).getByRole('heading', { name: /Sub-streams/ })).toHaveTextContent('2');
-    expect(within(sidebar).getByText('Direct sub-streams of this stream. No sibling or neighbor parent-stream path shown here.')).toBeInTheDocument();
+    expect(
+      within(sidebar).getByText(
+        'Direct sub-streams of this stream. No sibling or neighbor parent-stream path shown here.',
+      ),
+    ).toBeInTheDocument();
     expect(within(sidebar).getAllByText('run CoE').length).toBeGreaterThan(0);
     expect(within(sidebar).getByText('Checkout tracing cleanup')).toBeInTheDocument();
     expect(within(sidebar).queryByText('Latest update: No updates yet')).not.toBeInTheDocument();
@@ -265,8 +329,14 @@ describe('WorkstreamDetail reference redesign', () => {
     expect(within(sidebar).getByText('Latest self update')).toBeInTheDocument();
     expect(within(sidebar).getByText('Latest sub-stream update')).toBeInTheDocument();
     expect(within(sidebar).getByText('Parent stream')).toBeInTheDocument();
-    expect(within(sidebar).getByRole('link', { name: 'Team Payments' })).toHaveAttribute('href', '/workstreams/parent-stream-4');
-    expect(within(sidebar).getByRole('link', { name: 'run CoE' })).toHaveAttribute('href', '/workstreams/substream-1');
+    expect(within(sidebar).getByRole('link', { name: 'Team Payments' })).toHaveAttribute(
+      'href',
+      '/workstreams/parent-stream-4',
+    );
+    expect(within(sidebar).getByRole('link', { name: 'run CoE' })).toHaveAttribute(
+      'href',
+      '/workstreams/substream-1',
+    );
   });
 
   it('uses relative dates with exact date-time hover titles in metadata and history', async () => {

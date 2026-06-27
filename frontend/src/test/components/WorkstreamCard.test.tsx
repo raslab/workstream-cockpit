@@ -149,6 +149,20 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.getByText(/Parent:/).closest('a')).toHaveAttribute('href', '/workstreams/7');
   });
 
+  it('shows open next step count using Next steps terminology and never todo wording', () => {
+    renderCard(baseWorkstream({ nextStepCount: 3 }));
+
+    expect(screen.getByText('3 next steps')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /English learning plan/ }).closest('article')).not.toHaveTextContent(/todo/i);
+  });
+
+  it('singularizes one open next step', () => {
+    renderCard(baseWorkstream({ nextStepCount: 1, allTags: [], substreamCount: 0 }));
+
+    expect(screen.getByText('1 next step')).toBeInTheDocument();
+    expect(screen.queryByText('1 next steps')).not.toBeInTheDocument();
+  });
+
   it('does not render or reserve a tags region when the workstream has no tags', () => {
     renderCard(baseWorkstream({ allTags: [] }));
 

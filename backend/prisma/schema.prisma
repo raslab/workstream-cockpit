@@ -52,6 +52,7 @@ model Project {
   categories    Category[]
   workstreams   Workstream[]
   statusUpdates StatusUpdate[]
+  nextSteps     NextStep[]
   tags          Tag[]
   views         View[]
 
@@ -110,6 +111,7 @@ model Workstream {
   parent        Workstream?       @relation("WorkstreamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   substreams    Workstream[]      @relation("WorkstreamHierarchy")
   statusUpdates StatusUpdate[]
+  nextSteps     NextStep[]
   events        WorkstreamEvent[]
 
   @@unique([projectId, number])
@@ -142,6 +144,7 @@ model StatusUpdate {
   workstreamId String   @map("workstream_id")
   status       String
   note         String?  @db.Text
+  impact       String   @default("active")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -153,6 +156,23 @@ model StatusUpdate {
   @@index([projectId])
   @@index([createdAt])
   @@map("status_updates")
+}
+
+model NextStep {
+  id           String   @id @default(uuid())
+  projectId    String   @map("project_id")
+  workstreamId String   @map("workstream_id")
+  text         String
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workstream Workstream @relation(fields: [workstreamId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([workstreamId, sortOrder])
+  @@map("next_steps")
 }
 
 model View {

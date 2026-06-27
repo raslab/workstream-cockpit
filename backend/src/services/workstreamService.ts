@@ -71,6 +71,7 @@ export interface WorkstreamWithLatestStatus extends Workstream {
   directSubstreamCount?: number;
   activeSubstreamCount?: number;
   closedSubstreamCount?: number;
+  nextStepCount?: number;
   depth?: number;
   lastDirectUpdateAt?: Date | null;
   lastSubstreamActivityAt?: Date | null;
@@ -211,9 +212,11 @@ async function enrichWorkstreams<T extends Workstream & { statusUpdates?: Status
   const byId = new Map(allWorkstreams.map(ws => [ws.id, ws]));
   const substreamsByParent = buildSubstreamsByParent(allWorkstreams);
   const allIds = allWorkstreams.map(ws => ws.id);
-  const latestUpdates = await prisma.statusUpdate.findMany({ where: { workstreamId: { in: allIds } }, orderBy: { createdAt: 'desc' } });
+  const latestUpdates = await prisma.statusUpdate.findMany({ where: { workstreamId: { in: allIds }, impact: 'active' }, orderBy: { createdAt: 'desc' } });
   const latestByWorkstream = new Map<string, StatusUpdate>();
   for (const update of latestUpdates) if (!latestByWorkstream.has(update.workstreamId)) latestByWorkstream.set(update.workstreamId, update);
+  const nextStepCounts = await prisma.nextStep.groupBy({ by: ['workstreamId'], where: { workstreamId: { in: allIds } }, _count: { _all: true } });
+  const nextStepCountByWorkstream = new Map(nextStepCounts.map(row => [row.workstreamId, row._count._all]));
   const structuralEvents = await prisma.workstreamEvent.findMany({ where: { workstreamId: { in: allIds } }, orderBy: { createdAt: 'desc' } });
   const latestEventByWorkstream = new Map<string, any>();
   for (const event of structuralEvents) if (!latestEventByWorkstream.has(event.workstreamId)) latestEventByWorkstream.set(event.workstreamId, event);
@@ -270,6 +273,7 @@ async function enrichWorkstreams<T extends Workstream & { statusUpdates?: Status
       directSubstreamCount: directSubstreams.length,
       activeSubstreamCount: directSubstreams.filter(substream => substream.state === 'active').length,
       closedSubstreamCount: directSubstreams.filter(substream => substream.state === 'closed').length,
+      nextStepCount: nextStepCountByWorkstream.get(row.id) ?? 0,
       depth,
       ...activity,
     };
@@ -333,7 +337,7 @@ export async function getWorkstreams(
       where: whereClause,
       include: {
         category: { select: { id: true, name: true, color: true, emoji: true, sortOrder: true } },
-        statusUpdates: { orderBy: { createdAt: 'desc' } },
+        statusUpdates: { where: { impact: 'active' }, orderBy: { createdAt: 'desc' } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -364,7 +368,7 @@ export async function getWorkstreamById(workstreamId: string, projectId: string)
       where: { id: workstreamId, projectId },
       include: {
         category: { select: { id: true, name: true, color: true, emoji: true, sortOrder: true } },
-        statusUpdates: { orderBy: { createdAt: 'desc' }, take: 1 },
+        statusUpdates: { where: { impact: 'active' }, orderBy: { createdAt: 'desc' }, take: 1 },
       },
     });
     if (!workstream) return null;
