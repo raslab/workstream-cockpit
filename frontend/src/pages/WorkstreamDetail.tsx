@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { Workstream, StatusUpdate, NextStep } from '../types/workstream';
 import { useStatusHistory } from '../hooks/useStatusHistory';
@@ -40,8 +40,31 @@ const STATUS_HISTORY_PAGE_SIZE = 10;
 interface StatusEditDialogProps {
   statusUpdate: StatusUpdate;
   workstreamId: string;
+  workstreamReferenceId?: string;
   isOpen: boolean;
   onClose: () => void;
+}
+
+interface StatusHistoryCachePage {
+  updates?: StatusUpdate[];
+  nextCursor?: string | null;
+}
+
+function replaceStatusUpdateInHistoryCache(
+  oldHistory: InfiniteData<StatusHistoryCachePage> | undefined,
+  updatedStatusUpdate: StatusUpdate,
+): InfiniteData<StatusHistoryCachePage> | undefined {
+  if (!oldHistory) return oldHistory;
+
+  return {
+    ...oldHistory,
+    pages: oldHistory.pages.map((page) => ({
+      ...page,
+      updates: page.updates?.map((update) =>
+        update.id === updatedStatusUpdate.id ? updatedStatusUpdate : update,
+      ),
+    })),
+  };
 }
 
 function formatDateTime(value: string | null | undefined): string {
@@ -97,6 +120,7 @@ function UpdateImpactChip({ impact }: { impact?: StatusUpdate['impact'] }) {
 export function StatusEditDialog({
   statusUpdate,
   workstreamId,
+  workstreamReferenceId,
   isOpen,
   onClose,
 }: StatusEditDialogProps) {
@@ -115,10 +139,20 @@ export function StatusEditDialog({
       });
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (updatedStatusUpdate: StatusUpdate) => {
+      queryClient.setQueriesData<InfiniteData<StatusHistoryCachePage>>(
+        { queryKey: ['status-updates'] },
+        (oldHistory) => replaceStatusUpdateInHistoryCache(oldHistory, updatedStatusUpdate),
+      );
       queryClient.invalidateQueries({ queryKey: ['status-updates', workstreamId] });
+      if (workstreamReferenceId && workstreamReferenceId !== workstreamId) {
+        queryClient.invalidateQueries({ queryKey: ['status-updates', workstreamReferenceId] });
+      }
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
       queryClient.invalidateQueries({ queryKey: ['workstream', workstreamId] });
+      if (workstreamReferenceId && workstreamReferenceId !== workstreamId) {
+        queryClient.invalidateQueries({ queryKey: ['workstream', workstreamReferenceId] });
+      }
       queryClient.invalidateQueries({ queryKey: ['timeline'] });
       onClose();
     },
@@ -1101,6 +1135,7 @@ export default function WorkstreamDetail() {
         <StatusEditDialog
           statusUpdate={editingStatus}
           workstreamId={workstream.id}
+          workstreamReferenceId={id}
           isOpen={!!editingStatus}
           onClose={() => setEditingStatus(null)}
         />
