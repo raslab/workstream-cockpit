@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,12 +7,13 @@ import type { StatusUpdate, Workstream } from '../../types/workstream';
 import { getCategoryIconBandBackground } from '../../utils/categoryColor';
 
 const apiGetMock = vi.hoisted(() => vi.fn());
+const apiPutMock = vi.hoisted(() => vi.fn());
 const useStatusHistoryMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../api/client', () => ({
   apiClient: {
     get: apiGetMock,
-    put: vi.fn(),
+    put: apiPutMock,
     post: vi.fn(),
     delete: vi.fn(),
   },
@@ -122,7 +123,13 @@ function renderDetail(detailWorkstream: Workstream = workstream) {
 describe('WorkstreamDetail reference redesign', () => {
   beforeEach(() => {
     apiGetMock.mockReset();
-    apiGetMock.mockResolvedValue({ data: workstream });
+    apiGetMock.mockImplementation((url: string) => {
+      if (url === '/api/categories') return Promise.resolve({ data: [] });
+      if (url.startsWith('/api/tags')) return Promise.resolve({ data: { tags: [] } });
+      if (url.startsWith('/api/workstreams?')) return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: workstream });
+    });
+    apiPutMock.mockReset();
     useStatusHistoryMock.mockReset();
     useStatusHistoryMock.mockReturnValue({ data: updates, isLoading: false });
   });
@@ -160,6 +167,57 @@ describe('WorkstreamDetail reference redesign', () => {
     expect(screen.queryByLabelText('Workstream tags')).not.toBeInTheDocument();
     expect(screen.queryByText(/^#Customers$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^#Latency$/)).not.toBeInTheDocument();
+  });
+
+  it('shows an edited context immediately from the save response while the detail refetch is still pending', async () => {
+    const updatedWorkstream: Workstream = {
+      ...workstream,
+      context: 'Updated mitigation plan is visible immediately after save. #FreshContext',
+    };
+    let detailRequests = 0;
+    apiGetMock.mockImplementation((url: string) => {
+      if (url === '/api/categories') return Promise.resolve({ data: [] });
+      if (url.startsWith('/api/tags')) return Promise.resolve({ data: { tags: [] } });
+      if (url.startsWith('/api/workstreams?')) return Promise.resolve({ data: [] });
+      detailRequests += 1;
+      if (detailRequests === 1) return Promise.resolve({ data: workstream });
+      return new Promise(() => undefined);
+    });
+    apiPutMock.mockResolvedValueOnce({ data: updatedWorkstream });
+
+    renderDetail();
+    expect(await screen.findByText(/Goal: track mitigation work/)).toBeInTheDocument();
+
+    fireEvent.click(within(screen.getByTestId('workstream-detail-actions')).getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByLabelText('Context'), {
+      target: { value: updatedWorkstream.context },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Save Changes' })).not.toBeInTheDocument();
+    });
+    expect(screen.getByText(/Updated mitigation plan is visible immediately/)).toHaveTextContent(
+      '#FreshContext',
+    );
+    expect(screen.queryByText(/Goal: track mitigation work/)).not.toBeInTheDocument();
+  });
+
+  it('keeps the edited context in the dialog when saving fails', async () => {
+    apiPutMock.mockRejectedValueOnce(new Error('network failed'));
+
+    renderDetail();
+    await screen.findByTestId('workstream-detail-shell');
+
+    fireEvent.click(within(screen.getByTestId('workstream-detail-actions')).getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByLabelText('Context'), {
+      target: { value: 'Unsaved context should stay editable. #Retry' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    expect(await screen.findByText('Failed to update workstream. Please try again.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Context')).toHaveValue('Unsaved context should stay editable. #Retry');
+    expect(screen.getByText(/Goal: track mitigation work/)).toBeInTheDocument();
   });
 
   it('uses the cockpit card fallback category icon and color for uncategorized streams', async () => {
