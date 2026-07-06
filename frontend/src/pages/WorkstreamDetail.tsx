@@ -241,7 +241,15 @@ function reorderStepIds(
   return reordered.map((nextStep) => nextStep.id);
 }
 
-function NextStepsSection({ workstreamId, isClosed }: { workstreamId: string; isClosed: boolean }) {
+function NextStepsSection({
+  workstreamId,
+  workstreamReferenceId,
+  isClosed,
+}: {
+  workstreamId: string;
+  workstreamReferenceId?: string;
+  isClosed: boolean;
+}) {
   const {
     nextSteps,
     isLoading,
@@ -251,7 +259,7 @@ function NextStepsSection({ workstreamId, isClosed }: { workstreamId: string; is
     reorderNextSteps,
     solveNextStep,
     abandonNextStep,
-  } = useNextSteps(workstreamId);
+  } = useNextSteps(workstreamId, workstreamReferenceId ? [workstreamReferenceId] : []);
   const [newText, setNewText] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
@@ -755,6 +763,7 @@ export default function WorkstreamDetail() {
 
             <NextStepsSection
               workstreamId={workstream.id}
+              workstreamReferenceId={id}
               isClosed={workstream.state === 'closed'}
             />
 

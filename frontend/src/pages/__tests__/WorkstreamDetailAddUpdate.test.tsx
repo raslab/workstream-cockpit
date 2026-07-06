@@ -3,16 +3,17 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { StatusUpdate, Workstream } from '../../types/workstream';
+import type { NextStep, StatusUpdate, Workstream } from '../../types/workstream';
 
 const apiGetMock = vi.hoisted(() => vi.fn());
 const apiPostMock = vi.hoisted(() => vi.fn());
+const apiPutMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../api/client', () => ({
   apiClient: {
     get: apiGetMock,
     post: apiPostMock,
-    put: vi.fn(),
+    put: apiPutMock,
     delete: vi.fn(),
   },
 }));
@@ -53,6 +54,28 @@ const createdUpdate: StatusUpdate = {
   updatedAt: '2026-06-02T10:00:00Z',
 };
 
+const solvedUpdate: StatusUpdate = {
+  id: 'update-solved',
+  number: 43,
+  workstreamId: 'stream-uuid',
+  status: 'Solved next step: Confirm rollout owner',
+  note: null,
+  impact: 'active',
+  createdAt: '2026-06-03T10:00:00Z',
+  updatedAt: '2026-06-03T10:00:00Z',
+};
+
+const abandonedUpdate: StatusUpdate = {
+  id: 'update-abandoned',
+  number: 44,
+  workstreamId: 'stream-uuid',
+  status: 'Abandoned next step: Retire stale checklist',
+  note: null,
+  impact: 'info',
+  createdAt: '2026-06-04T10:00:00Z',
+  updatedAt: '2026-06-04T10:00:00Z',
+};
+
 const baseWorkstream: Workstream = {
   id: 'stream-uuid',
   number: 520,
@@ -70,6 +93,7 @@ const baseWorkstream: Workstream = {
 };
 
 let updates: StatusUpdate[];
+let nextSteps: NextStep[];
 
 function renderDetail() {
   const queryClient = new QueryClient({
@@ -97,11 +121,11 @@ function mockGet(url: string) {
       },
     });
   }
-  if (url === '/api/workstreams/520/status-updates?includeSubstreams=false&limit=50') {
+  if (url === '/api/workstreams/520/status-updates?includeSubstreams=false&limit=10') {
     return Promise.resolve({ data: { updates, nextCursor: null } });
   }
   if (url === '/api/workstreams/stream-uuid/next-steps') {
-    return Promise.resolve({ data: [] });
+    return Promise.resolve({ data: nextSteps });
   }
   return Promise.reject(new Error(`unexpected GET ${url}`));
 }
@@ -109,18 +133,56 @@ function mockGet(url: string) {
 describe('WorkstreamDetail add update flow', () => {
   beforeEach(() => {
     updates = [originalUpdate];
+    nextSteps = [
+      {
+        id: 'step-solve',
+        workstreamId: 'stream-uuid',
+        text: 'Confirm rollout owner',
+        state: 'open',
+        sortOrder: 0,
+        createdAt: '2026-06-01T00:00:00Z',
+        updatedAt: '2026-06-01T00:00:00Z',
+      },
+      {
+        id: 'step-abandon',
+        workstreamId: 'stream-uuid',
+        text: 'Retire stale checklist',
+        state: 'open',
+        sortOrder: 1,
+        createdAt: '2026-06-01T00:00:00Z',
+        updatedAt: '2026-06-01T00:00:00Z',
+      },
+    ];
     apiGetMock.mockReset();
     apiPostMock.mockReset();
+    apiPutMock.mockReset();
     apiGetMock.mockImplementation(mockGet);
-    apiPostMock.mockImplementation((url: string, body: { workstreamId: string; status: string; note?: string }) => {
-      if (url !== '/api/status-updates') return Promise.reject(new Error(`unexpected POST ${url}`));
-      expect(body).toMatchObject({
-        workstreamId: 'stream-uuid',
-        status: 'Fresh detail update',
-        note: 'Visible without reload',
-      });
-      updates = [createdUpdate, ...updates];
-      return Promise.resolve({ data: createdUpdate });
+    apiPostMock.mockImplementation(
+      (url: string, body: { workstreamId: string; status: string; note?: string }) => {
+        if (url !== '/api/status-updates') return Promise.reject(new Error(`unexpected POST ${url}`));
+        expect(body).toMatchObject({
+          workstreamId: 'stream-uuid',
+          status: 'Fresh detail update',
+          note: 'Visible without reload',
+        });
+        updates = [createdUpdate, ...updates];
+        return Promise.resolve({ data: createdUpdate });
+      },
+    );
+    apiPutMock.mockImplementation((url: string) => {
+      if (url === '/api/workstreams/stream-uuid/next-steps/step-solve/solve') {
+        const nextStep = nextSteps.find((step) => step.id === 'step-solve');
+        nextSteps = nextSteps.filter((step) => step.id !== 'step-solve');
+        updates = [solvedUpdate, ...updates];
+        return Promise.resolve({ data: { nextStep, update: solvedUpdate } });
+      }
+      if (url === '/api/workstreams/stream-uuid/next-steps/step-abandon/abandon') {
+        const nextStep = nextSteps.find((step) => step.id === 'step-abandon');
+        nextSteps = nextSteps.filter((step) => step.id !== 'step-abandon');
+        updates = [abandonedUpdate, ...updates];
+        return Promise.resolve({ data: { nextStep, update: abandonedUpdate } });
+      }
+      return Promise.reject(new Error(`unexpected PUT ${url}`));
     });
   });
 
@@ -148,9 +210,37 @@ describe('WorkstreamDetail add update flow', () => {
     expect(screen.getByText('Visible without reload')).toBeInTheDocument();
     await waitFor(() =>
       expect(apiGetMock).toHaveBeenCalledWith(
-        '/api/workstreams/520/status-updates?includeSubstreams=false&limit=50',
+        '/api/workstreams/520/status-updates?includeSubstreams=false&limit=10',
       ),
     );
     await waitFor(() => expect(apiGetMock).toHaveBeenCalledWith('/api/workstreams/520'));
+  });
+
+  it('refreshes status history and latest metadata after solving and abandoning next steps from a public-number detail route', async () => {
+    renderDetail();
+
+    const nextStepsSection = await screen.findByRole('region', { name: 'Next steps' });
+    expect(await within(nextStepsSection).findByText('2 open next steps')).toBeInTheDocument();
+
+    fireEvent.click(within(nextStepsSection).getByRole('button', { name: 'Solve Confirm rollout owner' }));
+
+    expect(await screen.findByTestId('status-update-update-solved')).toBeInTheDocument();
+    expect(screen.getByText('Solved next step: Confirm rollout owner')).toBeInTheDocument();
+    expect(within(nextStepsSection).queryByText('Confirm rollout owner')).not.toBeInTheDocument();
+    await waitFor(() => expect(apiGetMock).toHaveBeenCalledWith('/api/workstreams/520'));
+
+    fireEvent.click(
+      within(nextStepsSection).getByRole('button', { name: 'Abandon Retire stale checklist' }),
+    );
+
+    expect(await screen.findByTestId('status-update-update-abandoned')).toBeInTheDocument();
+    expect(screen.getByText('Abandoned next step: Retire stale checklist')).toBeInTheDocument();
+    expect(screen.getByText('info')).toBeInTheDocument();
+    expect(within(nextStepsSection).queryByText('Retire stale checklist')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(apiGetMock).toHaveBeenCalledWith(
+        '/api/workstreams/520/status-updates?includeSubstreams=false&limit=10',
+      ),
+    );
   });
 });
