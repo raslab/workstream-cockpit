@@ -1110,6 +1110,9 @@ export default function WorkstreamDetail() {
         <WorkstreamEditDialog
           workstream={workstream}
           isOpen={showEditDialog}
+          onUpdated={(updatedWorkstream) => {
+            queryClient.setQueryData(['workstream', id], updatedWorkstream);
+          }}
           onClose={() => setShowEditDialog(false)}
         />
       )}
