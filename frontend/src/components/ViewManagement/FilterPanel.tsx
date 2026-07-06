@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
 import type { FilterConfig, SortConfig, GroupConfig, HierarchyFilter } from '../../types/view';
 import { useCategories } from '../../hooks/useCategories';
 import { useTags } from '../../api/tags';
-import { useWorkstreams } from '../../hooks/useWorkstreams';
+import { useWorkstreamReferences } from '../../hooks/useWorkstreamReferences';
 import { getWorkstreamName } from '../../utils/hierarchy';
 import { workstreamReferenceText } from '../../utils/workstreamReference';
 
@@ -32,10 +32,16 @@ function readExpandedSectionPreferences(): ExpandedFilterSections {
 
     const parsed = JSON.parse(stored) as Partial<Record<FilterSectionKey, unknown>>;
     return {
-      categories: typeof parsed.categories === 'boolean' ? parsed.categories : defaultExpandedSections.categories,
+      categories:
+        typeof parsed.categories === 'boolean'
+          ? parsed.categories
+          : defaultExpandedSections.categories,
       tags: typeof parsed.tags === 'boolean' ? parsed.tags : defaultExpandedSections.tags,
       other: typeof parsed.other === 'boolean' ? parsed.other : defaultExpandedSections.other,
-      hierarchy: typeof parsed.hierarchy === 'boolean' ? parsed.hierarchy : defaultExpandedSections.hierarchy,
+      hierarchy:
+        typeof parsed.hierarchy === 'boolean'
+          ? parsed.hierarchy
+          : defaultExpandedSections.hierarchy,
     };
   } catch {
     return defaultExpandedSections;
@@ -50,13 +56,14 @@ function writeExpandedSectionPreferences(sections: ExpandedFilterSections) {
   }
 }
 
-const hierarchyModeOptions: Array<{ value: Exclude<HierarchyFilter, 'top-level'>; label: string }> = [
-  { value: 'all', label: 'All streams' },
-  { value: 'sub-streams', label: 'Sub-streams only' },
-  { value: 'no-parent', label: 'No parent' },
-  { value: 'has-substreams', label: 'Has sub-streams' },
-  { value: 'under-parent', label: 'Under the parent' },
-];
+const hierarchyModeOptions: Array<{ value: Exclude<HierarchyFilter, 'top-level'>; label: string }> =
+  [
+    { value: 'all', label: 'All streams' },
+    { value: 'sub-streams', label: 'Sub-streams only' },
+    { value: 'no-parent', label: 'No parent' },
+    { value: 'has-substreams', label: 'Has sub-streams' },
+    { value: 'under-parent', label: 'Under the parent' },
+  ];
 
 interface CollapsibleFilterSectionProps {
   id: FilterSectionKey;
@@ -108,11 +115,18 @@ function CollapsibleFilterSection({
 export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelProps) {
   const { data: categories } = useCategories();
   const { data: tags } = useTags();
-  const { data: parentCandidates = [] } = useWorkstreams({ state: 'active' });
   const [localFilters, setLocalFilters] = useState(filters);
   const [tagSearchQuery, setTagSearchQuery] = useState('');
   const [parentSearchQuery, setParentSearchQuery] = useState('');
-  const [expandedSections, setExpandedSections] = useState<ExpandedFilterSections>(() => readExpandedSectionPreferences());
+  const [expandedSections, setExpandedSections] = useState<ExpandedFilterSections>(() =>
+    readExpandedSectionPreferences(),
+  );
+  const needsParentCandidates =
+    expandedSections.hierarchy && localFilters.hierarchy.mode === 'under-parent';
+  const { data: parentCandidates = [] } = useWorkstreamReferences({
+    state: 'active',
+    enabled: needsParentCandidates,
+  });
   const panelRef = useRef<HTMLDivElement>(null);
   const tagSearchRef = useRef<HTMLInputElement>(null);
   const parentSearchRef = useRef<HTMLInputElement>(null);
@@ -138,7 +152,14 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
       categoryIds: [],
       tags: [],
       temporal: { notUpdatedToday: false },
-      hierarchy: { mode: 'all', parentId: null, parentIds: [], includeSubstreams: false, timelineScope: 'all', includeStructuralEvents: true },
+      hierarchy: {
+        mode: 'all',
+        parentId: null,
+        parentIds: [],
+        includeSubstreams: false,
+        timelineScope: 'all',
+        includeStructuralEvents: true,
+      },
     };
     setLocalFilters(clearedFilters);
   };
@@ -161,7 +182,9 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
     });
   };
 
-  const selectedParentIds = localFilters.hierarchy.parentIds ?? (localFilters.hierarchy.parentId ? [localFilters.hierarchy.parentId] : []);
+  const selectedParentIds =
+    localFilters.hierarchy.parentIds ??
+    (localFilters.hierarchy.parentId ? [localFilters.hierarchy.parentId] : []);
 
   const setSelectedParentIds = (parentIds: string[]) => {
     setLocalFilters({
@@ -178,7 +201,7 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
     setSelectedParentIds(
       selectedParentIds.includes(parentId)
         ? selectedParentIds.filter((id) => id !== parentId)
-        : [...selectedParentIds, parentId]
+        : [...selectedParentIds, parentId],
     );
   };
 
@@ -197,12 +220,11 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
   const filteredTags = useMemo(() => {
     if (!tags) return [];
     if (!tagSearchQuery.trim()) return tags;
-    
+
     const query = tagSearchQuery.toLowerCase();
     return tags.filter(
       (tag) =>
-        tag.displayName.toLowerCase().includes(query) ||
-        tag.name.toLowerCase().includes(query)
+        tag.displayName.toLowerCase().includes(query) || tag.name.toLowerCase().includes(query),
     );
   }, [tags, tagSearchQuery]);
 
@@ -210,10 +232,14 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
     const query = parentSearchQuery.trim().toLowerCase();
     const activeCandidates = parentCandidates.filter((workstream) => workstream.state === 'active');
     if (!query) return activeCandidates;
-    return activeCandidates.filter((workstream) => getWorkstreamName(workstream).toLowerCase().includes(query));
+    return activeCandidates.filter((workstream) =>
+      getWorkstreamName(workstream).toLowerCase().includes(query),
+    );
   }, [parentCandidates, parentSearchQuery]);
 
-  const selectedParents = parentCandidates.filter((workstream) => selectedParentIds.includes(workstream.id));
+  const selectedParents = parentCandidates.filter((workstream) =>
+    selectedParentIds.includes(workstream.id),
+  );
 
   return (
     <div
@@ -272,7 +298,9 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
               />
               <div className="max-h-40 space-y-1 overflow-y-auto dark-scrollbar">
                 {filteredTags.length === 0 ? (
-                  <p className="py-2 text-center text-sm text-gray-500 dark:text-gray-400">No tags found</p>
+                  <p className="py-2 text-center text-sm text-gray-500 dark:text-gray-400">
+                    No tags found
+                  </p>
                 ) : (
                   filteredTags.map((tag) => (
                     <label
@@ -289,7 +317,9 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
                         className="inline-block h-3 w-3 rounded-full"
                         style={{ backgroundColor: tag.color }}
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">#{tag.displayName}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        #{tag.displayName}
+                      </span>
                     </label>
                   ))
                 )}
@@ -339,10 +369,12 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
                   name="hierarchy-mode"
                   value={option.value}
                   checked={localFilters.hierarchy.mode === option.value}
-                  onChange={() => setLocalFilters({
-                    ...localFilters,
-                    hierarchy: { ...localFilters.hierarchy, mode: option.value },
-                  })}
+                  onChange={() =>
+                    setLocalFilters({
+                      ...localFilters,
+                      hierarchy: { ...localFilters.hierarchy, mode: option.value },
+                    })
+                  }
                   className="h-4 w-4 border-gray-300 text-primary-600 accent-primary-600 focus:ring-primary-500 dark:border-gray-500 dark:bg-gray-900 dark:text-primary-400 dark:accent-primary-400"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">{option.label}</span>
@@ -351,7 +383,10 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
           </div>
           {localFilters.hierarchy.mode === 'under-parent' && (
             <div className="mt-3 space-y-2 rounded-md border border-gray-200 p-2 dark:border-gray-700">
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400" htmlFor="cockpit-parent-search">
+              <label
+                className="block text-xs font-medium text-gray-600 dark:text-gray-400"
+                htmlFor="cockpit-parent-search"
+              >
                 Search parent streams
               </label>
               <input
@@ -372,14 +407,20 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
                       onClick={() => toggleParent(parent.id)}
                       className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700 hover:bg-primary-100 dark:bg-primary-950 dark:text-primary-200 dark:hover:bg-primary-900"
                     >
-                <span>{workstreamReferenceText(parent)} ×</span>
+                      <span>{workstreamReferenceText(parent)} ×</span>
                     </button>
                   ))}
                 </div>
               )}
-              <div className="max-h-40 space-y-1 overflow-y-auto dark-scrollbar" role="listbox" aria-label="Parent streams">
+              <div
+                className="max-h-40 space-y-1 overflow-y-auto dark-scrollbar"
+                role="listbox"
+                aria-label="Parent streams"
+              >
                 {filteredParentCandidates.length === 0 ? (
-                  <p className="py-2 text-center text-sm text-gray-500 dark:text-gray-400">No parent streams found</p>
+                  <p className="py-2 text-center text-sm text-gray-500 dark:text-gray-400">
+                    No parent streams found
+                  </p>
                 ) : (
                   filteredParentCandidates.map((parent) => (
                     <label
@@ -392,7 +433,9 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
                         onChange={() => toggleParent(parent.id)}
                         className="h-4 w-4 rounded border-gray-300 text-primary-600 accent-primary-600 focus:ring-primary-500 dark:border-gray-500 dark:bg-gray-900 dark:text-primary-400 dark:accent-primary-400"
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{workstreamReferenceText(parent)}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        {workstreamReferenceText(parent)}
+                      </span>
                     </label>
                   ))
                 )}
@@ -403,13 +446,17 @@ export function FilterPanel({ filters, onFiltersChange, onClose }: FilterPanelPr
             <input
               type="checkbox"
               checked={localFilters.hierarchy.includeSubstreams}
-              onChange={(e) => setLocalFilters({
-                ...localFilters,
-                hierarchy: { ...localFilters.hierarchy, includeSubstreams: e.target.checked },
-              })}
+              onChange={(e) =>
+                setLocalFilters({
+                  ...localFilters,
+                  hierarchy: { ...localFilters.hierarchy, includeSubstreams: e.target.checked },
+                })
+              }
               className="h-4 w-4 rounded border-gray-300 text-primary-600 accent-primary-600 dark:border-gray-500 dark:bg-gray-900 dark:text-primary-400 dark:accent-primary-400"
             />
-            <span className="text-sm text-gray-700 dark:text-gray-300">Include sub-streams in scoped results</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              Include sub-streams in scoped results
+            </span>
           </label>
         </CollapsibleFilterSection>
       </div>
@@ -476,8 +523,8 @@ export function SortMenu({ currentSort, onSortChange, onClose }: SortMenuProps) 
           ? 'desc'
           : 'asc'
         : field === 'name'
-        ? 'asc'
-        : 'desc';
+          ? 'asc'
+          : 'desc';
 
     onSortChange({ field, direction });
     onClose();
@@ -496,14 +543,14 @@ export function SortMenu({ currentSort, onSortChange, onClose }: SortMenuProps) 
               key={option.field}
               onClick={() => handleSelect(option.field)}
               className={`flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                isActive ? 'bg-gray-50 font-medium text-primary-600 dark:bg-gray-900 dark:text-primary-300' : 'text-gray-700 dark:text-gray-300'
+                isActive
+                  ? 'bg-gray-50 font-medium text-primary-600 dark:bg-gray-900 dark:text-primary-300'
+                  : 'text-gray-700 dark:text-gray-300'
               }`}
             >
               <span>{option.label}</span>
               {isActive && (
-                <span className="text-xs">
-                  {currentSort.direction === 'asc' ? '↑' : '↓'}
-                </span>
+                <span className="text-xs">{currentSort.direction === 'asc' ? '↑' : '↓'}</span>
               )}
             </button>
           );
@@ -556,7 +603,9 @@ export function GroupMenu({ currentGroup, onGroupChange, onClose }: GroupMenuPro
               key={option.by}
               onClick={() => handleSelect(option.by)}
               className={`w-full rounded px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                isActive ? 'bg-gray-50 font-medium text-primary-600 dark:bg-gray-900 dark:text-primary-300' : 'text-gray-700 dark:text-gray-300'
+                isActive
+                  ? 'bg-gray-50 font-medium text-primary-600 dark:bg-gray-900 dark:text-primary-300'
+                  : 'text-gray-700 dark:text-gray-300'
               }`}
             >
               {option.label}

@@ -1,6 +1,6 @@
 import type { TimelineEventType } from '../hooks/useTimeline';
 import type { HierarchyFilter, SortConfig, ViewConfig } from '../types/view';
-import type { Category, Workstream } from '../types/workstream';
+import type { Category, Workstream, WorkstreamSummary } from '../types/workstream';
 
 const hierarchyModes = new Set<HierarchyFilter>(['all', 'top-level', 'sub-streams', 'no-parent', 'has-substreams', 'under-parent']);
 const timelineScopes = new Set(['all', 'top-level', 'sub-streams', 'under-parent'] as const);
@@ -79,7 +79,7 @@ function setCategoryListIfDifferent(params: URLSearchParams, current: string[], 
   }
 }
 
-function resolveWorkstreamValues(values: string[], workstreams: Workstream[] = []): string[] {
+function resolveWorkstreamValues(values: string[], workstreams: Array<Workstream | WorkstreamSummary> = []): string[] {
   const candidates = workstreamReferenceCandidates(workstreams);
 
   return values
@@ -87,7 +87,7 @@ function resolveWorkstreamValues(values: string[], workstreams: Workstream[] = [
     .filter(Boolean);
 }
 
-function workstreamSearchValue(parentIds: string[], workstreams: Workstream[] = []): string {
+function workstreamSearchValue(parentIds: string[], workstreams: Array<Workstream | WorkstreamSummary> = []): string {
   const candidates = workstreamReferenceCandidates(workstreams);
   return stableList(parentIds.map((id) => {
     const workstream = candidates.find((candidate) => candidate.id === id);
@@ -95,12 +95,12 @@ function workstreamSearchValue(parentIds: string[], workstreams: Workstream[] = 
   }));
 }
 
-function workstreamReferenceCandidates(workstreams: Workstream[] = []) {
-  return workstreams.flatMap((workstream) => [
-    workstream,
-    ...(workstream.parent ? [workstream.parent] : []),
-    ...(workstream.parentStreams ?? []),
-  ]);
+function workstreamReferenceCandidates(workstreams: Array<Workstream | WorkstreamSummary> = []) {
+  return workstreams.flatMap((workstream) => {
+    const parents = 'parent' in workstream && workstream.parent ? [workstream.parent] : [];
+    const parentStreams = 'parentStreams' in workstream ? (workstream.parentStreams ?? []) : [];
+    return [workstream, ...parents, ...parentStreams];
+  });
 }
 
 export function viewUrlValue(view: Pick<ViewConfig, 'id' | 'name'> | null | undefined): string | null {
@@ -131,7 +131,7 @@ function setListIfDifferent(params: URLSearchParams, key: string, current: strin
 export function applyCockpitSearchToConfig(
   baseConfig: ViewConfig['config'],
   searchParams: URLSearchParams,
-  options: { categories?: Category[]; workstreams?: Workstream[] } = {}
+  options: { categories?: Category[]; workstreams?: Array<Workstream | WorkstreamSummary> } = {}
 ): ViewConfig['config'] {
   const next: ViewConfig['config'] = structuredClone(baseConfig);
   const tags = splitList(searchParams.get('tags'));
@@ -174,7 +174,7 @@ export function serializeCockpitConfigSearch(
   viewId: string | null | undefined,
   currentConfig: ViewConfig['config'],
   baseConfig?: ViewConfig['config'],
-  options: { viewValue?: string | null; categories?: Category[]; workstreams?: Workstream[] } = {}
+  options: { viewValue?: string | null; categories?: Category[]; workstreams?: Array<Workstream | WorkstreamSummary> } = {}
 ): URLSearchParams {
   const params = new URLSearchParams();
   const viewValue = options.viewValue ?? viewId;
@@ -226,7 +226,7 @@ export interface TimelineUrlState {
   activity: 'all' | TimelineEventType;
 }
 
-export function parseTimelineSearch(searchParams: URLSearchParams, options: { categories?: Category[]; workstreams?: Workstream[] } = {}): TimelineUrlState {
+export function parseTimelineSearch(searchParams: URLSearchParams, options: { categories?: Category[]; workstreams?: Array<Workstream | WorkstreamSummary> } = {}): TimelineUrlState {
   const scope = searchParams.get('scope');
   const activity = searchParams.get('activity');
   const range = searchParams.get('range');
@@ -251,7 +251,7 @@ export function parseTimelineSearch(searchParams: URLSearchParams, options: { ca
   };
 }
 
-export function serializeTimelineSearch(state: TimelineUrlState, options: { categories?: Category[]; workstreams?: Workstream[] } = {}): URLSearchParams {
+export function serializeTimelineSearch(state: TimelineUrlState, options: { categories?: Category[]; workstreams?: Array<Workstream | WorkstreamSummary> } = {}): URLSearchParams {
   const params = new URLSearchParams();
   if (state.tags.length > 0) params.set('tags', stableList(state.tags));
   if (state.categoryIds.length > 0) params.set('categories', categorySearchValue(state.categoryIds, options.categories));

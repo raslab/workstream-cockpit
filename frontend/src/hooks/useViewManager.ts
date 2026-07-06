@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ViewConfig } from '../types/view';
 import * as viewsApi from '../api/views';
+import { resolveEntityParam } from '../utils/urlState';
 
 // Fallback used before saved views have loaded
 const FALLBACK_VIEW_CONFIG: ViewConfig['config'] = {
@@ -27,7 +28,7 @@ function isEqual(a: any, b: any): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-export function useViewManager() {
+export function useViewManager(options: { preferredViewValue?: string | null } = {}) {
   const queryClient = useQueryClient();
 
   // Local state for active view and current config
@@ -46,18 +47,22 @@ export function useViewManager() {
 
   // Get active view
   const activeView = useMemo(
-    () => views.find(v => v.id === activeViewId) || views.find(v => v.isDefault) || views[0],
-    [views, activeViewId]
+    () => views.find((v) => v.id === activeViewId) || views.find((v) => v.isDefault) || views[0],
+    [views, activeViewId],
   );
 
   // Initialize active view and current config when views are loaded
   useEffect(() => {
     if (views.length > 0 && !activeViewId) {
-      const defaultView = views.find(v => v.isDefault) || views[0];
-      setActiveViewId(defaultView.id);
-      setCurrentConfig(defaultView.config);
+      const preferredViewId = resolveEntityParam(options.preferredViewValue, views);
+      const initialView =
+        (preferredViewId && views.find((v) => v.id === preferredViewId)) ||
+        views.find((v) => v.isDefault) ||
+        views[0];
+      setActiveViewId(initialView.id);
+      setCurrentConfig(initialView.config);
     }
-  }, [views, activeViewId]);
+  }, [views, activeViewId, options.preferredViewValue]);
 
   // Check if current config differs from saved view config
   const hasUnsavedChanges = useMemo(() => {
@@ -80,8 +85,11 @@ export function useViewManager() {
     mutationFn: ({ viewId, input }: { viewId: string; input: viewsApi.UpdateViewDTO }) =>
       viewsApi.updateView(viewId, input),
     onSuccess: (updatedView) => {
-      queryClient.setQueryData<ViewConfig[]>(['views'], (currentViews) =>
-        currentViews?.map((view) => (view.id === updatedView.id ? updatedView : view)) ?? currentViews
+      queryClient.setQueryData<ViewConfig[]>(
+        ['views'],
+        (currentViews) =>
+          currentViews?.map((view) => (view.id === updatedView.id ? updatedView : view)) ??
+          currentViews,
       );
       if (activeViewId === updatedView.id) {
         setCurrentConfig(updatedView.config);
@@ -118,7 +126,7 @@ export function useViewManager() {
 
       return result.id;
     },
-    [currentConfig, createViewMutation, views.length]
+    [currentConfig, createViewMutation, views.length],
   );
 
   /**
@@ -131,7 +139,7 @@ export function useViewManager() {
         input: updates,
       });
     },
-    [updateViewMutation]
+    [updateViewMutation],
   );
 
   /**
@@ -139,7 +147,7 @@ export function useViewManager() {
    */
   const deleteView = useCallback(
     async (id: string) => {
-      const viewToDelete = views.find(v => v.id === id);
+      const viewToDelete = views.find((v) => v.id === id);
       if (viewToDelete?.isDefault) {
         console.warn('Cannot delete default view');
         return false;
@@ -150,7 +158,7 @@ export function useViewManager() {
 
         // If we deleted the active view, switch to default
         if (activeViewId === id) {
-          const defaultView = views.find(v => v.isDefault);
+          const defaultView = views.find((v) => v.isDefault);
           if (defaultView) {
             setActiveViewId(defaultView.id);
             setCurrentConfig(defaultView.config);
@@ -163,7 +171,7 @@ export function useViewManager() {
         return false;
       }
     },
-    [views, activeViewId, deleteViewMutation]
+    [views, activeViewId, deleteViewMutation],
   );
 
   /**
@@ -171,7 +179,7 @@ export function useViewManager() {
    */
   const switchView = useCallback(
     (id: string) => {
-      const view = views.find(v => v.id === id);
+      const view = views.find((v) => v.id === id);
       if (!view) {
         console.warn(`View ${id} not found`);
         return false;
@@ -181,7 +189,7 @@ export function useViewManager() {
       setCurrentConfig(view.config);
       return true;
     },
-    [views]
+    [views],
   );
 
   /**
@@ -213,7 +221,9 @@ export function useViewManager() {
       }
 
       // Check for duplicate names
-      const duplicate = views.find(v => v.id !== id && v.name.toLowerCase() === newName.toLowerCase());
+      const duplicate = views.find(
+        (v) => v.id !== id && v.name.toLowerCase() === newName.toLowerCase(),
+      );
       if (duplicate) {
         console.warn('A view with this name already exists');
         return false;
@@ -227,7 +237,7 @@ export function useViewManager() {
         return false;
       }
     },
-    [views, updateView]
+    [views, updateView],
   );
 
   return {

@@ -7,17 +7,41 @@ import type { ViewConfig } from '../../types/view';
 
 vi.mock('../../hooks/useCategories', () => ({
   useCategories: () => ({
-    data: [
-      { id: 'cat-1', name: 'Product', color: '#ef4444', emoji: '🚀', sortOrder: 0 },
-    ],
+    data: [{ id: 'cat-1', name: 'Product', color: '#ef4444', emoji: '🚀', sortOrder: 0 }],
   }),
+}));
+
+const useWorkstreamReferencesMock = vi.hoisted(() => vi.fn());
+
+vi.mock('../../hooks/useWorkstreamReferences', () => ({
+  useWorkstreamReferences: useWorkstreamReferencesMock,
 }));
 
 vi.mock('../../hooks/useWorkstreams', () => ({
   useWorkstreams: () => ({
     data: [
-      { id: 'parent-1', projectId: 'project-1', name: 'Parent Alpha', categoryId: null, context: null, state: 'active', createdAt: '2026-01-01T00:00:00Z', closedAt: null, allTags: [] },
-      { id: 'parent-2', projectId: 'project-1', name: 'Ops Beta', categoryId: null, context: null, state: 'active', createdAt: '2026-01-02T00:00:00Z', closedAt: null, allTags: [] },
+      {
+        id: 'parent-1',
+        projectId: 'project-1',
+        name: 'Parent Alpha',
+        categoryId: null,
+        context: null,
+        state: 'active',
+        createdAt: '2026-01-01T00:00:00Z',
+        closedAt: null,
+        allTags: [],
+      },
+      {
+        id: 'parent-2',
+        projectId: 'project-1',
+        name: 'Ops Beta',
+        categoryId: null,
+        context: null,
+        state: 'active',
+        createdAt: '2026-01-02T00:00:00Z',
+        closedAt: null,
+        allTags: [],
+      },
     ],
   }),
 }));
@@ -66,7 +90,7 @@ describe('ViewControls', () => {
         onSave={vi.fn()}
         onSaveAs={vi.fn()}
         onDiscard={vi.fn()}
-      />
+      />,
     );
 
     const controlsBar = screen.getByTestId('view-controls-bar');
@@ -78,6 +102,32 @@ describe('ViewControls', () => {
 describe('FilterPanel', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    useWorkstreamReferencesMock.mockReturnValue({
+      data: [
+        {
+          id: 'parent-1',
+          projectId: 'project-1',
+          name: 'Parent Alpha',
+          categoryId: null,
+          context: null,
+          state: 'active',
+          createdAt: '2026-01-01T00:00:00Z',
+          closedAt: null,
+          allTags: [],
+        },
+        {
+          id: 'parent-2',
+          projectId: 'project-1',
+          name: 'Ops Beta',
+          categoryId: null,
+          context: null,
+          state: 'active',
+          createdAt: '2026-01-02T00:00:00Z',
+          closedAt: null,
+          allTags: [],
+        },
+      ],
+    });
   });
 
   function renderFilterPanel() {
@@ -89,7 +139,7 @@ describe('FilterPanel', () => {
         filters={baseConfig.filters}
         onFiltersChange={onFiltersChange}
         onClose={onClose}
-      />
+      />,
     );
 
     return { ...result, onFiltersChange, onClose };
@@ -98,10 +148,19 @@ describe('FilterPanel', () => {
   it('opens with Categories expanded and Tags, Other, and Parent/sub-streams collapsed', () => {
     renderFilterPanel();
 
-    expect(screen.getByRole('button', { name: /categories/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /categories/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     expect(screen.getByRole('button', { name: /tags/i })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByRole('button', { name: /other/i })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByRole('button', { name: /parent\/sub-streams/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /other/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.getByRole('button', { name: /parent\/sub-streams/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
 
     expect(screen.getByText('Product')).toBeInTheDocument();
     expect(screen.queryByText('#Urgent')).not.toBeInTheDocument();
@@ -128,17 +187,32 @@ describe('FilterPanel', () => {
       await user.click(screen.getByRole('button', { name: /parent\/sub-streams/i }));
     });
 
-    expect(screen.getByRole('button', { name: /categories/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /categories/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
     expect(screen.getByRole('button', { name: /tags/i })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: /parent\/sub-streams/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /parent\/sub-streams/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
 
     firstRender.unmount();
     renderFilterPanel();
 
-    expect(screen.getByRole('button', { name: /categories/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /categories/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
     expect(screen.getByRole('button', { name: /tags/i })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: /other/i })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByRole('button', { name: /parent\/sub-streams/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /other/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.getByRole('button', { name: /parent\/sub-streams/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     expect(screen.queryByText('Product')).not.toBeInTheDocument();
     expect(screen.getByText('#Urgent')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /all streams/i })).toBeInTheDocument();
@@ -157,7 +231,9 @@ describe('FilterPanel', () => {
     expect(screen.getByRole('radio', { name: /no parent/i })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /has sub-streams/i })).toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: /top-level only/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: /include sub-streams in scoped results/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: /include sub-streams in scoped results/i }),
+    ).toBeInTheDocument();
 
     expect(screen.queryByRole('button', { name: /all streams/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('listbox', { name: /parent\/sub-streams/i })).not.toBeInTheDocument();
@@ -176,6 +252,32 @@ describe('FilterPanel', () => {
     });
   });
 
+  it('does not load parent stream references until under-parent controls are opened', async () => {
+    const user = userEvent.setup();
+    renderFilterPanel();
+
+    expect(useWorkstreamReferencesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ state: 'active', enabled: false }),
+    );
+    expect(useWorkstreamReferencesMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ state: 'active', enabled: true }),
+    );
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /parent\/sub-streams/i }));
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: /under the parent/i })).toBeInTheDocument(),
+    );
+    await act(async () => {
+      await user.click(screen.getByRole('radio', { name: /under the parent/i }));
+    });
+
+    expect(useWorkstreamReferencesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ state: 'active', enabled: true }),
+    );
+  });
+
   it('selects multiple under-parent filters with fuzzy parent search', async () => {
     const user = userEvent.setup();
     const { onFiltersChange } = renderFilterPanel();
@@ -183,7 +285,9 @@ describe('FilterPanel', () => {
     await act(async () => {
       await user.click(screen.getByRole('button', { name: /parent\/sub-streams/i }));
     });
-    await waitFor(() => expect(screen.getByRole('radio', { name: /under the parent/i })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: /under the parent/i })).toBeInTheDocument(),
+    );
     await act(async () => {
       await user.click(screen.getByRole('radio', { name: /under the parent/i }));
     });
@@ -202,7 +306,9 @@ describe('FilterPanel', () => {
       await user.clear(screen.getByLabelText(/search parent streams/i));
       await user.type(screen.getByLabelText(/search parent streams/i), 'beta');
       await user.click(screen.getByRole('checkbox', { name: /ops beta/i }));
-      await user.click(screen.getByRole('checkbox', { name: /include sub-streams in scoped results/i }));
+      await user.click(
+        screen.getByRole('checkbox', { name: /include sub-streams in scoped results/i }),
+      );
       await user.click(screen.getByRole('button', { name: /apply/i }));
     });
 

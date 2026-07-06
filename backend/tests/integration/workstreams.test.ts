@@ -23,11 +23,11 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await cleanDatabase();
-  
+
   // Create test user and project
   person = await createTestPerson({ email: 'test@example.com', name: 'Test User' });
   project = await createTestProject(person.id, { name: 'Test Project' });
-  
+
   // Create app with authenticated user
   app = createTestApp(workstreamsRoutes, person);
 });
@@ -79,6 +79,41 @@ describe('Workstreams API Integration Tests', () => {
       expect(response.body[0].state).toBe('closed');
     });
 
+    it('should return lightweight active workstream references without list enrichment payloads', async () => {
+      const active = await createTestWorkstream(project.id, {
+        name: 'Active Ref',
+        state: 'active',
+      });
+      const closed = await createTestWorkstream(project.id, {
+        name: 'Closed Ref',
+        state: 'closed',
+      });
+      const substream = await createTestWorkstream(project.id, {
+        name: 'Nested Ref',
+        parentId: active.id,
+        state: 'active',
+      });
+
+      const response = await request(app).get('/references?state=active');
+
+      expect(response.status).toBe(200);
+      expect(response.body.map((workstream: any) => workstream.id).sort()).toEqual(
+        [active.id, substream.id].sort(),
+      );
+      expect(response.body.map((workstream: any) => workstream.id)).not.toContain(closed.id);
+      expect(response.body.find((workstream: any) => workstream.id === substream.id)).toMatchObject(
+        {
+          name: 'Nested Ref',
+          state: 'active',
+          parentId: active.id,
+          depth: 2,
+        },
+      );
+      expect(response.body[0]).not.toHaveProperty('latestStatus');
+      expect(response.body[0]).not.toHaveProperty('statusUpdates');
+      expect(response.body[0]).not.toHaveProperty('allTags');
+    });
+
     it('should include tag information in workstream', async () => {
       const category = await createTestCategory(project.id, { name: 'urgent', color: '#FF0000' });
       await createTestWorkstream(project.id, { name: 'Tagged', categoryId: category.id });
@@ -104,13 +139,24 @@ describe('Workstreams API Integration Tests', () => {
 
     it('should preserve parent metadata when not-updated-today filters out the parent row', async () => {
       const parent = await createTestWorkstream(project.id, { name: 'Parent stream' });
-      const substream = await createTestWorkstream(project.id, { name: 'Sub-stream', parentId: parent.id });
+      const substream = await createTestWorkstream(project.id, {
+        name: 'Sub-stream',
+        parentId: parent.id,
+      });
       const parentStatus = await createTestStatusUpdate(parent.id, { status: 'Updated today' });
-      const substreamStatus = await createTestStatusUpdate(substream.id, { status: 'Not updated today' });
+      const substreamStatus = await createTestStatusUpdate(substream.id, {
+        status: 'Not updated today',
+      });
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-      await prisma.statusUpdate.update({ where: { id: parentStatus.id }, data: { createdAt: new Date(), updatedAt: new Date() } });
-      await prisma.statusUpdate.update({ where: { id: substreamStatus.id }, data: { createdAt: yesterday, updatedAt: yesterday } });
+      await prisma.statusUpdate.update({
+        where: { id: parentStatus.id },
+        data: { createdAt: new Date(), updatedAt: new Date() },
+      });
+      await prisma.statusUpdate.update({
+        where: { id: substreamStatus.id },
+        data: { createdAt: yesterday, updatedAt: yesterday },
+      });
 
       const response = await request(app).get('/?notUpdatedToday=true');
 
@@ -119,40 +165,77 @@ describe('Workstreams API Integration Tests', () => {
       expect(response.body[0].parentId).toBe(parent.id);
       expect(response.body[0].parent).toMatchObject({ id: parent.id, name: 'Parent stream' });
       expect(response.body[0].parentStreams).toEqual([
-        expect.objectContaining({ id: parent.id, name: 'Parent stream', state: 'active', parentId: null, depth: 1 }),
+        expect.objectContaining({
+          id: parent.id,
+          name: 'Parent stream',
+          state: 'active',
+          parentId: null,
+          depth: 1,
+        }),
       ]);
     });
 
     it('scopes parent views to matching sub-streams without returning the selected parent', async () => {
       const ktlo = await createTestCategory(project.id, { name: 'KTLO', color: '#00AA00' });
       const selectedParent = await createTestWorkstream(project.id, { name: 'Selected parent' });
-      const matchingDirectSubstream = await createTestWorkstream(project.id, { name: 'Matching direct sub-stream', parentId: selectedParent.id, categoryId: ktlo.id });
-      const nonMatchingDirectSubstream = await createTestWorkstream(project.id, { name: 'Non-matching direct sub-stream', parentId: selectedParent.id });
-      const intermediateSubstream = await createTestWorkstream(project.id, { name: 'Intermediate sub-stream', parentId: selectedParent.id });
-      const matchingLeafSubstream = await createTestWorkstream(project.id, { name: 'Matching leaf sub-stream', parentId: intermediateSubstream.id, categoryId: ktlo.id });
+      const matchingDirectSubstream = await createTestWorkstream(project.id, {
+        name: 'Matching direct sub-stream',
+        parentId: selectedParent.id,
+        categoryId: ktlo.id,
+      });
+      const nonMatchingDirectSubstream = await createTestWorkstream(project.id, {
+        name: 'Non-matching direct sub-stream',
+        parentId: selectedParent.id,
+      });
+      const intermediateSubstream = await createTestWorkstream(project.id, {
+        name: 'Intermediate sub-stream',
+        parentId: selectedParent.id,
+      });
+      const matchingLeafSubstream = await createTestWorkstream(project.id, {
+        name: 'Matching leaf sub-stream',
+        parentId: intermediateSubstream.id,
+        categoryId: ktlo.id,
+      });
       const otherParent = await createTestWorkstream(project.id, { name: 'Other parent' });
-      const otherSubstream = await createTestWorkstream(project.id, { name: 'Other parent sub-stream', parentId: otherParent.id, categoryId: ktlo.id });
+      const otherSubstream = await createTestWorkstream(project.id, {
+        name: 'Other parent sub-stream',
+        parentId: otherParent.id,
+        categoryId: ktlo.id,
+      });
 
       const directResponse = await request(app).get(
-        `/?state=active&categoryIds=${ktlo.id}&hierarchy=under-parent&parentId=${selectedParent.id}&includeSubstreams=false`
+        `/?state=active&categoryIds=${ktlo.id}&hierarchy=under-parent&parentId=${selectedParent.id}&includeSubstreams=false`,
       );
 
       expect(directResponse.status).toBe(200);
-      expect(directResponse.body.map((workstream: any) => workstream.id)).toEqual([matchingDirectSubstream.id]);
+      expect(directResponse.body.map((workstream: any) => workstream.id)).toEqual([
+        matchingDirectSubstream.id,
+      ]);
 
       const recursiveResponse = await request(app).get(
-        `/?state=active&categoryIds=${ktlo.id}&hierarchy=under-parent&parentId=${selectedParent.id}&includeSubstreams=true`
+        `/?state=active&categoryIds=${ktlo.id}&hierarchy=under-parent&parentId=${selectedParent.id}&includeSubstreams=true`,
       );
 
       expect(recursiveResponse.status).toBe(200);
-      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).toEqual([matchingLeafSubstream.id, matchingDirectSubstream.id]);
-      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(selectedParent.id);
-      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(nonMatchingDirectSubstream.id);
-      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(intermediateSubstream.id);
-      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(otherSubstream.id);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).toEqual([
+        matchingLeafSubstream.id,
+        matchingDirectSubstream.id,
+      ]);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(
+        selectedParent.id,
+      );
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(
+        nonMatchingDirectSubstream.id,
+      );
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(
+        intermediateSubstream.id,
+      );
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).not.toContain(
+        otherSubstream.id,
+      );
 
       const leafResponse = await request(app).get(
-        `/?state=active&hierarchy=under-parent&parentId=${matchingLeafSubstream.id}&includeSubstreams=true`
+        `/?state=active&hierarchy=under-parent&parentId=${matchingLeafSubstream.id}&includeSubstreams=true`,
       );
 
       expect(leafResponse.status).toBe(200);
@@ -165,19 +248,24 @@ describe('Workstreams API Integration Tests', () => {
       const streamC = await createTestWorkstream(project.id, { name: 'C', parentId: streamB.id });
 
       const directResponse = await request(app).get(
-        `/?state=active&hierarchy=under-parent&parentId=${streamA.id}&includeSubstreams=false`
+        `/?state=active&hierarchy=under-parent&parentId=${streamA.id}&includeSubstreams=false`,
       );
 
       expect(directResponse.status).toBe(200);
       expect(directResponse.body.map((workstream: any) => workstream.id)).toEqual([streamB.id]);
 
       const recursiveResponse = await request(app).get(
-        `/?state=active&hierarchy=under-parent&parentId=${streamA.id}&includeSubstreams=true`
+        `/?state=active&hierarchy=under-parent&parentId=${streamA.id}&includeSubstreams=true`,
       );
 
       expect(recursiveResponse.status).toBe(200);
-      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).toEqual([streamC.id, streamB.id]);
-      const nestedFromApi = recursiveResponse.body.find((workstream: any) => workstream.id === streamC.id);
+      expect(recursiveResponse.body.map((workstream: any) => workstream.id)).toEqual([
+        streamC.id,
+        streamB.id,
+      ]);
+      const nestedFromApi = recursiveResponse.body.find(
+        (workstream: any) => workstream.id === streamC.id,
+      );
       expect(nestedFromApi.parent).toMatchObject({ id: streamB.id, name: 'B' });
       expect(nestedFromApi.parentStreams).toEqual([
         expect.objectContaining({ id: streamA.id, name: 'A' }),
@@ -185,11 +273,14 @@ describe('Workstreams API Integration Tests', () => {
       ]);
 
       const overlappingParentsResponse = await request(app).get(
-        `/?state=active&hierarchy=under-parent&parentIds=${streamA.id},${streamB.id}&includeSubstreams=false`
+        `/?state=active&hierarchy=under-parent&parentIds=${streamA.id},${streamB.id}&includeSubstreams=false`,
       );
 
       expect(overlappingParentsResponse.status).toBe(200);
-      expect(overlappingParentsResponse.body.map((workstream: any) => workstream.id)).toEqual([streamC.id, streamB.id]);
+      expect(overlappingParentsResponse.body.map((workstream: any) => workstream.id)).toEqual([
+        streamC.id,
+        streamB.id,
+      ]);
 
       const browserUrlStyleResponse = await request(app)
         .get('/')
@@ -201,7 +292,10 @@ describe('Workstreams API Integration Tests', () => {
         });
 
       expect(browserUrlStyleResponse.status).toBe(200);
-      expect(browserUrlStyleResponse.body.map((workstream: any) => workstream.id)).toEqual([streamC.id, streamB.id]);
+      expect(browserUrlStyleResponse.body.map((workstream: any) => workstream.id)).toEqual([
+        streamC.id,
+        streamB.id,
+      ]);
     });
   });
 
@@ -219,7 +313,10 @@ describe('Workstreams API Integration Tests', () => {
     it('should expose stable public numbers and return workstream by public number', async () => {
       const first = await createTestWorkstream(project.id, { name: 'First Workstream' });
       const second = await createTestWorkstream(project.id, { name: 'Second Workstream' });
-      const otherPerson = await createTestPerson({ email: 'numbers-other@example.com', name: 'Other User' });
+      const otherPerson = await createTestPerson({
+        email: 'numbers-other@example.com',
+        name: 'Other User',
+      });
       const otherProject = await createTestProject(otherPerson.id, { name: 'Other Project' });
       await createTestWorkstream(otherProject.id, { name: 'Other project first' });
 
@@ -273,7 +370,10 @@ describe('Workstreams API Integration Tests', () => {
     });
 
     it('should return 404 and not create when categoryId belongs to another project', async () => {
-      const otherPerson = await createTestPerson({ email: 'other@example.com', name: 'Other User' });
+      const otherPerson = await createTestPerson({
+        email: 'other@example.com',
+        name: 'Other User',
+      });
       const otherProject = await createTestProject(otherPerson.id, { name: 'Other Project' });
       const otherCategory = await createTestCategory(otherProject.id, { name: 'other-category' });
 
@@ -410,7 +510,10 @@ describe('Workstreams API Integration Tests', () => {
     it('should return 404 and not update when categoryId belongs to another project', async () => {
       const category = await createTestCategory(project.id, { name: 'current-category' });
       const workstream = await createTestWorkstream(project.id, { categoryId: category.id });
-      const otherPerson = await createTestPerson({ email: 'other@example.com', name: 'Other User' });
+      const otherPerson = await createTestPerson({
+        email: 'other@example.com',
+        name: 'Other User',
+      });
       const otherProject = await createTestProject(otherPerson.id, { name: 'Other Project' });
       const otherCategory = await createTestCategory(otherProject.id, { name: 'other-category' });
 
@@ -450,9 +553,11 @@ describe('Workstreams API Integration Tests', () => {
     it('should return 400 when name exceeds 200 characters', async () => {
       const workstream = await createTestWorkstream(project.id);
 
-      const response = await request(app).put(`/${workstream.id}`).send({
-        name: 'a'.repeat(201),
-      });
+      const response = await request(app)
+        .put(`/${workstream.id}`)
+        .send({
+          name: 'a'.repeat(201),
+        });
 
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('Workstream name must be 200 characters or less');
@@ -493,7 +598,7 @@ describe('Workstreams API Integration Tests', () => {
     it('should reopen a closed workstream', async () => {
       const { prisma } = await import('../helpers/testDb');
       const workstream = await createTestWorkstream(project.id, { state: 'active' });
-      
+
       // Close it first
       await prisma.workstream.update({
         where: { id: workstream.id },
@@ -569,9 +674,7 @@ describe('Workstreams API Integration Tests', () => {
       const project2 = await createTestProject(person2.id);
       const workstream2 = await createTestWorkstream(project2.id);
 
-      const response = await request(app)
-        .put(`/${workstream2.id}`)
-        .send({ name: 'Hacked!' });
+      const response = await request(app).put(`/${workstream2.id}`).send({ name: 'Hacked!' });
 
       expect(response.status).toBe(404);
     });
@@ -596,11 +699,11 @@ describe('Workstreams API Integration Tests', () => {
     it('should filter workstreams by single tag in context', async () => {
       await createTestWorkstream(project.id, {
         name: 'Backend WS',
-        context: 'Working on #backend',  // Single-word tag
+        context: 'Working on #backend', // Single-word tag
       });
       await createTestWorkstream(project.id, {
         name: 'Frontend WS',
-        context: 'Building #frontend',  // Single-word tag
+        context: 'Building #frontend', // Single-word tag
       });
 
       const response = await request(app).get('/?tags=backend');
@@ -613,11 +716,11 @@ describe('Workstreams API Integration Tests', () => {
     it('should filter workstreams by multiple tags (OR logic)', async () => {
       await createTestWorkstream(project.id, {
         name: 'Backend WS',
-        context: 'Working on #backend',  // Single-word tag
+        context: 'Working on #backend', // Single-word tag
       });
       await createTestWorkstream(project.id, {
         name: 'Frontend WS',
-        context: 'Building #frontend',  // Single-word tag
+        context: 'Building #frontend', // Single-word tag
       });
       await createTestWorkstream(project.id, {
         name: 'Database WS',
@@ -658,15 +761,15 @@ describe('Workstreams API Integration Tests', () => {
       // Create workstream with tag in context
       await createTestWorkstream(project.id, {
         name: 'WS1',
-        context: 'Project #backend',  // Single-word tag
+        context: 'Project #backend', // Single-word tag
       });
-      
+
       // Create workstream with tag in status update
       const ws2 = await createTestWorkstream(project.id, { name: 'WS2' });
 
       await createTestStatusUpdate(ws2.id, {
         status: 'Update',
-        note: 'Working on #backend',  // Single-word tag
+        note: 'Working on #backend', // Single-word tag
       });
 
       const response = await request(app).get('/?tags=backend');
@@ -678,7 +781,7 @@ describe('Workstreams API Integration Tests', () => {
     it('should be case-insensitive when filtering tags', async () => {
       await createTestWorkstream(project.id, {
         name: 'WS1',
-        context: 'Working on #Backend',  // Single-word tag, test case-insensitivity
+        context: 'Working on #Backend', // Single-word tag, test case-insensitivity
       });
 
       const response = await request(app).get('/?tags=backend');
@@ -702,17 +805,17 @@ describe('Workstreams API Integration Tests', () => {
     it('should combine state and tag filters', async () => {
       await createTestWorkstream(project.id, {
         name: 'Active Backend',
-        context: '#backend',  // Single-word tag
+        context: '#backend', // Single-word tag
         state: 'active',
       });
       await createTestWorkstream(project.id, {
         name: 'Closed Backend',
-        context: '#backend',  // Single-word tag
+        context: '#backend', // Single-word tag
         state: 'closed',
       });
       await createTestWorkstream(project.id, {
         name: 'Active Frontend',
-        context: '#frontend',  // Single-word tag
+        context: '#frontend', // Single-word tag
         state: 'active',
       });
 
@@ -726,7 +829,7 @@ describe('Workstreams API Integration Tests', () => {
     it('should handle tags with hyphens and underscores', async () => {
       await createTestWorkstream(project.id, {
         name: 'WS1',
-        context: 'Working on #backend-api, #team_alpha',  // Tags separated by comma to avoid "and" word
+        context: 'Working on #backend-api, #team_alpha', // Tags separated by comma to avoid "and" word
       });
 
       const response1 = await request(app).get('/?tags=backend-api');
@@ -741,7 +844,7 @@ describe('Workstreams API Integration Tests', () => {
     it('should handle whitespace in tags query parameter', async () => {
       await createTestWorkstream(project.id, {
         name: 'WS1',
-        context: '#backend',  // Single-word tag
+        context: '#backend', // Single-word tag
       });
 
       const response = await request(app).get('/?tags= backend , frontend ');
