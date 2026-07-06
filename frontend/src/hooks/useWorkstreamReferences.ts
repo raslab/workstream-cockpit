@@ -8,8 +8,10 @@ interface UseWorkstreamReferencesOptions {
 }
 
 export function useWorkstreamReferences(options: UseWorkstreamReferencesOptions = {}) {
+  const queryOptions = { state: options.state };
+
   return useQuery<WorkstreamSummary[]>({
-    queryKey: ['workstream-references', options],
+    queryKey: ['workstream-references', queryOptions],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (options.state) params.set('state', options.state);

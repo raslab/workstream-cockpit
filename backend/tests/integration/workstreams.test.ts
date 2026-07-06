@@ -107,6 +107,7 @@ describe('Workstreams API Integration Tests', () => {
           state: 'active',
           parentId: active.id,
           depth: 2,
+          parentStreams: [expect.objectContaining({ id: active.id, name: 'Active Ref', depth: 1 })],
         },
       );
       expect(response.body[0]).not.toHaveProperty('latestStatus');
