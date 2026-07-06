@@ -3,6 +3,7 @@ import { requireUserContext } from '../middleware/userContext';
 import { getProjectsByPersonId } from '../services/projectService';
 import {
   getWorkstreams,
+  getWorkstreamReferences,
   getWorkstreamByReference,
   resolveWorkstreamId,
   createWorkstream,
@@ -121,7 +122,9 @@ function handleNextStepError(error: any, res: Response, operation: string): void
     res.status(404).json({ error: 'Next step not found' });
     return;
   }
-  if (/required|500 characters|duplicates|every open next step|closed workstream/i.test(error.message)) {
+  if (
+    /required|500 characters|duplicates|every open next step|closed workstream/i.test(error.message)
+  ) {
     res.status(400).json({ error: error.message });
     return;
   }
@@ -246,6 +249,33 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     logger.error('Error fetching workstreams:', error);
     res.status(500).json({ error: 'Failed to fetch workstreams' });
+  }
+});
+
+/**
+ * GET /api/workstreams/references
+ * Get lightweight workstream references for controls that need stream names.
+ */
+router.get('/references', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const personId = req.userContext!.personId;
+    const state = req.query.state as 'active' | 'closed' | 'all' | undefined;
+
+    if (state !== undefined && !['active', 'closed', 'all'].includes(state)) {
+      res.status(400).json({ error: 'state must be active, closed, or all' });
+      return;
+    }
+
+    const projectId = await getProjectIdForPerson(personId);
+    if (!projectId) {
+      res.json([]);
+      return;
+    }
+
+    res.json(await getWorkstreamReferences(projectId, state));
+  } catch (error) {
+    logger.error('Error fetching workstream references:', error);
+    res.status(500).json({ error: 'Failed to fetch workstream references' });
   }
 });
 
@@ -609,7 +639,14 @@ router.put('/:id/next-steps/:nextStepId', async (req: Request, res: Response): P
       res.status(404).json({ error: 'Workstream not found' });
       return;
     }
-    res.json(await updateNextStep({ projectId, workstreamId, nextStepId: req.params.nextStepId, text: req.body.text }));
+    res.json(
+      await updateNextStep({
+        projectId,
+        workstreamId,
+        nextStepId: req.params.nextStepId,
+        text: req.body.text,
+      }),
+    );
   } catch (error: any) {
     handleNextStepError(error, res, 'update');
   }
@@ -627,7 +664,13 @@ async function handleSolveNextStep(req: Request, res: Response): Promise<void> {
       res.status(404).json({ error: 'Workstream not found' });
       return;
     }
-    res.json(await solveNextStepWithDetails({ projectId, workstreamId, nextStepId: req.params.nextStepId }));
+    res.json(
+      await solveNextStepWithDetails({
+        projectId,
+        workstreamId,
+        nextStepId: req.params.nextStepId,
+      }),
+    );
   } catch (error: any) {
     handleNextStepError(error, res, 'solve');
   }
@@ -648,7 +691,13 @@ async function handleAbandonNextStep(req: Request, res: Response): Promise<void>
       res.status(404).json({ error: 'Workstream not found' });
       return;
     }
-    res.json(await abandonNextStepWithDetails({ projectId, workstreamId, nextStepId: req.params.nextStepId }));
+    res.json(
+      await abandonNextStepWithDetails({
+        projectId,
+        workstreamId,
+        nextStepId: req.params.nextStepId,
+      }),
+    );
   } catch (error: any) {
     handleNextStepError(error, res, 'abandon');
   }
@@ -713,6 +762,33 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
     }
     logger.error('Error deleting workstream:', error);
     res.status(500).json({ error: 'Failed to delete workstream' });
+  }
+});
+
+/**
+ * GET /api/workstreams/references
+ * Get lightweight workstream references for controls that need stream names.
+ */
+router.get('/references', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const personId = req.userContext!.personId;
+    const state = req.query.state as 'active' | 'closed' | 'all' | undefined;
+
+    if (state !== undefined && !['active', 'closed', 'all'].includes(state)) {
+      res.status(400).json({ error: 'state must be active, closed, or all' });
+      return;
+    }
+
+    const projectId = await getProjectIdForPerson(personId);
+    if (!projectId) {
+      res.json([]);
+      return;
+    }
+
+    res.json(await getWorkstreamReferences(projectId, state));
+  } catch (error) {
+    logger.error('Error fetching workstream references:', error);
+    res.status(500).json({ error: 'Failed to fetch workstream references' });
   }
 });
 

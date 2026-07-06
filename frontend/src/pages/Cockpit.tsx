@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { useWorkstreams } from '../hooks/useWorkstreams';
+import { useWorkstreamReferences } from '../hooks/useWorkstreamReferences';
 import { useCategories } from '../hooks/useCategories';
 import { useViewManager } from '../hooks/useViewManager';
 import { WorkstreamCard } from '../components/Workstream/WorkstreamCard';
@@ -11,7 +12,12 @@ import { ViewControls } from '../components/ViewManagement/ViewControls';
 import { ViewCreateDialog } from '../components/ViewManagement/ViewCreateDialog';
 import { Workstream } from '../types/workstream';
 import { getHierarchyTimestamp, groupWorkstreamsByParent } from '../utils/hierarchy';
-import { applyCockpitSearchToConfig, resolveEntityParam, serializeCockpitConfigSearch, viewUrlValue } from '../utils/urlState';
+import {
+  applyCockpitSearchToConfig,
+  resolveEntityParam,
+  serializeCockpitConfigSearch,
+  viewUrlValue,
+} from '../utils/urlState';
 import { WorkstreamLink } from '../components/Workstream/WorkstreamReference';
 
 function softCategoryColor(color?: string | null) {
@@ -45,30 +51,46 @@ export default function Cockpit() {
     saveCurrentView,
     discardChanges,
     renameView,
-  } = useViewManager();
+  } = useViewManager({ preferredViewValue: searchParams.get('view') });
+
+  const urlViewParam = searchParams.get('view');
+  const resolvedUrlViewId = resolveEntityParam(urlViewParam, views);
+  const hasInvalidViewParam = searchParams.has('view') && !resolvedUrlViewId;
+  const viewSelectionReady =
+    views.length > 0 &&
+    (!searchParams.has('view') || hasInvalidViewParam || resolvedUrlViewId === activeViewId);
+  const needsWorkstreamReferences = searchParams.has('parentId') || searchParams.has('parentIds');
 
   // Keep an unfiltered reference list so URL state can resolve and serialize public stream numbers
   // even when the visible list is scoped under parent streams and excludes those parents.
-  const { data: referenceWorkstreams } = useWorkstreams({ state: 'active' });
+  const { data: referenceWorkstreams } = useWorkstreamReferences({
+    state: 'active',
+    enabled: needsWorkstreamReferences,
+  });
 
   // Fetch workstreams with current filter config
-  const { data: workstreams, isLoading, error } = useWorkstreams({
+  const {
+    data: workstreams,
+    isLoading,
+    error,
+  } = useWorkstreams({
     state: 'active',
     tags: currentConfig.filters.tags.length > 0 ? currentConfig.filters.tags : undefined,
-    categoryIds: currentConfig.filters.categoryIds.length > 0 ? currentConfig.filters.categoryIds : undefined,
+    categoryIds:
+      currentConfig.filters.categoryIds.length > 0 ? currentConfig.filters.categoryIds : undefined,
     notUpdatedToday: currentConfig.filters.temporal.notUpdatedToday,
     hierarchy: currentConfig.filters.hierarchy.mode,
     parentId: currentConfig.filters.hierarchy.parentId,
     parentIds: currentConfig.filters.hierarchy.parentIds,
     includeSubstreams: currentConfig.filters.hierarchy.includeSubstreams,
+    enabled: viewSelectionReady,
   });
 
   // Apply URL view selection and filter overrides, then canonicalize the URL to the actual screen state.
   useEffect(() => {
     if (views.length === 0) return;
     if (searchParams.has('categories') && categoriesLoading) return;
-    const urlViewParam = searchParams.get('view');
-    const resolvedViewId = resolveEntityParam(urlViewParam, views);
+    const resolvedViewId = resolvedUrlViewId;
     const view =
       (resolvedViewId && views.find((candidate) => candidate.id === resolvedViewId)) ||
       views.find((candidate) => candidate.id === activeViewId) ||
@@ -77,13 +99,20 @@ export default function Cockpit() {
     if (!view) return;
 
     const urlWorkstreams = referenceWorkstreams ?? workstreams;
-    const nextConfig = applyCockpitSearchToConfig(view.config, searchParams, { categories, workstreams: urlWorkstreams });
+    const nextConfig = applyCockpitSearchToConfig(view.config, searchParams, {
+      categories,
+      workstreams: urlWorkstreams,
+    });
     const validUrlView = Boolean(resolvedViewId);
     const canonicalParams = serializeCockpitConfigSearch(
       validUrlView ? view.id : null,
       nextConfig,
       view.config,
-      { viewValue: validUrlView ? viewUrlValue(view) : null, categories, workstreams: urlWorkstreams }
+      {
+        viewValue: validUrlView ? viewUrlValue(view) : null,
+        categories,
+        workstreams: urlWorkstreams,
+      },
     );
 
     if (canonicalParams.toString() !== searchParams.toString()) {
@@ -91,7 +120,19 @@ export default function Cockpit() {
     }
     if (view.id !== activeViewId) switchView(view.id);
     setCurrentConfig(nextConfig);
-  }, [views, activeViewId, searchParams, setSearchParams, switchView, setCurrentConfig, categories, categoriesLoading, workstreams, referenceWorkstreams]);
+  }, [
+    views,
+    activeViewId,
+    searchParams,
+    setSearchParams,
+    switchView,
+    setCurrentConfig,
+    categories,
+    categoriesLoading,
+    workstreams,
+    referenceWorkstreams,
+    resolvedUrlViewId,
+  ]);
 
   const activeView = views.find((view) => view.id === activeViewId);
   const detailNavigationState = {
@@ -126,7 +167,14 @@ export default function Cockpit() {
 
   const handleConfigChange = (nextConfig: typeof currentConfig) => {
     setCurrentConfig(nextConfig);
-    setSearchParams(serializeCockpitConfigSearch(activeViewId, nextConfig, activeView?.config, { viewValue: viewUrlValue(activeView), categories, workstreams: referenceWorkstreams ?? workstreams }), { replace: true });
+    setSearchParams(
+      serializeCockpitConfigSearch(activeViewId, nextConfig, activeView?.config, {
+        viewValue: viewUrlValue(activeView),
+        categories,
+        workstreams: referenceWorkstreams ?? workstreams,
+      }),
+      { replace: true },
+    );
   };
 
   const handleSaveCurrentView = async () => {
@@ -150,7 +198,10 @@ export default function Cockpit() {
   };
 
   // Helper function to get sort comparator
-  const getSortComparator = (sortField: typeof currentConfig.sort.field, sortDir: typeof currentConfig.sort.direction) => {
+  const getSortComparator = (
+    sortField: typeof currentConfig.sort.field,
+    sortDir: typeof currentConfig.sort.direction,
+  ) => {
     return (a: Workstream, b: Workstream) => {
       let comparison = 0;
       switch (sortField) {
@@ -166,7 +217,8 @@ export default function Cockpit() {
           comparison = getHierarchyTimestamp(a, sortField) - getHierarchyTimestamp(b, sortField);
           break;
         default: {
-          comparison = getHierarchyTimestamp(a, 'lastActivityAt') - getHierarchyTimestamp(b, 'lastActivityAt');
+          comparison =
+            getHierarchyTimestamp(a, 'lastActivityAt') - getHierarchyTimestamp(b, 'lastActivityAt');
           break;
         }
       }
@@ -181,21 +233,37 @@ export default function Cockpit() {
       // Sort all workstreams returned by the API. The API owns category/tag/hierarchy filtering;
       // reapplying hierarchy client-side can drop nested sub-streams when intermediate rows are filtered out.
       const sorted = [...workstreams].sort(
-        getSortComparator(currentConfig.sort.field, currentConfig.sort.direction)
+        getSortComparator(currentConfig.sort.field, currentConfig.sort.direction),
       );
-      return [{ key: 'all', name: null, color: null, emoji: null, sortOrder: 0, parent: null, workstreams: sorted }];
+      return [
+        {
+          key: 'all',
+          name: null,
+          color: null,
+          emoji: null,
+          sortOrder: 0,
+          parent: null,
+          workstreams: sorted,
+        },
+      ];
     }
 
     if (currentConfig.group.by === 'parent') {
-      const scopedParentIds = currentConfig.filters.hierarchy.mode === 'under-parent'
-        ? currentConfig.filters.hierarchy.parentIds ?? (currentConfig.filters.hierarchy.parentId ? [currentConfig.filters.hierarchy.parentId] : [])
-        : [];
+      const scopedParentIds =
+        currentConfig.filters.hierarchy.mode === 'under-parent'
+          ? (currentConfig.filters.hierarchy.parentIds ??
+            (currentConfig.filters.hierarchy.parentId
+              ? [currentConfig.filters.hierarchy.parentId]
+              : []))
+          : [];
       return groupWorkstreamsByParent(workstreams, { scopedParentIds }).map((group, index) => ({
         ...group,
         color: null,
         emoji: null,
         sortOrder: index,
-        workstreams: group.workstreams.sort(getSortComparator(currentConfig.sort.field, currentConfig.sort.direction)),
+        workstreams: group.workstreams.sort(
+          getSortComparator(currentConfig.sort.field, currentConfig.sort.direction),
+        ),
       }));
     }
 
@@ -217,12 +285,20 @@ export default function Cockpit() {
       emoji: key === 'untagged' ? null : wsList[0].category?.emoji || null,
       sortOrder: key === 'untagged' ? 999999 : (wsList[0].category?.sortOrder ?? 999999),
       parent: null,
-      workstreams: wsList.sort(getSortComparator(currentConfig.sort.field, currentConfig.sort.direction)),
+      workstreams: wsList.sort(
+        getSortComparator(currentConfig.sort.field, currentConfig.sort.direction),
+      ),
     }));
 
     // Sort groups by category sortOrder
     return result.sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [workstreams, currentConfig.sort.field, currentConfig.sort.direction, currentConfig.group.by, currentConfig.filters.hierarchy]);
+  }, [
+    workstreams,
+    currentConfig.sort.field,
+    currentConfig.sort.direction,
+    currentConfig.group.by,
+    currentConfig.filters.hierarchy,
+  ]);
 
   const handleSaveAs = () => {
     setShowSaveAsDialog(true);
@@ -273,7 +349,9 @@ export default function Cockpit() {
 
           {!isLoading && workstreams && workstreams.length === 0 && (
             <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-              <p className="text-sm text-gray-500 dark:text-gray-400">No workstreams yet. Create your first one!</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                No workstreams yet. Create your first one!
+              </p>
             </div>
           )}
 
@@ -281,7 +359,8 @@ export default function Cockpit() {
             <div className="space-y-5">
               {groupedWorkstreams.map((group) => (
                 <div key={group.key}>
-                  {(currentConfig.group.by === 'category' || currentConfig.group.by === 'parent') && (
+                  {(currentConfig.group.by === 'category' ||
+                    currentConfig.group.by === 'parent') && (
                     <div className="mb-2 flex min-h-8 items-center gap-2">
                       <div
                         className="grid h-6 w-6 flex-none place-items-center rounded-md text-sm shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]"
@@ -297,7 +376,10 @@ export default function Cockpit() {
                             className="hover:text-primary-600 dark:hover:text-primary-400"
                           />
                         ) : (
-                          group.name || (currentConfig.group.by === 'category' ? 'Untagged' : 'Top level / no parent')
+                          group.name ||
+                          (currentConfig.group.by === 'category'
+                            ? 'Untagged'
+                            : 'Top level / no parent')
                         )}
                       </h2>
                       <span className="text-base font-medium text-gray-500 dark:text-gray-400">

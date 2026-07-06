@@ -11,6 +11,7 @@ interface UseWorkstreamsOptions {
   parentId?: string | null;
   parentIds?: string[];
   includeSubstreams?: boolean;
+  enabled?: boolean;
 }
 
 export function useWorkstreams(options: UseWorkstreamsOptions = {}) {
@@ -46,5 +47,6 @@ export function useWorkstreams(options: UseWorkstreamsOptions = {}) {
       const response = await apiClient.get(url);
       return response.data;
     },
+    enabled: options.enabled ?? true,
   });
 }
