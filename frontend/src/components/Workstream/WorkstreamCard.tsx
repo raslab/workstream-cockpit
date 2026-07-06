@@ -1,5 +1,5 @@
 import { CSSProperties, useCallback, useLayoutEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Workstream } from '../../types/workstream';
 import { formatDistanceToNow } from 'date-fns';
@@ -182,6 +182,7 @@ function MeasuredTagList({ tags }: { tags: string[] }) {
 }
 
 export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
+  const location = useLocation();
   const { category, latestStatus, allTags } = workstream;
   const [showDialog, setShowDialog] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -209,6 +210,14 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
     '--workstream-category': categoryColor,
     '--workstream-category-soft': categorySoftColor,
   } as CSSProperties;
+  const detailNavigationState = {
+    from: {
+      pathname: location.pathname,
+      search: location.search,
+      hash: location.hash,
+      label: 'Cockpit',
+    },
+  };
 
   const closeMutation = useMutation({
     mutationFn: async (workstreamId: string) => {
@@ -250,7 +259,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
 
         <div className="relative z-10 col-start-3 row-start-1 min-w-0 pl-3 pr-36 pt-3">
           <h3 className={`text-base font-semibold leading-tight text-gray-900 dark:text-gray-100 ${workstream.state === 'closed' ? 'text-gray-600 dark:text-gray-400' : ''}`}>
-            <WorkstreamLink workstream={workstream} />
+            <WorkstreamLink workstream={workstream} state={detailNavigationState} />
           </h3>
         </div>
 
@@ -266,6 +275,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
         {workstream.parent && (
           <Link
             to={workstreamPath(workstream.parent)}
+            state={detailNavigationState}
             className="relative z-10 col-start-3 col-end-5 row-start-2 mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden pl-3 pr-36 text-xs text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400"
           >
             <ParentIcon />
@@ -275,6 +285,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
 
         <Link
           to={workstreamPath(workstream)}
+          state={detailNavigationState}
           className={`relative z-10 col-start-3 col-end-4 min-w-0 pl-3 pr-2 ${workstream.parent ? 'row-start-3 mt-1' : 'row-start-2 mt-1'}`}
         >
           {latestStatus ? (
@@ -296,7 +307,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
               <SubstreamIcon />
               <strong className="flex-none whitespace-nowrap font-bold text-gray-700 dark:text-gray-200">Sub-stream:</strong>
               <span className="flex-none whitespace-nowrap">{substreamActivityAge}{sourceStream ? ' via' : ''}</span>
-              {sourceStream && <WorkstreamLink workstream={sourceStream} className="min-w-0 flex-1 truncate text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200" />}
+              {sourceStream && <WorkstreamLink workstream={sourceStream} state={detailNavigationState} className="min-w-0 flex-1 truncate text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200" />}
             </span>
           )}
         </div>

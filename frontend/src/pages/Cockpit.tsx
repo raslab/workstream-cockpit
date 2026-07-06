@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { useWorkstreams } from '../hooks/useWorkstreams';
 import { useCategories } from '../hooks/useCategories';
 import { useViewManager } from '../hooks/useViewManager';
@@ -26,6 +26,7 @@ function softCategoryColor(color?: string | null) {
 }
 
 export default function Cockpit() {
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showSaveAsDialog, setShowSaveAsDialog] = useState(false);
@@ -93,6 +94,14 @@ export default function Cockpit() {
   }, [views, activeViewId, searchParams, setSearchParams, switchView, setCurrentConfig, categories, categoriesLoading, workstreams, referenceWorkstreams]);
 
   const activeView = views.find((view) => view.id === activeViewId);
+  const detailNavigationState = {
+    from: {
+      pathname: location.pathname,
+      search: location.search,
+      hash: location.hash,
+      label: 'Cockpit',
+    },
+  };
 
   const handleViewChange = (id: string) => {
     if (switchView(id)) {
@@ -284,6 +293,7 @@ export default function Cockpit() {
                         {currentConfig.group.by === 'parent' && group.parent ? (
                           <WorkstreamLink
                             workstream={group.parent}
+                            state={detailNavigationState}
                             className="hover:text-primary-600 dark:hover:text-primary-400"
                           />
                         ) : (

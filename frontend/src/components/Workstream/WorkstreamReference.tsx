@@ -32,11 +32,13 @@ export function WorkstreamLink({
   children,
   className = defaultReferenceClassName,
   numberClassName = defaultNumberClassName,
+  state,
 }: {
   workstream: WorkstreamRef;
   children?: ReactNode;
   className?: string;
   numberClassName?: string;
+  state?: unknown;
 }) {
   const inRouter = useInRouterContext();
   const href = workstreamPath(workstream);
@@ -44,7 +46,7 @@ export function WorkstreamLink({
   if (!inRouter) return <a href={href} className={className} title={workstreamName(workstream)}>{content}</a>;
 
   return (
-    <Link to={href} className={className} title={workstreamName(workstream)}>
+    <Link to={href} state={state} className={className} title={workstreamName(workstream)}>
       {content}
     </Link>
   );

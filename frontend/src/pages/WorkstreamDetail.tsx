@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { Workstream, StatusUpdate, NextStep } from '../types/workstream';
@@ -31,6 +31,7 @@ import {
   WorkstreamLink,
   WorkstreamNumber,
   WorkstreamReferenceContent,
+  workstreamReferenceText,
   workstreamPath,
 } from '../components/Workstream/WorkstreamReference';
 
@@ -239,6 +240,26 @@ function reorderStepIds(
   const [step] = reordered.splice(index, 1);
   reordered.splice(targetIndex, 0, step);
   return reordered.map((nextStep) => nextStep.id);
+}
+
+type NavigationOrigin = {
+  pathname: string;
+  search?: string;
+  hash?: string;
+  label?: string;
+};
+
+function isSafeNavigationOrigin(value: unknown): value is NavigationOrigin {
+  if (!value || typeof value !== 'object') return false;
+  const origin = value as Partial<NavigationOrigin>;
+  return (
+    typeof origin.pathname === 'string' &&
+    origin.pathname.startsWith('/') &&
+    !origin.pathname.startsWith('//') &&
+    (origin.search === undefined || typeof origin.search === 'string') &&
+    (origin.hash === undefined || typeof origin.hash === 'string') &&
+    (origin.label === undefined || typeof origin.label === 'string')
+  );
 }
 
 function NextStepsSection({
@@ -451,6 +472,7 @@ function NextStepsSection({
 export default function WorkstreamDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [showNewStatusDialog, setShowNewStatusDialog] = useState(false);
@@ -597,15 +619,34 @@ export default function WorkstreamDetail() {
     workstream.lastSubstreamActivityAt ||
     workstream.latestSubstreamActivitySource?.lastActivityAt ||
     workstream.latestSubstreamActivitySource?.updatedAt;
+  const origin = isSafeNavigationOrigin((location.state as { from?: unknown } | null)?.from)
+    ? (location.state as { from: NavigationOrigin }).from
+    : null;
+  const backButtonLabel = origin?.label ? `← Back to ${origin.label}` : '← Back to Cockpit';
+  const detailNavigationState = {
+    from: {
+      pathname: location.pathname,
+      search: location.search,
+      hash: location.hash,
+      label: workstreamReferenceText(workstream),
+    },
+  };
+  const handleBack = () => {
+    if (origin) {
+      navigate(-1);
+      return;
+    }
+    navigate('/');
+  };
 
   return (
     <>
       <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <button
-          onClick={() => navigate('/')}
+          onClick={handleBack}
           className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
         >
-          ← Back to Cockpit
+          {backButtonLabel}
         </button>
 
         <article
@@ -652,7 +693,7 @@ export default function WorkstreamDetail() {
                             )}
                           </span>
                         ) : (
-                          <WorkstreamLink workstream={crumb} />
+                          <WorkstreamLink workstream={crumb} state={detailNavigationState} />
                         )}
                       </span>
                     );
@@ -838,6 +879,7 @@ export default function WorkstreamDetail() {
                             {isSubstreamUpdate && updateSource && updateSourceId && (
                               <WorkstreamLink
                                 workstream={updateSource}
+                                state={detailNavigationState}
                                 className="w-fit rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700 hover:text-blue-800 dark:bg-blue-900 dark:text-blue-200 dark:hover:text-blue-100"
                               />
                             )}
@@ -847,6 +889,7 @@ export default function WorkstreamDetail() {
                             {isSubstreamUpdate && updateSource && updateSourceId ? (
                               <Link
                                 to={workstreamPath(updateSource)}
+                                state={detailNavigationState}
                                 className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                               >
                                 Open sub-stream
@@ -949,6 +992,7 @@ export default function WorkstreamDetail() {
                         <Link
                           key={substream.id}
                           to={workstreamPath(substream)}
+                          state={detailNavigationState}
                           className="rounded-lg border border-gray-200 bg-white p-3 hover:border-primary-300 hover:shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:hover:border-primary-700"
                         >
                           <div className="flex justify-between gap-3 text-sm font-bold text-gray-900 dark:text-gray-100">
@@ -989,6 +1033,7 @@ export default function WorkstreamDetail() {
                         <dd className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
                           <WorkstreamLink
                             workstream={workstream.parent}
+                            state={detailNavigationState}
                             className="text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200"
                           />
                         </dd>
@@ -1024,6 +1069,7 @@ export default function WorkstreamDetail() {
                                 •{' '}
                                 <WorkstreamLink
                                   workstream={workstream.latestSubstreamActivitySource}
+                                  state={detailNavigationState}
                                   className="text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200"
                                 />
                               </>
