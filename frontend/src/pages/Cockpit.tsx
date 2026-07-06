@@ -46,9 +46,15 @@ export default function Cockpit() {
     renameView,
   } = useViewManager();
 
+  const urlViewParam = searchParams.get('view');
+  const resolvedUrlViewId = resolveEntityParam(urlViewParam, views);
+  const hasInvalidViewParam = searchParams.has('view') && !resolvedUrlViewId;
+  const viewSelectionReady = views.length > 0 && (!searchParams.has('view') || hasInvalidViewParam || resolvedUrlViewId === activeViewId);
+  const needsWorkstreamReferences = searchParams.has('parentId') || searchParams.has('parentIds');
+
   // Keep an unfiltered reference list so URL state can resolve and serialize public stream numbers
   // even when the visible list is scoped under parent streams and excludes those parents.
-  const { data: referenceWorkstreams } = useWorkstreams({ state: 'active' });
+  const { data: referenceWorkstreams } = useWorkstreams({ state: 'active', enabled: needsWorkstreamReferences });
 
   // Fetch workstreams with current filter config
   const { data: workstreams, isLoading, error } = useWorkstreams({
@@ -60,14 +66,14 @@ export default function Cockpit() {
     parentId: currentConfig.filters.hierarchy.parentId,
     parentIds: currentConfig.filters.hierarchy.parentIds,
     includeSubstreams: currentConfig.filters.hierarchy.includeSubstreams,
+    enabled: viewSelectionReady,
   });
 
   // Apply URL view selection and filter overrides, then canonicalize the URL to the actual screen state.
   useEffect(() => {
     if (views.length === 0) return;
     if (searchParams.has('categories') && categoriesLoading) return;
-    const urlViewParam = searchParams.get('view');
-    const resolvedViewId = resolveEntityParam(urlViewParam, views);
+    const resolvedViewId = resolvedUrlViewId;
     const view =
       (resolvedViewId && views.find((candidate) => candidate.id === resolvedViewId)) ||
       views.find((candidate) => candidate.id === activeViewId) ||
@@ -90,7 +96,7 @@ export default function Cockpit() {
     }
     if (view.id !== activeViewId) switchView(view.id);
     setCurrentConfig(nextConfig);
-  }, [views, activeViewId, searchParams, setSearchParams, switchView, setCurrentConfig, categories, categoriesLoading, workstreams, referenceWorkstreams]);
+  }, [views, activeViewId, searchParams, setSearchParams, switchView, setCurrentConfig, categories, categoriesLoading, workstreams, referenceWorkstreams, resolvedUrlViewId]);
 
   const activeView = views.find((view) => view.id === activeViewId);
 

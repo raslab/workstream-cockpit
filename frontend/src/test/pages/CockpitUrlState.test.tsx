@@ -89,6 +89,7 @@ function renderCockpit(initialEntry: string) {
 
 describe('Cockpit URL state', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     viewsApiMock.getViews.mockResolvedValue(views);
     useWorkstreamsMock.mockReturnValue({ data: [], isLoading: false, error: null });
     useCategoriesMock.mockReturnValue({ data: [{ id: 'cat-1', name: 'Platform Team', color: '#2563eb', sortOrder: 1 }] });
@@ -106,6 +107,23 @@ describe('Cockpit URL state', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Set frontend tag' }));
     expect(screen.getByTestId('location')).toHaveTextContent('?view=default-view&tags=frontend');
+  });
+
+  it('loads a saved view with only the scoped workstream request for that view', async () => {
+    renderCockpit('/?view=tagged-view');
+
+    await waitFor(() => expect(screen.getByTestId('active-view')).toHaveTextContent('view-tagged-id'));
+    await waitFor(() => expect(useWorkstreamsMock).toHaveBeenCalledWith(expect.objectContaining({ state: 'active', tags: ['backend'], categoryIds: ['cat-1'], notUpdatedToday: false, includeSubstreams: false })));
+
+    const enabledWorkstreamCalls = useWorkstreamsMock.mock.calls
+      .map(([options]) => options)
+      .filter((options) => options.enabled !== false);
+
+    expect(enabledWorkstreamCalls).toEqual(expect.arrayContaining([
+      expect.objectContaining({ state: 'active', tags: ['backend'], categoryIds: ['cat-1'], notUpdatedToday: false, includeSubstreams: false }),
+    ]));
+    expect(enabledWorkstreamCalls).not.toContainEqual({ state: 'active' });
+    expect(enabledWorkstreamCalls).not.toContainEqual(expect.objectContaining({ state: 'active', tags: undefined, categoryIds: undefined }));
   });
 
   it('leaves missing view params omitted and removes invalid view params from the URL', async () => {
