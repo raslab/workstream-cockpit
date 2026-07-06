@@ -15,9 +15,19 @@ function sortOpenNextSteps(steps: NextStep[] = []) {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-export function useNextSteps(workstreamId: string | undefined) {
+export function useNextSteps(
+  workstreamId: string | undefined,
+  additionalWorkstreamReferences: string[] = [],
+) {
   const queryClient = useQueryClient();
   const queryKey = ['next-steps', workstreamId];
+  const affectedWorkstreamReferences = Array.from(
+    new Set(
+      [workstreamId, ...additionalWorkstreamReferences].filter(
+        (reference): reference is string => Boolean(reference),
+      ),
+    ),
+  );
 
   const query = useQuery<NextStep[]>({
     queryKey,
@@ -28,13 +38,17 @@ export function useNextSteps(workstreamId: string | undefined) {
 
   const invalidateNextSteps = () => {
     queryClient.invalidateQueries({ queryKey });
-    queryClient.invalidateQueries({ queryKey: ['workstream', workstreamId] });
+    affectedWorkstreamReferences.forEach((reference) => {
+      queryClient.invalidateQueries({ queryKey: ['workstream', reference] });
+    });
     queryClient.invalidateQueries({ queryKey: ['workstreams'] });
   };
 
   const invalidateMovement = () => {
     invalidateNextSteps();
-    queryClient.invalidateQueries({ queryKey: ['status-updates', workstreamId] });
+    affectedWorkstreamReferences.forEach((reference) => {
+      queryClient.invalidateQueries({ queryKey: ['status-updates', reference] });
+    });
     queryClient.invalidateQueries({ queryKey: ['timeline'] });
   };
 

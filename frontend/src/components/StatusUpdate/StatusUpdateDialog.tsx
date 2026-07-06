@@ -7,6 +7,7 @@ import { WorkstreamLink } from '../Workstream/WorkstreamReference';
 
 interface StatusUpdateDialogProps {
   workstreamId: string;
+  workstreamReferenceId?: string;
   workstreamName: string;
   workstreamNumber?: number;
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface StatusUpdateDialogProps {
 
 export function StatusUpdateDialog({
   workstreamId,
+  workstreamReferenceId,
   workstreamName,
   workstreamNumber,
   isOpen,
@@ -32,9 +34,18 @@ export function StatusUpdateDialog({
       return response.data;
     },
     onSuccess: () => {
+      const affectedWorkstreamReferences = Array.from(
+        new Set(
+          [workstreamId, workstreamReferenceId].filter(
+            (reference): reference is string => Boolean(reference),
+          ),
+        ),
+      );
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
-      queryClient.invalidateQueries({ queryKey: ['status-updates', workstreamId] });
-      queryClient.invalidateQueries({ queryKey: ['workstream', workstreamId] });
+      affectedWorkstreamReferences.forEach((reference) => {
+        queryClient.invalidateQueries({ queryKey: ['status-updates', reference] });
+        queryClient.invalidateQueries({ queryKey: ['workstream', reference] });
+      });
       queryClient.invalidateQueries({ queryKey: ['timeline'] });
       setStatus('');
       setNote('');
