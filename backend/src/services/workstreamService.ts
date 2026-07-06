@@ -280,6 +280,106 @@ async function enrichWorkstreams<T extends Workstream & { statusUpdates?: Status
   });
 }
 
+async function collectDetailHierarchyRows(workstream: Workstream, projectId: string): Promise<Workstream[]> {
+  const rowsById = new Map<string, Workstream>([[workstream.id, workstream]]);
+
+  let parentId = workstream.parentId;
+  const seenAncestorIds = new Set<string>([workstream.id]);
+  while (parentId && !seenAncestorIds.has(parentId)) {
+    const parent = await prisma.workstream.findFirst({ where: { id: parentId, projectId } });
+    if (!parent) break;
+    rowsById.set(parent.id, parent);
+    seenAncestorIds.add(parent.id);
+    parentId = parent.parentId;
+  }
+
+  let frontier = [workstream.id];
+  const seenDescendantIds = new Set<string>(frontier);
+  while (frontier.length > 0) {
+    const children = await prisma.workstream.findMany({ where: { projectId, parentId: { in: frontier } }, orderBy: { createdAt: 'desc' } });
+    frontier = [];
+    for (const child of children) {
+      if (seenDescendantIds.has(child.id)) continue;
+      rowsById.set(child.id, child);
+      seenDescendantIds.add(child.id);
+      frontier.push(child.id);
+    }
+  }
+
+  return Array.from(rowsById.values());
+}
+
+async function enrichWorkstreamDetail<T extends Workstream & { statusUpdates?: StatusUpdate[]; category?: any }>(row: T): Promise<WorkstreamWithLatestStatus> {
+  const projectId = row.projectId;
+  const hierarchyRows = await collectDetailHierarchyRows(row, projectId);
+  const byId = new Map(hierarchyRows.map(ws => [ws.id, ws]));
+  const substreamsByParent = buildSubstreamsByParent(hierarchyRows);
+  const scopedIds = hierarchyRows.map(ws => ws.id);
+
+  const latestUpdates = await prisma.statusUpdate.findMany({ where: { workstreamId: { in: scopedIds }, impact: 'active' }, orderBy: { createdAt: 'desc' } });
+  const latestByWorkstream = new Map<string, StatusUpdate>();
+  for (const update of latestUpdates) if (!latestByWorkstream.has(update.workstreamId)) latestByWorkstream.set(update.workstreamId, update);
+
+  const nextStepCounts = await prisma.nextStep.groupBy({ by: ['workstreamId'], where: { workstreamId: { in: scopedIds } }, _count: { _all: true } });
+  const nextStepCountByWorkstream = new Map(nextStepCounts.map(count => [count.workstreamId, count._count._all]));
+
+  const structuralEvents = await prisma.workstreamEvent.findMany({ where: { workstreamId: { in: scopedIds } }, orderBy: { createdAt: 'desc' } });
+  const latestEventByWorkstream = new Map<string, any>();
+  for (const event of structuralEvents) if (!latestEventByWorkstream.has(event.workstreamId)) latestEventByWorkstream.set(event.workstreamId, event);
+
+  const computeActivityMetadata = (workstreamId: string, directLatestOverride?: StatusUpdate): ActivityMetadata => {
+    const directLatest = directLatestOverride ?? latestByWorkstream.get(workstreamId);
+    const descendantIds = substreamIds(workstreamId, substreamsByParent);
+    let latestSubstreamActivityAt: Date | null = null;
+    let latestSubstreamActivitySource: LatestSubstreamActivitySource | null = null;
+    for (const descendantId of descendantIds) {
+      const update = latestByWorkstream.get(descendantId);
+      const event = latestEventByWorkstream.get(descendantId);
+      const sourceWorkstream = byId.get(descendantId);
+      const candidate = update && (!event || update.createdAt >= event.createdAt)
+        ? { at: update.createdAt, source: { id: descendantId, number: sourceWorkstream?.number, workstreamId: descendantId, workstreamName: sourceWorkstream?.name ?? '', name: sourceWorkstream?.name ?? '', updateId: update.id, createdAt: update.createdAt } }
+        : event
+          ? { at: event.createdAt, source: { id: descendantId, number: sourceWorkstream?.number, workstreamId: descendantId, workstreamName: sourceWorkstream?.name ?? '', name: sourceWorkstream?.name ?? '', eventId: event.id, eventType: event.eventType, createdAt: event.createdAt } }
+          : null;
+      if (candidate && (!latestSubstreamActivityAt || candidate.at > latestSubstreamActivityAt)) {
+        latestSubstreamActivityAt = candidate.at;
+        latestSubstreamActivitySource = candidate.source;
+      }
+    }
+    const lastDirectUpdateAt = directLatest?.createdAt ?? null;
+    const lastActivityAt = [lastDirectUpdateAt, latestSubstreamActivityAt].filter(Boolean).sort((a, b) => (b as Date).getTime() - (a as Date).getTime())[0] as Date | undefined;
+    return { lastDirectUpdateAt, lastSubstreamActivityAt: latestSubstreamActivityAt, lastActivityAt: lastActivityAt ?? null, latestSubstreamActivitySource };
+  };
+
+  const statusUpdates: StatusUpdate[] = row.statusUpdates ?? [];
+  const directLatest = statusUpdates[0] ?? latestByWorkstream.get(row.id);
+  const activity = computeActivityMetadata(row.id, directLatest);
+  const directSubstreams = substreamsByParent.get(row.id) ?? [];
+  const depth = computeDepth(row, byId);
+  const parentStreams = computeParentStreams(row, byId).map(parentStream => publicParent(parentStream, computeDepth(parentStream, byId))!);
+  const parent = publicParent(row.parentId ? byId.get(row.parentId) : null, row.parentId ? depth - 1 : undefined);
+  const workstreamData = { ...row } as any;
+  delete workstreamData.statusUpdates;
+  const latestStatus = directLatest || undefined;
+  const texts = [row.context, ...(statusUpdates.length ? statusUpdates : latestStatus ? [latestStatus] : []).flatMap(su => [su.status, su.note])];
+
+  return {
+    ...workstreamData,
+    latestStatus,
+    allTags: extractTagsFromFields(...texts),
+    parent,
+    parentStreams,
+    substreams: directSubstreams.map(substream => publicParent(substream, depth + 1, computeActivityMetadata(substream.id))!),
+    substreamCount: directSubstreams.length,
+    directSubstreamCount: directSubstreams.length,
+    activeSubstreamCount: directSubstreams.filter(substream => substream.state === 'active').length,
+    closedSubstreamCount: directSubstreams.filter(substream => substream.state === 'closed').length,
+    nextStepCount: nextStepCountByWorkstream.get(row.id) ?? 0,
+    depth,
+    ...activity,
+  };
+}
+
 async function assertCategoryBelongsToProject(client: PrismaExecutor, categoryId: string | null | undefined, projectId: string): Promise<void> {
   if (categoryId === undefined || categoryId === null) return;
   const category = await client.category.findFirst({ where: { id: categoryId, projectId }, select: { id: true } });
@@ -372,7 +472,7 @@ export async function getWorkstreamById(workstreamId: string, projectId: string)
       },
     });
     if (!workstream) return null;
-    return (await enrichWorkstreams([workstream], true))[0];
+    return enrichWorkstreamDetail(workstream);
   } catch (error) {
     logger.error('Error getting workstream by ID:', error);
     throw error;

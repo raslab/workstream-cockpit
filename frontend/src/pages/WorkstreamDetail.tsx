@@ -1050,23 +1050,29 @@ export default function WorkstreamDetail() {
         />
       )}
 
-      <WorkstreamEditDialog
-        workstream={workstream}
-        isOpen={showEditDialog}
-        onClose={() => setShowEditDialog(false)}
-      />
+      {showEditDialog && (
+        <WorkstreamEditDialog
+          workstream={workstream}
+          isOpen={showEditDialog}
+          onClose={() => setShowEditDialog(false)}
+        />
+      )}
 
-      <WorkstreamCreateDialog
-        isOpen={showCreateSubstreamDialog}
-        onClose={() => setShowCreateSubstreamDialog(false)}
-        parent={workstream}
-      />
+      {showCreateSubstreamDialog && (
+        <WorkstreamCreateDialog
+          isOpen={showCreateSubstreamDialog}
+          onClose={() => setShowCreateSubstreamDialog(false)}
+          parent={workstream}
+        />
+      )}
 
-      <ParentSelectorDialog
-        workstream={workstream}
-        isOpen={showParentDialog}
-        onClose={() => setShowParentDialog(false)}
-      />
+      {showParentDialog && (
+        <ParentSelectorDialog
+          workstream={workstream}
+          isOpen={showParentDialog}
+          onClose={() => setShowParentDialog(false)}
+        />
+      )}
     </>
   );
 }
