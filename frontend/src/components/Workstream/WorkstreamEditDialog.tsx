@@ -12,9 +12,15 @@ interface WorkstreamEditDialogProps {
   workstream: Workstream;
   isOpen: boolean;
   onClose: () => void;
+  onUpdated?: (workstream: Workstream) => void;
 }
 
-export function WorkstreamEditDialog({ workstream, isOpen, onClose }: WorkstreamEditDialogProps) {
+export function WorkstreamEditDialog({
+  workstream,
+  isOpen,
+  onClose,
+  onUpdated,
+}: WorkstreamEditDialogProps) {
   const [name, setName] = useState(workstream.name);
   const [categoryId, setCategoryId] = useState<string>(workstream.categoryId || '');
   const [context, setContext] = useState(workstream.context || '');
@@ -37,7 +43,15 @@ export function WorkstreamEditDialog({ workstream, isOpen, onClose }: Workstream
       const response = await apiClient.put(`/api/workstreams/${workstream.id}`, data);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (updatedWorkstream: Workstream) => {
+      queryClient.setQueryData(['workstream', workstream.id], updatedWorkstream);
+      queryClient.setQueriesData<Workstream[]>({ queryKey: ['workstreams'] }, (oldWorkstreams) => {
+        if (!Array.isArray(oldWorkstreams)) return oldWorkstreams;
+        return oldWorkstreams.map((cachedWorkstream) =>
+          cachedWorkstream.id === updatedWorkstream.id ? updatedWorkstream : cachedWorkstream,
+        );
+      });
+      onUpdated?.(updatedWorkstream);
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
       queryClient.invalidateQueries({ queryKey: ['workstream', workstream.id] });
       onClose();
