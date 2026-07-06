@@ -1035,6 +1035,7 @@ export default function WorkstreamDetail() {
 
       <StatusUpdateDialog
         workstreamId={workstream.id}
+        workstreamReferenceId={id}
         workstreamName={workstream.name}
         workstreamNumber={workstream.number}
         isOpen={showNewStatusDialog}
