@@ -319,6 +319,7 @@ describe('resource change notifications', () => {
     expect(screen.getByRole('button', { name: /notifications/i })).toHaveTextContent('1');
 
     await userEvent.click(screen.getByRole('button', { name: /notifications/i }));
+    expect(screen.queryByText('Stream changed. Refresh to see updates.')).not.toBeInTheDocument();
     expect(screen.getByText('Status history created')).toBeInTheDocument();
     expect(screen.getByText('Refresh current view')).toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: /recent changes/i })).toHaveClass('z-50');

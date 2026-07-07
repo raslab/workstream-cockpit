@@ -567,7 +567,7 @@ export function NotificationCenter() {
         </div>
       )}
 
-      {isCurrentScreenStale && (
+      {isCurrentScreenStale && !isOpen && (
         <div className="absolute right-0 top-12 z-50 w-80 rounded-lg border border-primary-200 bg-white p-3 shadow-lg dark:border-primary-800 dark:bg-gray-800">
           <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{staleMessage}</p>
           <div className="mt-3 flex items-center gap-2">
