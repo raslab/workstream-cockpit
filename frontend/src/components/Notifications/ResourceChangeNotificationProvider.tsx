@@ -12,6 +12,7 @@ import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { apiClient } from '../../api/client';
+import { getResourceChangeClientId } from '../../utils/resourceChangeClient';
 
 type ResourceType = 'workstream' | 'status_update' | 'next_step' | 'view' | 'category' | 'tag';
 type ResourceOperation =
@@ -32,6 +33,10 @@ export interface ResourceChangeNotification {
   operation: ResourceOperation;
   workstreamId: string | null;
   changedAt: string;
+  metadata?: {
+    correlationId?: string;
+    originClientId?: string;
+  } | null;
 }
 
 interface ResourceChangeResponse {
@@ -40,7 +45,8 @@ interface ResourceChangeResponse {
 }
 
 type ScreenRegistration =
-  | { screen: 'cockpit' | 'timeline' | 'archive' }
+  | { screen: 'cockpit'; workstreamIds?: string[] }
+  | { screen: 'timeline' | 'archive' }
   | { screen: 'settings'; section?: 'views' | 'categories' | 'tags' | 'general' }
   | { screen: 'stream-detail'; workstreamId?: string | null };
 
@@ -112,11 +118,21 @@ function notificationText(change: ResourceChangeNotification): string {
   return change.resourceLabel ? `${base}: ${change.resourceLabel}` : base;
 }
 
+function changedWorkstreamId(change: ResourceChangeNotification): string | null {
+  if (change.workstreamId) return change.workstreamId;
+  if (change.resourceType === 'workstream') return change.resourceId;
+  return null;
+}
+
 function isChangeRelevantToScreen(
   change: ResourceChangeNotification,
   screen: ScreenRegistration,
 ): boolean {
-  if (screen.screen === 'cockpit') return true;
+  if (screen.screen === 'cockpit') {
+    if (!screen.workstreamIds) return true;
+    const workstreamId = changedWorkstreamId(change);
+    return Boolean(workstreamId && screen.workstreamIds.includes(workstreamId));
+  }
   if (screen.screen === 'timeline' || screen.screen === 'archive') {
     return ['workstream', 'status_update', 'category', 'tag'].includes(change.resourceType);
   }
@@ -173,17 +189,19 @@ async function fetchResourceChanges(cursor: string | null): Promise<ResourceChan
 export function resourceChangeSocketUrl(
   apiBaseUrl = import.meta.env.VITE_API_URL,
   origin = window.location.origin,
+  clientId?: string,
 ): string {
   const endpoint = '/api/resource-changes/stream';
   const isAbsoluteBase = Boolean(apiBaseUrl?.match(/^[a-z][a-z\d+.-]*:\/\//i));
   const base = isAbsoluteBase ? apiBaseUrl : origin;
   const url = new URL(endpoint, base);
+  if (clientId) url.searchParams.set('clientId', clientId);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   return url.toString();
 }
 
-function defaultCreateSocket(): WebSocket {
-  return new WebSocket(resourceChangeSocketUrl());
+function defaultCreateSocket(clientId: string): WebSocket {
+  return new WebSocket(resourceChangeSocketUrl(undefined, undefined, clientId));
 }
 
 function mergeRecentChanges(
@@ -202,11 +220,13 @@ export function ResourceChangeNotificationProvider({
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
   fetchChanges,
   createSocket,
+  clientId,
 }: {
   children: ReactNode;
   pollIntervalMs?: number;
   fetchChanges?: (cursor: string | null) => Promise<ResourceChangeResponse>;
   createSocket?: () => WebSocket;
+  clientId?: string;
 }) {
   const queryClient = useQueryClient();
   const location = useLocation();
@@ -214,7 +234,7 @@ export function ResourceChangeNotificationProvider({
   const cursorRef = useRef<string | null>(null);
   const [hasBaseline, setHasBaseline] = useState(false);
   const [notifications, setNotifications] = useState<ResourceChangeNotification[]>([]);
-  const [unseenCount, setUnseenCount] = useState(0);
+  const [unseenGroupIds, setUnseenGroupIds] = useState<Set<string>>(new Set());
   const [staleChangeIds, setStaleChangeIds] = useState<Set<string>>(new Set());
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [dirtyRefreshBlocked, setDirtyRefreshBlocked] = useState(false);
@@ -222,24 +242,40 @@ export function ResourceChangeNotificationProvider({
   const dirtySourcesRef = useRef(new Map<string, boolean>());
   const screenRef = useRef<ScreenRegistration | null>(null);
   const fetcher = fetchChanges ?? fetchResourceChanges;
-  const socketFactory = createSocket ?? defaultCreateSocket;
+  const currentClientId = useMemo(() => clientId ?? getResourceChangeClientId(), [clientId]);
+  const socketFactory = useMemo(
+    () => createSocket ?? (() => defaultCreateSocket(currentClientId)),
+    [createSocket, currentClientId],
+  );
   const useRealtime = Boolean(createSocket) || !fetchChanges;
 
-  const addChanges = useCallback((changes: ResourceChangeNotification[]) => {
-    if (changes.length === 0) return;
-    changes.forEach((change) => staleEligibleIdsRef.current.add(change.id));
-    setNotifications((current) => mergeRecentChanges(current, changes));
-    setUnseenCount((count) => count + changes.length);
-    const screen = screenRef.current;
-    if (screen) {
-      const relevantIds = changes
-        .filter((change) => isChangeRelevantToScreen(change, screen))
-        .map((change) => change.id);
-      if (relevantIds.length > 0) {
-        setStaleChangeIds((ids) => new Set([...ids, ...relevantIds]));
+  const addChanges = useCallback(
+    (changes: ResourceChangeNotification[]) => {
+      if (changes.length === 0) return;
+      setNotifications((current) => mergeRecentChanges(current, changes));
+      const screen = screenRef.current;
+      const relevantRemoteChanges = changes.filter(
+        (change) =>
+          change.metadata?.originClientId !== currentClientId &&
+          (!screen || isChangeRelevantToScreen(change, screen)),
+      );
+      relevantRemoteChanges.forEach((change) => staleEligibleIdsRef.current.add(change.id));
+      setUnseenGroupIds((groups) => {
+        const next = new Set(groups);
+        relevantRemoteChanges.forEach((change) =>
+          next.add(change.metadata?.correlationId ?? change.id),
+        );
+        return next;
+      });
+      if (screen) {
+        const relevantIds = relevantRemoteChanges.map((change) => change.id);
+        if (relevantIds.length > 0) {
+          setStaleChangeIds((ids) => new Set([...ids, ...relevantIds]));
+        }
       }
-    }
-  }, []);
+    },
+    [currentClientId],
+  );
 
   const resourceChangesQuery = useQuery<ResourceChangeResponse>({
     queryKey: ['resource-changes'],
@@ -316,13 +352,14 @@ export function ResourceChangeNotificationProvider({
   useEffect(() => {
     screenRef.current = null;
     staleEligibleIdsRef.current.clear();
+    setUnseenGroupIds(new Set());
     setStaleChangeIds(new Set());
     setDirtyRefreshBlocked(false);
     setRefreshError(null);
   }, [location.pathname, location.search]);
 
   const markSeen = useCallback(() => {
-    setUnseenCount(0);
+    setUnseenGroupIds(new Set());
   }, []);
 
   const hasDirtySource = useCallback(
@@ -382,7 +419,7 @@ export function ResourceChangeNotificationProvider({
   const value = useMemo<ResourceChangeNotificationContextValue>(
     () => ({
       notifications,
-      unseenCount,
+      unseenCount: unseenGroupIds.size,
       isCurrentScreenStale: staleChangeIds.size > 0,
       staleMessage: staleMessageFor(staleChange),
       refreshError,
@@ -402,7 +439,7 @@ export function ResourceChangeNotificationProvider({
       setDirtySource,
       staleChange,
       staleChangeIds.size,
-      unseenCount,
+      unseenGroupIds.size,
     ],
   );
 

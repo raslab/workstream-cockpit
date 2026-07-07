@@ -8,6 +8,7 @@ import cron from 'node-cron';
 import passport from './config/passport';
 import { sessionConfig } from './middleware/session';
 import { attachUserContext } from './middleware/userContext';
+import { resourceChangeRequestContext } from './middleware/resourceChangeRequestContext';
 import healthRoutes from './routes/health';
 import authRoutes from './routes/auth';
 import workstreamsRoutes from './routes/workstreams';
@@ -55,6 +56,7 @@ app.use(passport.session());
 
 // User context middleware (attaches userContext to req)
 app.use(attachUserContext);
+app.use(resourceChangeRequestContext);
 
 // Logging middleware
 app.use(morgan('combined', { stream: { write: (message) => logger.info(message.trim()) } }));

@@ -1,4 +1,5 @@
 import { NextStep, Prisma, PrismaClient, StatusUpdate } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { allocateStatusUpdateNumber } from './statusUpdateService';
 import { logger } from '../utils/logger';
 import { logResourceChange } from './resourceChangeService';
@@ -187,6 +188,7 @@ async function resolveNextStep(
   try {
     return await prisma.$transaction(
       async (tx) => {
+        const correlationId = randomUUID();
         await assertWorkstream(tx, input.projectId, input.workstreamId);
         const nextStep = await tx.nextStep.findFirst({
           where: {
@@ -205,6 +207,7 @@ async function resolveNextStep(
             resourceLabel: nextStep.text,
             operation: impact === 'active' ? 'solved' : 'abandoned',
             workstreamId: input.workstreamId,
+            correlationId,
           },
           tx,
         );
@@ -225,6 +228,7 @@ async function resolveNextStep(
             resourceLabel: update.status,
             operation: 'created',
             workstreamId: input.workstreamId,
+            correlationId,
           },
           tx,
         );

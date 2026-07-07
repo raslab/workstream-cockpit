@@ -47,6 +47,11 @@ function ScreenRegistration({ dirty = false }: { dirty?: boolean }) {
   return <div>Screen content</div>;
 }
 
+function CockpitRegistration() {
+  useResourceChangeScreen({ screen: 'cockpit', workstreamIds: ['stream-1'] });
+  return <div>Cockpit content</div>;
+}
+
 function MultiDirtyRegistration({
   firstDirty,
   secondDirty,
@@ -94,6 +99,39 @@ function renderRealtimeNotifications() {
         >
           <NotificationCenter />
           <ScreenRegistration />
+        </ResourceChangeNotificationProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+function renderRealtimeNotificationsForOwnClient() {
+  return render(
+    <QueryClientProvider client={createQueryClient()}>
+      <MemoryRouter initialEntries={['/workstreams/1']}>
+        <ResourceChangeNotificationProvider
+          fetchChanges={fetchChangesMock}
+          createSocket={() => new FakeResourceChangeSocket() as unknown as WebSocket}
+          clientId="client-1"
+        >
+          <NotificationCenter />
+          <ScreenRegistration />
+        </ResourceChangeNotificationProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+function renderRealtimeCockpitNotifications() {
+  return render(
+    <QueryClientProvider client={createQueryClient()}>
+      <MemoryRouter initialEntries={['/']}>
+        <ResourceChangeNotificationProvider
+          fetchChanges={fetchChangesMock}
+          createSocket={() => new FakeResourceChangeSocket() as unknown as WebSocket}
+        >
+          <NotificationCenter />
+          <CockpitRegistration />
         </ResourceChangeNotificationProvider>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -150,6 +188,88 @@ describe('resource change notifications', () => {
       expect(screen.getByText('Stream changed. Refresh to see updates.')).toBeInTheDocument(),
     );
     expect(fetchChangesMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('counts correlated complex operations once on the badge', async () => {
+    renderRealtimeNotifications();
+    await waitFor(() => expect(FakeResourceChangeSocket.instances).toHaveLength(1));
+
+    FakeResourceChangeSocket.instances[0].emitChange({
+      id: 'change-1',
+      resourceType: 'next_step',
+      resourceId: 'step-1',
+      resourceLabel: 'Ship realtime',
+      operation: 'solved',
+      workstreamId: 'stream-1',
+      changedAt: '2026-07-07T10:00:00.000Z',
+      metadata: { correlationId: 'tx-1' },
+    });
+    FakeResourceChangeSocket.instances[0].emitChange({
+      id: 'change-2',
+      resourceType: 'status_update',
+      resourceId: 'update-1',
+      resourceLabel: 'Solved next step: Ship realtime',
+      operation: 'created',
+      workstreamId: 'stream-1',
+      changedAt: '2026-07-07T10:00:01.000Z',
+      metadata: { correlationId: 'tx-1' },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /notifications/i })).toHaveTextContent('1'),
+    );
+  });
+
+  it('does not count or prompt for changes made by this browser tab', async () => {
+    renderRealtimeNotificationsForOwnClient();
+    await waitFor(() => expect(FakeResourceChangeSocket.instances).toHaveLength(1));
+
+    FakeResourceChangeSocket.instances[0].emitChange({
+      id: 'change-1',
+      resourceType: 'status_update',
+      resourceId: 'update-1',
+      resourceLabel: 'Local update',
+      operation: 'created',
+      workstreamId: 'stream-1',
+      changedAt: '2026-07-07T10:00:00.000Z',
+      metadata: { originClientId: 'client-1' },
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /notifications/i }));
+    expect(screen.getByRole('button', { name: /notifications/i })).not.toHaveTextContent('1');
+    expect(screen.queryByText('Stream changed. Refresh to see updates.')).not.toBeInTheDocument();
+    expect(screen.getByText('Status history created: Local update')).toBeInTheDocument();
+  });
+
+  it('counts badge groups only for resources visible on the current cockpit page', async () => {
+    renderRealtimeCockpitNotifications();
+    await waitFor(() => expect(FakeResourceChangeSocket.instances).toHaveLength(1));
+
+    FakeResourceChangeSocket.instances[0].emitChange({
+      id: 'change-1',
+      resourceType: 'workstream',
+      resourceId: 'stream-2',
+      resourceLabel: 'Hidden stream',
+      operation: 'updated',
+      workstreamId: 'stream-2',
+      changedAt: '2026-07-07T10:00:00.000Z',
+    });
+    FakeResourceChangeSocket.instances[0].emitChange({
+      id: 'change-2',
+      resourceType: 'status_update',
+      resourceId: 'update-1',
+      resourceLabel: 'Visible update',
+      operation: 'created',
+      workstreamId: 'stream-1',
+      changedAt: '2026-07-07T10:00:01.000Z',
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /notifications/i })).toHaveTextContent('1'),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /notifications/i }));
+    expect(screen.getByText('Stream changed: Hidden stream')).toBeInTheDocument();
+    expect(screen.getByText('Status history created: Visible update')).toBeInTheDocument();
   });
 
   it('loads historical changes during realtime baseline and still opens the socket', async () => {

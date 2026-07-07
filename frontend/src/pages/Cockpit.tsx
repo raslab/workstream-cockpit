@@ -36,7 +36,6 @@ function softCategoryColor(color?: string | null) {
 }
 
 export default function Cockpit() {
-  useResourceChangeScreen({ screen: 'cockpit' });
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -90,6 +89,10 @@ export default function Cockpit() {
     parentIds: currentConfig.filters.hierarchy.parentIds,
     includeSubstreams: currentConfig.filters.hierarchy.includeSubstreams,
     enabled: viewSelectionReady,
+  });
+  useResourceChangeScreen({
+    screen: 'cockpit',
+    workstreamIds: workstreams?.map((workstream) => workstream.id),
   });
 
   // Apply URL view selection and filter overrides, then canonicalize the URL to the actual screen state.

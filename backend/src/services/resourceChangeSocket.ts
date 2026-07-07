@@ -51,6 +51,18 @@ async function authenticatedProjectIds(
 
 export function setupResourceChangeWebSocket(server: HttpServer) {
   const wss = new WebSocketServer({ noServer: true });
+  const heartbeat = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      const socket = ws as WebSocket & { isAlive?: boolean };
+      if (socket.isAlive === false) {
+        socket.terminate();
+        return;
+      }
+      socket.isAlive = false;
+      socket.ping();
+    });
+  }, 30000);
+  wss.on('close', () => clearInterval(heartbeat));
 
   server.on('upgrade', async (req, socket, head) => {
     const parsedUrl = new URL(req.url ?? '', 'http://localhost');
@@ -65,6 +77,11 @@ export function setupResourceChangeWebSocket(server: HttpServer) {
       }
 
       wss.handleUpgrade(req, socket, head, (ws) => {
+        const trackedSocket = ws as WebSocket & { isAlive?: boolean };
+        trackedSocket.isAlive = true;
+        trackedSocket.on('pong', () => {
+          trackedSocket.isAlive = true;
+        });
         const unsubscribers = projectIds.map((projectId) =>
           subscribeToResourceChanges(projectId, (change) => {
             if (ws.readyState !== WebSocket.OPEN) return;
