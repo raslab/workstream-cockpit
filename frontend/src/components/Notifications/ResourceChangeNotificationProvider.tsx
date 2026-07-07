@@ -170,9 +170,13 @@ async function fetchResourceChanges(cursor: string | null): Promise<ResourceChan
   return response.data;
 }
 
-function resourceChangeSocketUrl(): string {
+export function resourceChangeSocketUrl(
+  apiBaseUrl = import.meta.env.VITE_API_URL,
+  origin = window.location.origin,
+): string {
   const endpoint = '/api/resource-changes/stream';
-  const base = import.meta.env.VITE_API_URL || window.location.origin;
+  const isAbsoluteBase = Boolean(apiBaseUrl?.match(/^[a-z][a-z\d+.-]*:\/\//i));
+  const base = isAbsoluteBase ? apiBaseUrl : origin;
   const url = new URL(endpoint, base);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   return url.toString();
@@ -349,7 +353,8 @@ export function ResourceChangeNotificationProvider({
         const relevantIds = notifications
           .filter(
             (change) =>
-              staleEligibleIdsRef.current.has(change.id) && isChangeRelevantToScreen(change, screen),
+              staleEligibleIdsRef.current.has(change.id) &&
+              isChangeRelevantToScreen(change, screen),
           )
           .map((change) => change.id);
         return new Set([...ids, ...relevantIds]);

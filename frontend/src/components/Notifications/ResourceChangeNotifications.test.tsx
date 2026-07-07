@@ -8,6 +8,7 @@ import {
   NotificationCenter,
   ResourceChangeNotification,
   ResourceChangeNotificationProvider,
+  resourceChangeSocketUrl,
   useDirtyResourceEditor,
   useResourceChangeScreen,
 } from './ResourceChangeNotificationProvider';
@@ -118,6 +119,15 @@ describe('resource change notifications', () => {
     vi.clearAllMocks();
     FakeResourceChangeSocket.instances = [];
     fetchChangesMock.mockResolvedValue({ cursor: 'baseline', changes: [] });
+  });
+
+  it('builds same-origin websocket URLs when API base is relative', () => {
+    expect(resourceChangeSocketUrl('/', 'http://localhost:3002')).toBe(
+      'ws://localhost:3002/api/resource-changes/stream',
+    );
+    expect(resourceChangeSocketUrl(undefined, 'https://cockpit.example.test')).toBe(
+      'wss://cockpit.example.test/api/resource-changes/stream',
+    );
   });
 
   it('uses a realtime socket after baseline instead of polling HTTP every interval', async () => {
