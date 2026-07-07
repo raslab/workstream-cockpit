@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { requireUserContext } from '../middleware/userContext';
 import { getProjectsByPersonId } from '../services/projectService';
-import { listResourceChanges } from '../services/resourceChangeService';
+import { listResourceChangesForProjects } from '../services/resourceChangeService';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -18,8 +18,8 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
     const after = typeof req.query.after === 'string' ? req.query.after : null;
     const limitValue = typeof req.query.limit === 'string' ? Number(req.query.limit) : 10;
-    const result = await listResourceChanges(
-      projects[0].id,
+    const result = await listResourceChangesForProjects(
+      projects.map((project) => project.id),
       after,
       Number.isFinite(limitValue) ? limitValue : 10,
     );

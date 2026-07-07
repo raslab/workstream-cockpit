@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTags, useCreateTag, useUpdateTag, useDeleteTag } from '../api/tags';
 import { ColorPicker } from '../components/ColorPicker/ColorPicker';
 import type { Tag } from '../types/tag';
@@ -27,6 +27,11 @@ function TagItem({
 }: TagItemProps) {
   const [editDisplayName, setEditDisplayName] = useState(tag.displayName);
   const [editColor, setEditColor] = useState(tag.color);
+  useEffect(() => {
+    if (!isEditing) return;
+    setEditDisplayName(tag.displayName);
+    setEditColor(tag.color);
+  }, [isEditing, tag.color, tag.displayName, tag.id]);
   useDirtyResourceEditor(
     `tag-edit-${tag.id}`,
     isEditing && (editDisplayName !== tag.displayName || editColor !== tag.color),

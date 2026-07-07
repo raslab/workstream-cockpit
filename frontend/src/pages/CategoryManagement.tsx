@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   DndContext,
@@ -58,6 +58,13 @@ function SortableCategory({
   const [editColor, setEditColor] = useState(category.color);
   const [editEmoji, setEditEmoji] = useState(category.emoji || '');
   const [editDescription, setEditDescription] = useState(category.description || '');
+  useEffect(() => {
+    if (!isEditing) return;
+    setEditName(category.name);
+    setEditColor(category.color);
+    setEditEmoji(category.emoji || '');
+    setEditDescription(category.description || '');
+  }, [category.color, category.description, category.emoji, category.id, category.name, isEditing]);
   useDirtyResourceEditor(
     `category-edit-${category.id}`,
     isEditing &&

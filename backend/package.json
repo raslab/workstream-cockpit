@@ -30,7 +30,8 @@
     "morgan": "^1.10.0",
     "node-cron": "^4.2.1",
     "passport": "^0.7.0",
-    "passport-google-oauth20": "^2.0.0"
+    "passport-google-oauth20": "^2.0.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
@@ -44,6 +45,7 @@
     "@types/passport-google-oauth20": "^2.0.14",
     "@types/pg": "^8.16.0",
     "@types/supertest": "^6.0.2",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^6.17.0",
     "@typescript-eslint/parser": "^6.17.0",
     "eslint": "^8.56.0",

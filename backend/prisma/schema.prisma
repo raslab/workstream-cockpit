@@ -11,10 +11,11 @@ datasource db {
 }
 
 model Person {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
+  id         String   @id @default(uuid())
+  email      String   @unique
+  name       String
+  pictureUrl String?  @map("picture_url")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   projects             Project[]
   personalAccessTokens PersonalAccessToken[]
@@ -48,10 +49,10 @@ model Project {
   nextStatusUpdateNumber Int      @default(1) @map("next_status_update_number")
   createdAt              DateTime @default(now()) @map("created_at")
 
-  person        Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
-  categories    Category[]
-  workstreams   Workstream[]
-  statusUpdates StatusUpdate[]
+  person          Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
+  categories      Category[]
+  workstreams     Workstream[]
+  statusUpdates   StatusUpdate[]
   nextSteps       NextStep[]
   tags            Tag[]
   views           View[]
@@ -193,6 +194,7 @@ model View {
 
 model ResourceChange {
   id            String   @id @default(uuid())
+  sequence      BigInt   @unique @default(autoincrement())
   projectId     String   @map("project_id")
   resourceType  String   @map("resource_type")
   resourceId    String?  @map("resource_id")

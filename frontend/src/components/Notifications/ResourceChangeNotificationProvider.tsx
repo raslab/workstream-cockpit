@@ -63,7 +63,12 @@ const ResourceChangeNotificationContext = createContext<
 
 const DEFAULT_POLL_INTERVAL_MS = 15000;
 const MAX_NOTIFICATIONS = 10;
+const RECONNECT_DELAY_MS = 2000;
 const isTestEnvironment = import.meta.env.MODE === 'test';
+
+type ResourceChangeSocketMessage =
+  | { type: 'ready' }
+  | { type: 'resource-change'; change: ResourceChangeNotification };
 
 function resourceLabel(type: ResourceType): string {
   switch (type) {
@@ -93,9 +98,7 @@ function operationLabel(operation: ResourceOperation): string {
     case 'created':
       return 'created';
     case 'solved':
-      return 'changed';
     case 'abandoned':
-      return 'changed';
     case 'reordered':
       return 'changed';
     case 'updated':
@@ -160,18 +163,40 @@ function relativeTime(value: string): string {
   }
 }
 
+async function fetchResourceChanges(cursor: string | null): Promise<ResourceChangeResponse> {
+  const response = await apiClient.get(
+    `/api/resource-changes${cursor ? `?after=${encodeURIComponent(cursor)}` : ''}`,
+  );
+  return response.data;
+}
+
+function resourceChangeSocketUrl(): string {
+  const endpoint = '/api/resource-changes/stream';
+  const base = import.meta.env.VITE_API_URL || window.location.origin;
+  const url = new URL(endpoint, base);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return url.toString();
+}
+
+function defaultCreateSocket(): WebSocket {
+  return new WebSocket(resourceChangeSocketUrl());
+}
+
 export function ResourceChangeNotificationProvider({
   children,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
   fetchChanges,
+  createSocket,
 }: {
   children: ReactNode;
   pollIntervalMs?: number;
   fetchChanges?: (cursor: string | null) => Promise<ResourceChangeResponse>;
+  createSocket?: () => WebSocket;
 }) {
   const queryClient = useQueryClient();
   const location = useLocation();
   const [cursor, setCursor] = useState<string | null>(null);
+  const cursorRef = useRef<string | null>(null);
   const [hasBaseline, setHasBaseline] = useState(false);
   const [notifications, setNotifications] = useState<ResourceChangeNotification[]>([]);
   const [unseenCount, setUnseenCount] = useState(0);
@@ -180,51 +205,100 @@ export function ResourceChangeNotificationProvider({
   const [dirtyRefreshBlocked, setDirtyRefreshBlocked] = useState(false);
   const dirtySourcesRef = useRef(new Map<string, boolean>());
   const screenRef = useRef<ScreenRegistration | null>(null);
+  const fetcher = fetchChanges ?? fetchResourceChanges;
+  const socketFactory = createSocket ?? defaultCreateSocket;
+  const useRealtime = Boolean(createSocket) || !fetchChanges;
+
+  const addChanges = useCallback((changes: ResourceChangeNotification[]) => {
+    if (changes.length === 0) return;
+    setNotifications((current) => {
+      const byId = new Map<string, ResourceChangeNotification>();
+      [...changes, ...current].forEach((change) => byId.set(change.id, change));
+      return Array.from(byId.values())
+        .sort((a, b) => Date.parse(b.changedAt) - Date.parse(a.changedAt))
+        .slice(0, MAX_NOTIFICATIONS);
+    });
+    setUnseenCount((count) => count + changes.length);
+    const screen = screenRef.current;
+    if (screen) {
+      const relevantIds = changes
+        .filter((change) => isChangeRelevantToScreen(change, screen))
+        .map((change) => change.id);
+      if (relevantIds.length > 0) {
+        setStaleChangeIds((ids) => new Set([...ids, ...relevantIds]));
+      }
+    }
+  }, []);
 
   const resourceChangesQuery = useQuery<ResourceChangeResponse>({
     queryKey: ['resource-changes'],
-    queryFn: async () => {
-      if (fetchChanges) return fetchChanges(cursor);
-      const response = await apiClient.get(
-        `/api/resource-changes${cursor ? `?after=${encodeURIComponent(cursor)}` : ''}`,
-      );
-      return response.data;
-    },
+    queryFn: () => fetcher(cursor),
     refetchInterval: pollIntervalMs,
     refetchIntervalInBackground: true,
     staleTime: 0,
-    enabled: !isTestEnvironment || Boolean(fetchChanges),
+    enabled: !useRealtime && (!isTestEnvironment || Boolean(fetchChanges)),
   });
 
   useEffect(() => {
+    if (useRealtime) return;
     const data = resourceChangesQuery.data;
     if (!data) return;
     if (!hasBaseline) {
+      cursorRef.current = data.cursor;
       setCursor(data.cursor);
       setHasBaseline(true);
       return;
     }
-    if (data.changes.length > 0) {
-      setNotifications((current) => {
-        const byId = new Map<string, ResourceChangeNotification>();
-        [...data.changes, ...current].forEach((change) => byId.set(change.id, change));
-        return Array.from(byId.values())
-          .sort((a, b) => Date.parse(b.changedAt) - Date.parse(a.changedAt))
-          .slice(0, MAX_NOTIFICATIONS);
-      });
-      setUnseenCount((count) => count + data.changes.length);
-      const screen = screenRef.current;
-      if (screen) {
-        const relevantIds = data.changes
-          .filter((change) => isChangeRelevantToScreen(change, screen))
-          .map((change) => change.id);
-        if (relevantIds.length > 0) {
-          setStaleChangeIds((ids) => new Set([...ids, ...relevantIds]));
-        }
-      }
-    }
+    addChanges(data.changes);
+    cursorRef.current = data.cursor;
     setCursor(data.cursor);
-  }, [hasBaseline, resourceChangesQuery.data]);
+  }, [addChanges, hasBaseline, resourceChangesQuery.data, useRealtime]);
+
+  useEffect(() => {
+    if (!useRealtime) return;
+    let closed = false;
+    let socket: WebSocket | null = null;
+    let reconnectId: number | null = null;
+
+    const connect = () => {
+      if (closed) return;
+      socket = socketFactory();
+      socket.addEventListener('message', (event) => {
+        try {
+          const message = JSON.parse(String(event.data)) as ResourceChangeSocketMessage;
+          if (message.type !== 'resource-change') return;
+          cursorRef.current = message.change.id;
+          setCursor(message.change.id);
+          addChanges([message.change]);
+        } catch {
+          // Ignore malformed realtime messages; the next reconnect/baseline fetch catches up.
+        }
+      });
+      socket.addEventListener('close', () => {
+        if (!closed) {
+          reconnectId = window.setTimeout(connect, RECONNECT_DELAY_MS);
+        }
+      });
+    };
+
+    fetcher(cursorRef.current)
+      .then((data) => {
+        if (closed) return;
+        cursorRef.current = data.cursor;
+        setCursor(data.cursor);
+        setHasBaseline(true);
+        connect();
+      })
+      .catch(() => {
+        if (!closed) reconnectId = window.setTimeout(connect, RECONNECT_DELAY_MS);
+      });
+
+    return () => {
+      closed = true;
+      if (reconnectId !== null) window.clearTimeout(reconnectId);
+      socket?.close();
+    };
+  }, [addChanges, fetcher, socketFactory, useRealtime]);
 
   useEffect(() => {
     screenRef.current = null;
@@ -278,7 +352,7 @@ export function ResourceChangeNotificationProvider({
     dirtySourcesRef.current.set(id, dirty);
     if (!dirty) {
       dirtySourcesRef.current.delete(id);
-      setDirtyRefreshBlocked(false);
+      setDirtyRefreshBlocked(Array.from(dirtySourcesRef.current.values()).some(Boolean));
     }
   }, []);
 
@@ -387,7 +461,11 @@ export function NotificationCenter() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-40 mt-2 w-80 rounded-lg border border-gray-200 bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+        <div
+          role="dialog"
+          aria-label="Recent changes"
+          className="absolute right-0 z-50 mt-2 w-80 rounded-lg border border-gray-200 bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+        >
           <div className="mb-2 flex items-center justify-between border-b border-gray-100 px-2 pb-2 dark:border-gray-700">
             <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
               Recent changes
@@ -435,7 +513,7 @@ export function NotificationCenter() {
       )}
 
       {isCurrentScreenStale && (
-        <div className="absolute right-0 top-12 z-30 w-80 rounded-lg border border-primary-200 bg-white p-3 shadow-lg dark:border-primary-800 dark:bg-gray-800">
+        <div className="absolute right-0 top-12 z-50 w-80 rounded-lg border border-primary-200 bg-white p-3 shadow-lg dark:border-primary-800 dark:bg-gray-800">
           <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{staleMessage}</p>
           <div className="mt-3 flex items-center gap-2">
             <button

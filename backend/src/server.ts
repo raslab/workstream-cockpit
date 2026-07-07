@@ -22,6 +22,7 @@ import { createMcpRouter } from './mcp/server';
 import { errorHandler } from './middleware/errorHandler';
 import { logger } from './utils/logger';
 import { executeBackup } from './services/backupService';
+import { setupResourceChangeWebSocket } from './services/resourceChangeSocket';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -97,6 +98,8 @@ const server = app.listen(PORT, () => {
     logger.info('Backup system disabled');
   }
 });
+
+setupResourceChangeWebSocket(server);
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
