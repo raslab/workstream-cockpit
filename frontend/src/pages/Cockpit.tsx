@@ -19,6 +19,10 @@ import {
   viewUrlValue,
 } from '../utils/urlState';
 import { WorkstreamLink } from '../components/Workstream/WorkstreamReference';
+import {
+  useDirtyResourceEditor,
+  useResourceChangeScreen,
+} from '../components/Notifications/ResourceChangeNotificationProvider';
 
 function softCategoryColor(color?: string | null) {
   if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) return '#c5dae4';
@@ -32,6 +36,7 @@ function softCategoryColor(color?: string | null) {
 }
 
 export default function Cockpit() {
+  useResourceChangeScreen({ screen: 'cockpit' });
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -52,6 +57,7 @@ export default function Cockpit() {
     discardChanges,
     renameView,
   } = useViewManager({ preferredViewValue: searchParams.get('view') });
+  useDirtyResourceEditor('cockpit-view-config', hasUnsavedChanges);
 
   const urlViewParam = searchParams.get('view');
   const resolvedUrlViewId = resolveEntityParam(urlViewParam, views);

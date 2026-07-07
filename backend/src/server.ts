@@ -16,12 +16,12 @@ import categoriesRoutes from './routes/categories';
 import tagsRoutes from './routes/tags';
 import timelineRoutes from './routes/timeline';
 import viewsRoutes from './routes/views';
+import resourceChangesRoutes from './routes/resourceChanges';
 import personalAccessTokenRoutes from './routes/personalAccessTokens';
 import { createMcpRouter } from './mcp/server';
 import { errorHandler } from './middleware/errorHandler';
 import { logger } from './utils/logger';
 import { executeBackup } from './services/backupService';
-
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -67,6 +67,7 @@ app.use('/api/categories', categoriesRoutes);
 app.use('/api/tags', tagsRoutes); // Backward compatibility alias
 app.use('/api/timeline', timelineRoutes);
 app.use('/api/views', viewsRoutes);
+app.use('/api/resource-changes', resourceChangesRoutes);
 app.use('/api/personal-access-tokens', personalAccessTokenRoutes);
 app.use('/mcp', createMcpRouter());
 
@@ -77,13 +78,13 @@ app.use(errorHandler);
 const server = app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  
+
   // Setup backup cron job
   const backupEnabled = process.env.BACKUP_ENABLED === 'true';
   if (backupEnabled) {
     const schedule = process.env.BACKUP_SCHEDULE || '0 2 * * *'; // Default: 2 AM UTC daily
     logger.info(`Backup system enabled. Schedule: ${schedule}`);
-    
+
     cron.schedule(schedule, async () => {
       logger.info('Scheduled backup triggered');
       try {

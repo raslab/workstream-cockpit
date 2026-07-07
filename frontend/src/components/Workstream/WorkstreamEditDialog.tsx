@@ -7,6 +7,7 @@ import { TagAutocomplete } from '../Tag/TagAutocomplete';
 import { SelectMenu } from '../UI/SelectMenu';
 import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
 import { WorkstreamLink } from './WorkstreamReference';
+import { useDirtyResourceEditor } from '../Notifications/ResourceChangeNotificationProvider';
 
 interface WorkstreamEditDialogProps {
   workstream: Workstream;
@@ -26,7 +27,14 @@ export function WorkstreamEditDialog({
   const [context, setContext] = useState(workstream.context || '');
   const queryClient = useQueryClient();
   const { data: categories = [] } = useCategories();
-  
+  useDirtyResourceEditor(
+    `workstream-edit-${workstream.id}`,
+    isOpen &&
+      (name !== workstream.name ||
+        categoryId !== (workstream.categoryId || '') ||
+        context !== (workstream.context || '')),
+  );
+
   // Ref for autocomplete
   const contextRef = useRef<HTMLTextAreaElement>(null);
 
@@ -39,7 +47,11 @@ export function WorkstreamEditDialog({
   }, [isOpen, workstream]);
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { name: string; categoryId: string | null; context: string | null }) => {
+    mutationFn: async (data: {
+      name: string;
+      categoryId: string | null;
+      context: string | null;
+    }) => {
       const response = await apiClient.put(`/api/workstreams/${workstream.id}`, data);
       return response.data;
     },
@@ -82,11 +94,16 @@ export function WorkstreamEditDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70">
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Edit <WorkstreamLink workstream={workstream} /></h2>
+        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
+          Edit <WorkstreamLink workstream={workstream} />
+        </h2>
 
         <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>
           <div className="mb-4">
-            <label htmlFor="name" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="name"
+              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Name <span className="text-red-500">*</span>
             </label>
             <input
@@ -98,7 +115,9 @@ export function WorkstreamEditDialog({
               maxLength={200}
               autoFocus
             />
-            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{name.length}/200 characters</div>
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {name.length}/200 characters
+            </div>
           </div>
 
           <div className="mb-4">
@@ -115,7 +134,10 @@ export function WorkstreamEditDialog({
           </div>
 
           <div className="mb-4">
-            <label htmlFor="context" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="context"
+              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Context
             </label>
             <div className="relative">
@@ -129,13 +151,11 @@ export function WorkstreamEditDialog({
                 rows={4}
                 maxLength={2000}
               />
-              <TagAutocomplete
-                textareaRef={contextRef}
-                value={context}
-                onChange={setContext}
-              />
+              <TagAutocomplete textareaRef={contextRef} value={context} onChange={setContext} />
             </div>
-            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{context.length}/2000 characters</div>
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {context.length}/2000 characters
+            </div>
           </div>
 
           {updateMutation.isError && (

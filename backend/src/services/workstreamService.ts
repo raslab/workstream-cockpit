@@ -1,6 +1,7 @@
 import { Prisma, PrismaClient, Workstream, StatusUpdate } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { extractTagsFromFields } from '../utils/tagExtractor';
+import { logResourceChange } from './resourceChangeService';
 
 const prisma = new PrismaClient();
 const MAX_HIERARCHY_DEPTH = 5;
@@ -794,8 +795,9 @@ export async function createWorkstream(
           state: 'active',
         },
       });
+      let initialStatusUpdate: StatusUpdate | null = null;
       if (input.initialStatus) {
-        await tx.statusUpdate.create({
+        initialStatusUpdate = await tx.statusUpdate.create({
           data: {
             projectId: input.projectId,
             number: await allocateStatusUpdateNumber(tx, input.projectId),
@@ -804,6 +806,30 @@ export async function createWorkstream(
             note: input.initialNote,
           },
         });
+      }
+      await logResourceChange(
+        {
+          projectId: input.projectId,
+          resourceType: 'workstream',
+          resourceId: workstream.id,
+          resourceLabel: workstream.name,
+          operation: 'created',
+          workstreamId: workstream.id,
+        },
+        tx,
+      );
+      if (input.initialStatus) {
+        await logResourceChange(
+          {
+            projectId: input.projectId,
+            resourceType: 'status_update',
+            resourceId: initialStatusUpdate?.id ?? null,
+            resourceLabel: input.initialStatus,
+            operation: 'created',
+            workstreamId: workstream.id,
+          },
+          tx,
+        );
       }
       if (input.parentId) {
         const allWorkstreams = await tx.workstream.findMany({
@@ -871,6 +897,17 @@ export async function updateWorkstream(
         ? [...computeParentStreams(newParent, byId), newParent].map((ws) => ws.name).join(' > ')
         : null;
       const updated = await tx.workstream.update({ where: { id: workstreamId }, data });
+      await logResourceChange(
+        {
+          projectId,
+          resourceType: 'workstream',
+          resourceId: updated.id,
+          resourceLabel: updated.name,
+          operation: 'updated',
+          workstreamId: updated.id,
+        },
+        tx,
+      );
       if (parentChanged) {
         await tx.workstreamEvent.create({
           data: {
@@ -912,10 +949,22 @@ export async function closeWorkstream(
       ).filter((id) => byId.get(id)?.state === 'active');
       if (activeSubstreams.length)
         throw new Error('Cannot close a workstream with active sub-streams');
-      return tx.workstream.update({
+      const updated = await tx.workstream.update({
         where: { id: workstreamId },
         data: { state: 'closed', closedAt: new Date() },
       });
+      await logResourceChange(
+        {
+          projectId,
+          resourceType: 'workstream',
+          resourceId: updated.id,
+          resourceLabel: updated.name,
+          operation: 'closed',
+          workstreamId: updated.id,
+        },
+        tx,
+      );
+      return updated;
     });
     return (await getWorkstreamById(updated.id, projectId))!;
   } catch (error) {
@@ -939,10 +988,22 @@ export async function reopenWorkstream(
         if (parent?.state === 'closed')
           throw new Error('Cannot reopen a workstream while its parent is closed');
       }
-      return tx.workstream.update({
+      const updated = await tx.workstream.update({
         where: { id: workstreamId },
         data: { state: 'active', closedAt: null },
       });
+      await logResourceChange(
+        {
+          projectId,
+          resourceType: 'workstream',
+          resourceId: updated.id,
+          resourceLabel: updated.name,
+          operation: 'reopened',
+          workstreamId: updated.id,
+        },
+        tx,
+      );
+      return updated;
     });
     return (await getWorkstreamById(updated.id, projectId))!;
   } catch (error) {
@@ -958,7 +1019,20 @@ export async function deleteWorkstream(workstreamId: string, projectId: string):
     const allWorkstreams = await prisma.workstream.findMany({ where: { projectId } });
     const relatedSubstreamIds = substreamIds(workstreamId, buildSubstreamsByParent(allWorkstreams));
     if (relatedSubstreamIds.length) throw new Error('Cannot delete a workstream with sub-streams');
-    await prisma.workstream.delete({ where: { id: workstreamId } });
+    await prisma.$transaction(async (tx) => {
+      await tx.workstream.delete({ where: { id: workstreamId } });
+      await logResourceChange(
+        {
+          projectId,
+          resourceType: 'workstream',
+          resourceId: workstreamId,
+          resourceLabel: workstream.name,
+          operation: 'deleted',
+          workstreamId,
+        },
+        tx,
+      );
+    });
     logger.info(`Workstream deleted successfully: ${workstreamId}`);
   } catch (error) {
     logger.error('Error deleting workstream:', error);

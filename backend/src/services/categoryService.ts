@@ -1,5 +1,6 @@
 import { PrismaClient, Category } from '@prisma/client';
 import { logger } from '../utils/logger';
+import { logResourceChange } from './resourceChangeService';
 
 const prisma = new PrismaClient();
 
@@ -10,6 +11,7 @@ export interface CreateCategoryInput {
   emoji?: string | null;
   description?: string;
   sortOrder?: number;
+  recordChange?: boolean;
 }
 
 // Default categories to create for new projects
@@ -27,15 +29,30 @@ export async function createCategory(input: CreateCategoryInput): Promise<Catego
   try {
     logger.info(`Creating new category: ${input.name} for project ${input.projectId}`);
 
-    const category = await prisma.category.create({
-      data: {
-        projectId: input.projectId,
-        name: input.name,
-        color: input.color,
-        emoji: input.emoji ?? null,
-        description: input.description ?? '',
-        sortOrder: input.sortOrder ?? 0,
-      },
+    const category = await prisma.$transaction(async (tx) => {
+      const created = await tx.category.create({
+        data: {
+          projectId: input.projectId,
+          name: input.name,
+          color: input.color,
+          emoji: input.emoji ?? null,
+          description: input.description ?? '',
+          sortOrder: input.sortOrder ?? 0,
+        },
+      });
+      if (input.recordChange !== false) {
+        await logResourceChange(
+          {
+            projectId: input.projectId,
+            resourceType: 'category',
+            resourceId: created.id,
+            resourceLabel: created.name,
+            operation: 'created',
+          },
+          tx,
+        );
+      }
+      return created;
     });
 
     logger.info(`Category created successfully: ${category.id}`);
@@ -96,9 +113,22 @@ export async function updateCategory(
       throw new Error('Category not found or access denied');
     }
 
-    return await prisma.category.update({
-      where: { id: categoryId },
-      data: updates,
+    return await prisma.$transaction(async (tx) => {
+      const updated = await tx.category.update({
+        where: { id: categoryId },
+        data: updates,
+      });
+      await logResourceChange(
+        {
+          projectId,
+          resourceType: 'category',
+          resourceId: updated.id,
+          resourceLabel: updated.name,
+          operation: 'updated',
+        },
+        tx,
+      );
+      return updated;
     });
   } catch (error) {
     logger.error('Error updating category:', error);
@@ -118,8 +148,20 @@ export async function deleteCategory(categoryId: string, projectId: string): Pro
     }
 
     // The onDelete: SetNull cascade will handle unsetting workstream categories
-    await prisma.category.delete({
-      where: { id: categoryId },
+    await prisma.$transaction(async (tx) => {
+      await tx.category.delete({
+        where: { id: categoryId },
+      });
+      await logResourceChange(
+        {
+          projectId,
+          resourceType: 'category',
+          resourceId: category.id,
+          resourceLabel: category.name,
+          operation: 'deleted',
+        },
+        tx,
+      );
     });
 
     logger.info(`Category deleted successfully: ${categoryId}`);
@@ -141,6 +183,7 @@ export async function createDefaultCategories(projectId: string): Promise<Catego
         createCategory({
           projectId,
           ...categoryData,
+          recordChange: false,
         }),
       ),
     );
@@ -185,14 +228,26 @@ export async function reorderCategories(
     }
 
     // Update sort orders in a transaction based on array position
-    await prisma.$transaction(
-      categoryIds.map((categoryId, index) =>
-        prisma.category.update({
-          where: { id: categoryId },
-          data: { sortOrder: index },
-        }),
-      ),
-    );
+    await prisma.$transaction(async (tx) => {
+      await Promise.all(
+        categoryIds.map((categoryId, index) =>
+          tx.category.update({
+            where: { id: categoryId },
+            data: { sortOrder: index },
+          }),
+        ),
+      );
+      await logResourceChange(
+        {
+          projectId,
+          resourceType: 'category',
+          resourceId: null,
+          resourceLabel: null,
+          operation: 'reordered',
+        },
+        tx,
+      );
+    });
 
     logger.info(`Reordered ${categoryIds.length} categories for project ${projectId}`);
 

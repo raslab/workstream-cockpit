@@ -8,6 +8,7 @@ import { CLOSED_PARENT_SUBSTREAM_MESSAGE, hierarchyErrorMessage } from '../../ut
 import { WorkstreamLink } from './WorkstreamReference';
 import { SelectMenu } from '../UI/SelectMenu';
 import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
+import { useDirtyResourceEditor } from '../Notifications/ResourceChangeNotificationProvider';
 
 interface WorkstreamCreateDialogProps {
   isOpen: boolean;
@@ -24,7 +25,14 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
   const queryClient = useQueryClient();
   const { data: categories } = useCategories();
   const isClosedParent = parent?.state === 'closed';
-  
+  useDirtyResourceEditor(
+    parent?.id ? `workstream-create-${parent.id}` : 'workstream-create',
+    isOpen &&
+      Boolean(
+        name.trim() || categoryId || context.trim() || initialStatus.trim() || initialNote.trim(),
+      ),
+  );
+
   // Refs for autocomplete
   const contextRef = useRef<HTMLTextAreaElement>(null);
   const initialStatusRef = useRef<HTMLTextAreaElement>(null);
@@ -92,10 +100,16 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70">
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">{parent ? 'Create Sub-stream' : 'Create New Workstream'}</h2>
+        <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
+          {parent ? 'Create Sub-stream' : 'Create New Workstream'}
+        </h2>
         {parent && (
           <div className="mb-4 rounded-md border border-primary-200 bg-primary-50 p-3 text-sm text-primary-900 dark:border-primary-500 dark:bg-primary-900/40 dark:text-primary-50">
-            Parent: <WorkstreamLink workstream={parent} className="font-medium text-primary-700 hover:text-primary-800 dark:text-primary-200 dark:hover:text-primary-100" />
+            Parent:{' '}
+            <WorkstreamLink
+              workstream={parent}
+              className="font-medium text-primary-700 hover:text-primary-800 dark:text-primary-200 dark:hover:text-primary-100"
+            />
           </div>
         )}
 
@@ -107,7 +121,10 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
 
         <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>
           <div className="mb-4">
-            <label htmlFor="name" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="name"
+              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Name <span className="text-red-500">*</span>
             </label>
             <input
@@ -120,7 +137,9 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
               placeholder="Enter workstream name"
               autoFocus
             />
-            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{name.length}/200 characters</div>
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {name.length}/200 characters
+            </div>
           </div>
 
           <div className="mb-4">
@@ -131,7 +150,8 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
               buttonClassName="w-full"
               options={[
                 { value: '', label: 'No category' },
-                ...(categories?.map((category) => ({ value: category.id, label: category.name })) ?? []),
+                ...(categories?.map((category) => ({ value: category.id, label: category.name })) ??
+                  []),
               ]}
             />
             {categoryId && categories && (
@@ -150,7 +170,10 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
           </div>
 
           <div className="mb-4">
-            <label htmlFor="context" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="context"
+              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Context (optional)
             </label>
             <div className="relative">
@@ -165,17 +188,18 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
                 maxLength={2000}
                 placeholder="Add background information or description"
               />
-              <TagAutocomplete
-                textareaRef={contextRef}
-                value={context}
-                onChange={setContext}
-              />
+              <TagAutocomplete textareaRef={contextRef} value={context} onChange={setContext} />
             </div>
-            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{context.length}/2000 characters</div>
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {context.length}/2000 characters
+            </div>
           </div>
 
           <div className="mb-4">
-            <label htmlFor="initialStatus" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="initialStatus"
+              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Initial Status (optional)
             </label>
             <div className="relative">
@@ -184,7 +208,9 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
                 id="initialStatus"
                 value={initialStatus}
                 onChange={(e) => setInitialStatus(e.target.value)}
-                onPaste={(e) => handleRichHtmlTextareaPaste(e, initialStatus, setInitialStatus, 500)}
+                onPaste={(e) =>
+                  handleRichHtmlTextareaPaste(e, initialStatus, setInitialStatus, 500)
+                }
                 className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={2}
                 maxLength={500}
@@ -202,7 +228,10 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
           </div>
 
           <div className="mb-4">
-            <label htmlFor="initialNote" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="initialNote"
+              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Initial Note (optional)
             </label>
             <div className="relative">

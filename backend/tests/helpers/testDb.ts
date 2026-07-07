@@ -103,6 +103,7 @@ export async function cleanDatabase(): Promise<void> {
   nextWorkstreamNumberByProject.clear();
   nextStatusUpdateNumberByProject.clear();
   const tables = [
+    'resource_changes',
     'personal_access_tokens',
     'views',
     'next_steps',

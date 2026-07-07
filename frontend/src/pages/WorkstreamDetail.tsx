@@ -34,6 +34,10 @@ import {
   workstreamReferenceText,
   workstreamPath,
 } from '../components/Workstream/WorkstreamReference';
+import {
+  useDirtyResourceEditor,
+  useResourceChangeScreen,
+} from '../components/Notifications/ResourceChangeNotificationProvider';
 
 const STATUS_HISTORY_PAGE_SIZE = 10;
 
@@ -129,6 +133,10 @@ export function StatusEditDialog({
   const queryClient = useQueryClient();
   const statusRef = useRef<HTMLTextAreaElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
+  useDirtyResourceEditor(
+    `status-edit-${statusUpdate.id}`,
+    isOpen && (status !== statusUpdate.status || note !== (statusUpdate.note || '')),
+  );
 
   const updateMutation = useMutation({
     mutationFn: async (data: { status: string; note: string }) => {
@@ -319,6 +327,13 @@ function NextStepsSection({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  useDirtyResourceEditor(`next-step-create-${workstreamId}`, Boolean(newText.trim()));
+  useDirtyResourceEditor(
+    `next-step-edit-${workstreamId}`,
+    Boolean(
+      editingId && editingText !== (nextSteps.find((step) => step.id === editingId)?.text ?? ''),
+    ),
+  );
   const isMutating =
     createNextStep.isPending ||
     updateNextStep.isPending ||
@@ -529,6 +544,7 @@ export default function WorkstreamDetail() {
     },
     enabled: !!id,
   });
+  useResourceChangeScreen({ screen: 'stream-detail', workstreamId: workstream?.id ?? null });
 
   const {
     data: statusUpdates,

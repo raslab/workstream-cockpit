@@ -1,16 +1,17 @@
 import { PrismaClient, Tag } from '@prisma/client';
 import { logger } from '../utils/logger';
+import { logResourceChange } from './resourceChangeService';
 
 const prisma = new PrismaClient();
 
 export interface CreateTagInput {
   projectId: string;
-  displayName: string;  // User-friendly name with spaces (e.g., "Alan Awake")
+  displayName: string; // User-friendly name with spaces (e.g., "Alan Awake")
   color: string;
 }
 
 export interface UpdateTagInput {
-  displayName?: string;  // User-friendly name with spaces
+  displayName?: string; // User-friendly name with spaces
   color?: string;
 }
 
@@ -32,7 +33,7 @@ export function validateTagDisplayName(displayName: string): boolean {
   if (!displayName || displayName.length === 0 || displayName.length > 50) {
     return false;
   }
-  
+
   // Must start and end with alphanumeric, can contain hyphens, underscores, spaces
   const pattern = /^[a-zA-Z0-9][a-zA-Z0-9_\s-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
   return pattern.test(displayName);
@@ -70,23 +71,42 @@ export async function createTag(input: CreateTagInput): Promise<Tag> {
     // Generate tag ID from display name
     const tagId = generateTagId(input.displayName);
 
-    logger.info(`Creating tag: "${input.displayName}" (ID: ${tagId}) for project ${input.projectId}`);
+    logger.info(
+      `Creating tag: "${input.displayName}" (ID: ${tagId}) for project ${input.projectId}`,
+    );
 
-    const tag = await prisma.tag.create({
-      data: {
-        projectId: input.projectId,
-        name: tagId,  // Store as ID with underscores
-        displayName: input.displayName.trim(),  // Store original display name
-        color: input.color.toUpperCase(),
-      },
+    const tag = await prisma.$transaction(async (tx) => {
+      const created = await tx.tag.create({
+        data: {
+          projectId: input.projectId,
+          name: tagId, // Store as ID with underscores
+          displayName: input.displayName.trim(), // Store original display name
+          color: input.color.toUpperCase(),
+        },
+      });
+      await logResourceChange(
+        {
+          projectId: input.projectId,
+          resourceType: 'tag',
+          resourceId: created.id,
+          resourceLabel: created.displayName,
+          operation: 'created',
+        },
+        tx,
+      );
+      return created;
     });
 
-    logger.info(`Tag created successfully: ${tag.id}, displayName: "${tag.displayName}", ID: ${tag.name}`);
+    logger.info(
+      `Tag created successfully: ${tag.id}, displayName: "${tag.displayName}", ID: ${tag.name}`,
+    );
     return tag;
   } catch (error: any) {
     // Handle unique constraint violation
     if (error.code === 'P2002') {
-      throw new Error(`Tag "${input.displayName}" (ID: ${generateTagId(input.displayName)}) already exists in this project.`);
+      throw new Error(
+        `Tag "${input.displayName}" (ID: ${generateTagId(input.displayName)}) already exists in this project.`,
+      );
     }
     logger.error('Error creating tag:', error);
     throw error;
@@ -99,7 +119,7 @@ export async function createTag(input: CreateTagInput): Promise<Tag> {
 export async function getTagsByProjectId(projectId: string): Promise<Tag[]> {
   try {
     logger.info(`Fetching tags for project ${projectId}`);
-    
+
     const tags = await prisma.tag.findMany({
       where: { projectId },
       orderBy: { createdAt: 'asc' },
@@ -138,7 +158,7 @@ export async function getTagById(id: string, projectId: string): Promise<Tag | n
 export async function updateTag(
   id: string,
   projectId: string,
-  input: UpdateTagInput
+  input: UpdateTagInput,
 ): Promise<Tag> {
   try {
     // Verify tag exists and belongs to project
@@ -150,7 +170,9 @@ export async function updateTag(
     // Validate display name if provided
     if (input.displayName !== undefined) {
       if (!validateTagDisplayName(input.displayName)) {
-        throw new Error('Invalid tag display name. Must start and end with alphanumeric characters.');
+        throw new Error(
+          'Invalid tag display name. Must start and end with alphanumeric characters.',
+        );
       }
     }
 
@@ -164,25 +186,44 @@ export async function updateTag(
     const updateData: any = {};
     if (input.displayName !== undefined) {
       updateData.displayName = input.displayName.trim();
-      updateData.name = generateTagId(input.displayName);  // Regenerate ID from new display name
+      updateData.name = generateTagId(input.displayName); // Regenerate ID from new display name
     }
     if (input.color !== undefined) {
       updateData.color = input.color.toUpperCase();
     }
 
-    logger.info(`Updating tag ${id}, displayName: "${input.displayName || existingTag.displayName}"`);
+    logger.info(
+      `Updating tag ${id}, displayName: "${input.displayName || existingTag.displayName}"`,
+    );
 
-    const tag = await prisma.tag.update({
-      where: { id },
-      data: updateData,
+    const tag = await prisma.$transaction(async (tx) => {
+      const updated = await tx.tag.update({
+        where: { id },
+        data: updateData,
+      });
+      await logResourceChange(
+        {
+          projectId,
+          resourceType: 'tag',
+          resourceId: updated.id,
+          resourceLabel: updated.displayName,
+          operation: 'updated',
+        },
+        tx,
+      );
+      return updated;
     });
 
-    logger.info(`Tag updated successfully: ${tag.id}, displayName: "${tag.displayName}", ID: ${tag.name}`);
+    logger.info(
+      `Tag updated successfully: ${tag.id}, displayName: "${tag.displayName}", ID: ${tag.name}`,
+    );
     return tag;
   } catch (error: any) {
     // Handle unique constraint violation
     if (error.code === 'P2002') {
-      throw new Error(`Tag "${input.displayName}" (ID: ${generateTagId(input.displayName!)}) already exists in this project.`);
+      throw new Error(
+        `Tag "${input.displayName}" (ID: ${generateTagId(input.displayName!)}) already exists in this project.`,
+      );
     }
     logger.error('Error updating tag:', error);
     throw error;
@@ -202,8 +243,20 @@ export async function deleteTag(id: string, projectId: string): Promise<void> {
 
     logger.info(`Deleting tag ${id}`);
 
-    await prisma.tag.delete({
-      where: { id },
+    await prisma.$transaction(async (tx) => {
+      await tx.tag.delete({
+        where: { id },
+      });
+      await logResourceChange(
+        {
+          projectId,
+          resourceType: 'tag',
+          resourceId: existingTag.id,
+          resourceLabel: existingTag.displayName,
+          operation: 'deleted',
+        },
+        tx,
+      );
     });
 
     logger.info(`Tag deleted successfully: ${id}`);

@@ -1,6 +1,7 @@
 import { NextStep, Prisma, PrismaClient, StatusUpdate } from '@prisma/client';
 import { allocateStatusUpdateNumber } from './statusUpdateService';
 import { logger } from '../utils/logger';
+import { logResourceChange } from './resourceChangeService';
 
 const prisma = new PrismaClient();
 type PrismaTx = Prisma.TransactionClient;
@@ -73,7 +74,7 @@ export async function createNextStep(input: CreateNextStepInput): Promise<NextSt
   try {
     return await prisma.$transaction(async (tx) => {
       await assertWorkstream(tx, input.projectId, input.workstreamId);
-      return tx.nextStep.create({
+      const nextStep = await tx.nextStep.create({
         data: {
           projectId: input.projectId,
           workstreamId: input.workstreamId,
@@ -81,6 +82,18 @@ export async function createNextStep(input: CreateNextStepInput): Promise<NextSt
           sortOrder: await nextSortOrder(tx, input.workstreamId),
         },
       });
+      await logResourceChange(
+        {
+          projectId: input.projectId,
+          resourceType: 'next_step',
+          resourceId: nextStep.id,
+          resourceLabel: nextStep.text,
+          operation: 'created',
+          workstreamId: input.workstreamId,
+        },
+        tx,
+      );
+      return nextStep;
     });
   } catch (error) {
     logger.error('Error creating next step:', error);
@@ -100,10 +113,22 @@ export async function updateNextStep(input: UpdateNextStepInput): Promise<NextSt
         },
       });
       if (!nextStep) throw new Error('Next step not found');
-      return tx.nextStep.update({
+      const updated = await tx.nextStep.update({
         where: { id: input.nextStepId },
         data: { text: cleanText(input.text) },
       });
+      await logResourceChange(
+        {
+          projectId: input.projectId,
+          resourceType: 'next_step',
+          resourceId: updated.id,
+          resourceLabel: updated.text,
+          operation: 'updated',
+          workstreamId: input.workstreamId,
+        },
+        tx,
+      );
+      return updated;
     });
   } catch (error) {
     logger.error('Error updating next step:', error);
@@ -131,6 +156,17 @@ export async function reorderNextSteps(input: ReorderNextStepsInput): Promise<Ne
         input.orderedIds.map((id, sortOrder) =>
           tx.nextStep.update({ where: { id }, data: { sortOrder } }),
         ),
+      );
+      await logResourceChange(
+        {
+          projectId: input.projectId,
+          resourceType: 'next_step',
+          resourceId: input.workstreamId,
+          resourceLabel: null,
+          operation: 'reordered',
+          workstreamId: input.workstreamId,
+        },
+        tx,
       );
       return tx.nextStep.findMany({
         where: { projectId: input.projectId, workstreamId: input.workstreamId },
@@ -161,6 +197,17 @@ async function resolveNextStep(
         });
         if (!nextStep) throw new Error('Next step not found');
         await tx.nextStep.delete({ where: { id: nextStep.id } });
+        await logResourceChange(
+          {
+            projectId: input.projectId,
+            resourceType: 'next_step',
+            resourceId: nextStep.id,
+            resourceLabel: nextStep.text,
+            operation: impact === 'active' ? 'solved' : 'abandoned',
+            workstreamId: input.workstreamId,
+          },
+          tx,
+        );
         const update = await tx.statusUpdate.create({
           data: {
             projectId: input.projectId,
@@ -170,6 +217,17 @@ async function resolveNextStep(
             impact,
           },
         });
+        await logResourceChange(
+          {
+            projectId: input.projectId,
+            resourceType: 'status_update',
+            resourceId: update.id,
+            resourceLabel: update.status,
+            operation: 'created',
+            workstreamId: input.workstreamId,
+          },
+          tx,
+        );
         return { nextStep, update };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -201,9 +259,23 @@ export async function abandonNextStepWithDetails(
 }
 
 export async function deleteNextStep(input: ResolveNextStepInput): Promise<void> {
-  await assertWorkstream(prisma, input.projectId, input.workstreamId);
-  const deleted = await prisma.nextStep.deleteMany({
-    where: { id: input.nextStepId, projectId: input.projectId, workstreamId: input.workstreamId },
+  await prisma.$transaction(async (tx) => {
+    await assertWorkstream(tx, input.projectId, input.workstreamId);
+    const nextStep = await tx.nextStep.findFirst({
+      where: { id: input.nextStepId, projectId: input.projectId, workstreamId: input.workstreamId },
+    });
+    if (!nextStep) throw new Error('Next step not found');
+    await tx.nextStep.delete({ where: { id: input.nextStepId } });
+    await logResourceChange(
+      {
+        projectId: input.projectId,
+        resourceType: 'next_step',
+        resourceId: nextStep.id,
+        resourceLabel: nextStep.text,
+        operation: 'deleted',
+        workstreamId: input.workstreamId,
+      },
+      tx,
+    );
   });
-  if (deleted.count === 0) throw new Error('Next step not found');
 }
