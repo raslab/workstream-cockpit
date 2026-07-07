@@ -11,10 +11,11 @@ datasource db {
 }
 
 model Person {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
+  id         String   @id @default(uuid())
+  email      String   @unique
+  name       String
+  pictureUrl String?  @map("picture_url")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   projects             Project[]
   personalAccessTokens PersonalAccessToken[]
@@ -48,13 +49,14 @@ model Project {
   nextStatusUpdateNumber Int      @default(1) @map("next_status_update_number")
   createdAt              DateTime @default(now()) @map("created_at")
 
-  person        Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
-  categories    Category[]
-  workstreams   Workstream[]
-  statusUpdates StatusUpdate[]
-  nextSteps     NextStep[]
-  tags          Tag[]
-  views         View[]
+  person          Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
+  categories      Category[]
+  workstreams     Workstream[]
+  statusUpdates   StatusUpdate[]
+  nextSteps       NextStep[]
+  tags            Tag[]
+  views           View[]
+  resourceChanges ResourceChange[]
 
   @@index([personId])
   @@map("projects")
@@ -188,4 +190,24 @@ model View {
 
   @@index([projectId])
   @@map("views")
+}
+
+model ResourceChange {
+  id            String   @id @default(uuid())
+  sequence      BigInt   @unique @default(autoincrement())
+  projectId     String   @map("project_id")
+  resourceType  String   @map("resource_type")
+  resourceId    String?  @map("resource_id")
+  resourceLabel String?  @map("resource_label")
+  operation     String
+  workstreamId  String?  @map("workstream_id")
+  metadata      Json?
+  changedAt     DateTime @default(now()) @map("changed_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, changedAt])
+  @@index([projectId, resourceType])
+  @@index([projectId, workstreamId])
+  @@map("resource_changes")
 }

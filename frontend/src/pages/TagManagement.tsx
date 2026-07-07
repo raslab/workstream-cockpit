@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTags, useCreateTag, useUpdateTag, useDeleteTag } from '../api/tags';
 import { ColorPicker } from '../components/ColorPicker/ColorPicker';
 import type { Tag } from '../types/tag';
+import { useDirtyResourceEditor } from '../components/Notifications/ResourceChangeNotificationProvider';
 
 interface TagItemProps {
   tag: Tag;
@@ -26,12 +27,21 @@ function TagItem({
 }: TagItemProps) {
   const [editDisplayName, setEditDisplayName] = useState(tag.displayName);
   const [editColor, setEditColor] = useState(tag.color);
-  
+  useEffect(() => {
+    if (!isEditing) return;
+    setEditDisplayName(tag.displayName);
+    setEditColor(tag.color);
+  }, [isEditing, tag.color, tag.displayName, tag.id]);
+  useDirtyResourceEditor(
+    `tag-edit-${tag.id}`,
+    isEditing && (editDisplayName !== tag.displayName || editColor !== tag.color),
+  );
+
   // Generate tag ID preview
   const generateTagId = (displayName: string): string => {
     return displayName.trim().toLowerCase().replace(/\s+/g, '_');
   };
-  
+
   const tagIdPreview = generateTagId(editDisplayName);
 
   if (isEditing) {
@@ -54,7 +64,8 @@ function TagItem({
             />
           </div>
           <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Alphanumeric, hyphens, underscores, and spaces allowed • {editDisplayName.length}/50 characters
+            Alphanumeric, hyphens, underscores, and spaces allowed • {editDisplayName.length}/50
+            characters
           </div>
           {editDisplayName.trim() && (
             <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-blue-800 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100">
@@ -153,12 +164,16 @@ export default function TagManagement() {
   const [newTagDisplayName, setNewTagDisplayName] = useState('');
   const [newTagColor, setNewTagColor] = useState('#1DA1F2');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  
+  useDirtyResourceEditor(
+    'tag-create',
+    isCreating && Boolean(newTagDisplayName.trim() || newTagColor !== '#1DA1F2'),
+  );
+
   // Generate tag ID preview for new tag
   const generateTagId = (displayName: string): string => {
     return displayName.trim().toLowerCase().replace(/\s+/g, '_');
   };
-  
+
   const newTagIdPreview = generateTagId(newTagDisplayName);
 
   const handleCreate = (e: React.FormEvent) => {
@@ -175,7 +190,7 @@ export default function TagManagement() {
             setNewTagDisplayName('');
             setNewTagColor('#1DA1F2');
           },
-        }
+        },
       );
     }
   };
@@ -193,7 +208,7 @@ export default function TagManagement() {
         onSuccess: () => {
           setEditingTag(null);
         },
-      }
+      },
     );
   };
 
@@ -210,21 +225,25 @@ export default function TagManagement() {
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Tags</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Create tags to reference people, teams, projects, or any other entity across your workstreams. 
-          Use #tagname in any text field.
+          Create tags to reference people, teams, projects, or any other entity across your
+          workstreams. Use #tagname in any text field.
         </p>
       </div>
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
-          <p className="text-sm text-red-800 dark:text-red-200">Failed to load tags. Please try again.</p>
+          <p className="text-sm text-red-800 dark:text-red-200">
+            Failed to load tags. Please try again.
+          </p>
         </div>
       )}
 
       {/* Create New Tag */}
       {isCreating ? (
         <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Create New Tag</h3>
+          <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Create New Tag
+          </h3>
           <form onSubmit={handleCreate}>
             <div className="mb-4">
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -243,14 +262,19 @@ export default function TagManagement() {
                 />
               </div>
               <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Alphanumeric, hyphens, underscores, and spaces allowed • {newTagDisplayName.length}/50 characters
+                Alphanumeric, hyphens, underscores, and spaces allowed • {newTagDisplayName.length}
+                /50 characters
               </div>
               {newTagDisplayName.trim() && (
                 <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 p-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100">
                   <strong>Tag ID:</strong> #{newTagIdPreview}
                   <br />
                   <span className="text-xs">
-                    Use <code className="rounded bg-blue-100 px-1 dark:bg-blue-900 dark:text-blue-100">#{newTagIdPreview}</code> in text for autocompletion and matching
+                    Use{' '}
+                    <code className="rounded bg-blue-100 px-1 dark:bg-blue-900 dark:text-blue-100">
+                      #{newTagIdPreview}
+                    </code>{' '}
+                    in text for autocompletion and matching
                   </span>
                 </div>
               )}
@@ -308,7 +332,10 @@ export default function TagManagement() {
       {isLoading && (
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="animate-pulse rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+            <div
+              key={i}
+              className="animate-pulse rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
+            >
               <div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700" />
             </div>
           ))}
@@ -317,7 +344,9 @@ export default function TagManagement() {
 
       {!isLoading && tags && tags.length === 0 && !isCreating && (
         <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-gray-500 mb-2 dark:text-gray-400">No tags yet. Create your first tag!</p>
+          <p className="text-gray-500 mb-2 dark:text-gray-400">
+            No tags yet. Create your first tag!
+          </p>
           <p className="text-xs text-gray-400 dark:text-gray-500">
             Tags let you reference entities like #backend, #frontend, #team-alpha across workstreams
           </p>
@@ -329,8 +358,16 @@ export default function TagManagement() {
           <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100">
             <strong>💡 How to use tags:</strong>
             <ul className="mt-2 space-y-1 list-disc pl-5">
-              <li>Type the <strong>tag ID</strong> (shown below each tag) in workstream context or status updates</li>
-              <li>Example: For "Alan Awake", type <code className="rounded bg-blue-100 px-1 dark:bg-blue-900 dark:text-blue-100">#alan_awake</code></li>
+              <li>
+                Type the <strong>tag ID</strong> (shown below each tag) in workstream context or
+                status updates
+              </li>
+              <li>
+                Example: For "Alan Awake", type{' '}
+                <code className="rounded bg-blue-100 px-1 dark:bg-blue-900 dark:text-blue-100">
+                  #alan_awake
+                </code>
+              </li>
               <li>The autocomplete will help you select the right tag</li>
               <li>Tags display with their friendly names everywhere in the UI</li>
             </ul>

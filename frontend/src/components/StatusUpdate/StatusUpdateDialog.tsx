@@ -4,6 +4,7 @@ import { apiClient } from '../../api/client';
 import { TagAutocomplete } from '../Tag/TagAutocomplete';
 import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
 import { WorkstreamLink } from '../Workstream/WorkstreamReference';
+import { useDirtyResourceEditor } from '../Notifications/ResourceChangeNotificationProvider';
 
 interface StatusUpdateDialogProps {
   workstreamId: string;
@@ -27,6 +28,10 @@ export function StatusUpdateDialog({
   const statusRef = useRef<HTMLTextAreaElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const queryClient = useQueryClient();
+  useDirtyResourceEditor(
+    `status-create-${workstreamId}`,
+    isOpen && Boolean(status.trim() || note.trim()),
+  );
 
   const createStatusMutation = useMutation({
     mutationFn: async (data: { workstreamId: string; status: string; note?: string }) => {
@@ -36,8 +41,8 @@ export function StatusUpdateDialog({
     onSuccess: () => {
       const affectedWorkstreamReferences = Array.from(
         new Set(
-          [workstreamId, workstreamReferenceId].filter(
-            (reference): reference is string => Boolean(reference),
+          [workstreamId, workstreamReferenceId].filter((reference): reference is string =>
+            Boolean(reference),
           ),
         ),
       );
@@ -86,12 +91,18 @@ export function StatusUpdateDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70">
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
         <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
-          Add update for <WorkstreamLink workstream={{ id: workstreamId, name: workstreamName, number: workstreamNumber }} />
+          Add update for{' '}
+          <WorkstreamLink
+            workstream={{ id: workstreamId, name: workstreamName, number: workstreamNumber }}
+          />
         </h2>
 
         <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>
           <div className="mb-4">
-            <label htmlFor="status" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="status"
+              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Status <span className="text-red-500">*</span>
             </label>
             <textarea
@@ -106,18 +117,17 @@ export function StatusUpdateDialog({
               placeholder="What's the current status? Use #tags for categorization"
               autoFocus
             />
-            <TagAutocomplete 
-              value={status} 
-              onChange={setStatus} 
-              textareaRef={statusRef}
-            />
+            <TagAutocomplete value={status} onChange={setStatus} textareaRef={statusRef} />
             <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {status.length}/500 characters • Type # for tag suggestions
             </div>
           </div>
 
           <div className="mb-4">
-            <label htmlFor="note" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="note"
+              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Note (optional)
             </label>
             <textarea
@@ -131,11 +141,7 @@ export function StatusUpdateDialog({
               maxLength={2000}
               placeholder="Add any additional details... Use #tags here too!"
             />
-            <TagAutocomplete 
-              value={note} 
-              onChange={setNote} 
-              textareaRef={noteRef}
-            />
+            <TagAutocomplete value={note} onChange={setNote} textareaRef={noteRef} />
             <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {note.length}/2000 characters
             </div>

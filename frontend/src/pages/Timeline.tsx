@@ -41,6 +41,7 @@ import {
   TimelineUrlState,
   urlDateToDate,
 } from '../utils/urlState';
+import { useResourceChangeScreen } from '../components/Notifications/ResourceChangeNotificationProvider';
 
 function timelineTrail(entry: TimelineEntry) {
   return [...(entry.parentStreams || []), entry].map((stream) => {
@@ -77,6 +78,7 @@ function UpdateImpactChip({ impact }: { impact?: TimelineEntry['impact'] }) {
 }
 
 export default function Timeline() {
+  useResourceChangeScreen({ screen: 'timeline' });
   const getQuickDateRange = (preset: DateRangeQuickPreset) => {
     const now = new Date();
     switch (preset) {

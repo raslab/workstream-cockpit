@@ -24,6 +24,7 @@ passport.use(
         // Extract user info from Google profile
         const email = profile.emails?.[0]?.value;
         const name = profile.displayName;
+        const pictureUrl = profile.photos?.[0]?.value ?? null;
 
         if (!email) {
           return done(new Error('No email found in Google profile'));
@@ -32,13 +33,13 @@ passport.use(
         if (!isGoogleEmailAllowed(email)) {
           const allowlist = describeGoogleOAuthAllowlist();
           logger.warn(
-            `Rejected Google OAuth login for email outside allowlist (emailCount=${allowlist.emailCount}, domainCount=${allowlist.domainCount})`
+            `Rejected Google OAuth login for email outside allowlist (emailCount=${allowlist.emailCount}, domainCount=${allowlist.domainCount})`,
           );
           return done(null, false);
         }
 
         // Get or create person
-        const person = await getOrCreatePerson({ email, name });
+        const person = await getOrCreatePerson({ email, name, pictureUrl });
 
         // Check if person has any projects
         const { getProjectsByPersonId } = await import('../services/projectService');
@@ -58,8 +59,8 @@ passport.use(
         logger.error('Error in Google OAuth callback:', error);
         return done(error as Error);
       }
-    }
-  )
+    },
+  ),
 );
 
 // Serialize user to session
@@ -72,11 +73,11 @@ passport.deserializeUser(async (id: string, done) => {
   try {
     const { findPersonById } = await import('../services/personService');
     const person = await findPersonById(id);
-    
+
     if (!person) {
       return done(new Error('User not found'));
     }
-    
+
     done(null, person);
   } catch (error) {
     logger.error('Error deserializing user:', error);

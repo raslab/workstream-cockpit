@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { logResourceChange } from './resourceChangeService';
 
 const prisma = new PrismaClient();
 
@@ -64,21 +65,32 @@ export class ViewService {
    * Create a new view
    */
   async createView(projectId: string, input: CreateViewInput) {
-    // If this is being set as default, unset any existing defaults
-    if (input.isDefault) {
-      await prisma.view.updateMany({
-        where: { projectId, isDefault: true },
-        data: { isDefault: false },
+    return prisma.$transaction(async (tx) => {
+      if (input.isDefault) {
+        await tx.view.updateMany({
+          where: { projectId, isDefault: true },
+          data: { isDefault: false },
+        });
+      }
+      const view = await tx.view.create({
+        data: {
+          projectId,
+          name: input.name,
+          isDefault: input.isDefault ?? false,
+          config: input.config as any,
+        },
       });
-    }
-
-    return prisma.view.create({
-      data: {
-        projectId,
-        name: input.name,
-        isDefault: input.isDefault ?? false,
-        config: input.config as any,
-      },
+      await logResourceChange(
+        {
+          projectId,
+          resourceType: 'view',
+          resourceId: view.id,
+          resourceLabel: view.name,
+          operation: 'created',
+        },
+        tx,
+      );
+      return view;
     });
   }
 
@@ -89,21 +101,32 @@ export class ViewService {
     // Verify view exists and belongs to project
     await this.getView(viewId, projectId);
 
-    // If this is being set as default, unset any existing defaults
-    if (input.isDefault) {
-      await prisma.view.updateMany({
-        where: { projectId, isDefault: true, id: { not: viewId } },
-        data: { isDefault: false },
+    return prisma.$transaction(async (tx) => {
+      if (input.isDefault) {
+        await tx.view.updateMany({
+          where: { projectId, isDefault: true, id: { not: viewId } },
+          data: { isDefault: false },
+        });
+      }
+      const updated = await tx.view.update({
+        where: { id: viewId },
+        data: {
+          ...(input.name && { name: input.name }),
+          ...(input.isDefault !== undefined && { isDefault: input.isDefault }),
+          ...(input.config && { config: input.config as any }),
+        },
       });
-    }
-
-    return prisma.view.update({
-      where: { id: viewId },
-      data: {
-        ...(input.name && { name: input.name }),
-        ...(input.isDefault !== undefined && { isDefault: input.isDefault }),
-        ...(input.config && { config: input.config as any }),
-      },
+      await logResourceChange(
+        {
+          projectId,
+          resourceType: 'view',
+          resourceId: updated.id,
+          resourceLabel: updated.name,
+          operation: 'updated',
+        },
+        tx,
+      );
+      return updated;
     });
   }
 
@@ -119,8 +142,20 @@ export class ViewService {
       throw new Error('Cannot delete the default view');
     }
 
-    await prisma.view.delete({
-      where: { id: viewId },
+    await prisma.$transaction(async (tx) => {
+      await tx.view.delete({
+        where: { id: viewId },
+      });
+      await logResourceChange(
+        {
+          projectId,
+          resourceType: 'view',
+          resourceId: view.id,
+          resourceLabel: view.name,
+          operation: 'deleted',
+        },
+        tx,
+      );
     });
   }
 

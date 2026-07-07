@@ -19,6 +19,10 @@ import {
   viewUrlValue,
 } from '../utils/urlState';
 import { WorkstreamLink } from '../components/Workstream/WorkstreamReference';
+import {
+  useDirtyResourceEditor,
+  useResourceChangeScreen,
+} from '../components/Notifications/ResourceChangeNotificationProvider';
 
 function softCategoryColor(color?: string | null) {
   if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) return '#c5dae4';
@@ -52,6 +56,7 @@ export default function Cockpit() {
     discardChanges,
     renameView,
   } = useViewManager({ preferredViewValue: searchParams.get('view') });
+  useDirtyResourceEditor('cockpit-view-config', hasUnsavedChanges);
 
   const urlViewParam = searchParams.get('view');
   const resolvedUrlViewId = resolveEntityParam(urlViewParam, views);
@@ -84,6 +89,10 @@ export default function Cockpit() {
     parentIds: currentConfig.filters.hierarchy.parentIds,
     includeSubstreams: currentConfig.filters.hierarchy.includeSubstreams,
     enabled: viewSelectionReady,
+  });
+  useResourceChangeScreen({
+    screen: 'cockpit',
+    workstreamIds: workstreams?.map((workstream) => workstream.id),
   });
 
   // Apply URL view selection and filter overrides, then canonicalize the URL to the actual screen state.

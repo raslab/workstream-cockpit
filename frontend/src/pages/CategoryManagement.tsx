@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   DndContext,
@@ -20,6 +20,7 @@ import { apiClient } from '../api/client';
 import { ColorPicker } from '../components/ColorPicker/ColorPicker';
 import { EmojiPicker } from '../components/EmojiPicker/EmojiPicker';
 import { Category } from '../types/workstream';
+import { useDirtyResourceEditor } from '../components/Notifications/ResourceChangeNotificationProvider';
 
 interface SortableCategoryProps {
   category: Category;
@@ -57,6 +58,21 @@ function SortableCategory({
   const [editColor, setEditColor] = useState(category.color);
   const [editEmoji, setEditEmoji] = useState(category.emoji || '');
   const [editDescription, setEditDescription] = useState(category.description || '');
+  useEffect(() => {
+    if (!isEditing) return;
+    setEditName(category.name);
+    setEditColor(category.color);
+    setEditEmoji(category.emoji || '');
+    setEditDescription(category.description || '');
+  }, [category.color, category.description, category.emoji, category.id, category.name, isEditing]);
+  useDirtyResourceEditor(
+    `category-edit-${category.id}`,
+    isEditing &&
+      (editName !== category.name ||
+        editColor !== category.color ||
+        editEmoji !== (category.emoji || '') ||
+        editDescription !== (category.description || '')),
+  );
 
   if (isEditing) {
     return (
@@ -220,6 +236,16 @@ export default function CategoryManagement() {
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  useDirtyResourceEditor(
+    'category-create',
+    isCreating &&
+      Boolean(
+        newCategoryName.trim() ||
+        newCategoryColor !== '#3B82F6' ||
+        newCategoryEmoji.trim() ||
+        newCategoryDescription.trim(),
+      ),
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

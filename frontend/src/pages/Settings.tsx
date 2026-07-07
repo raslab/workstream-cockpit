@@ -1,11 +1,19 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { SettingsSidebar } from '../components/Settings/SettingsSidebar';
 import AppearanceSettings from './AppearanceSettings';
 import CategoryManagement from './CategoryManagement';
 import PersonalAccessTokens from './PersonalAccessTokens';
 import TagManagement from './TagManagement';
+import { useResourceChangeScreen } from '../components/Notifications/ResourceChangeNotificationProvider';
 
 export default function Settings() {
+  const location = useLocation();
+  const section = location.pathname.includes('/settings/tags')
+    ? 'tags'
+    : location.pathname.includes('/settings/categories')
+      ? 'categories'
+      : 'general';
+  useResourceChangeScreen({ screen: 'settings', section });
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <h1 className="mb-6 text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>

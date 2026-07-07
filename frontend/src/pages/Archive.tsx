@@ -4,8 +4,10 @@ import { WorkstreamSkeleton } from '../components/Workstream/WorkstreamSkeleton'
 import { apiClient } from '../api/client';
 import { format, parseISO } from 'date-fns';
 import { WorkstreamLink } from '../components/Workstream/WorkstreamReference';
+import { useResourceChangeScreen } from '../components/Notifications/ResourceChangeNotificationProvider';
 
 export default function Archive() {
+  useResourceChangeScreen({ screen: 'archive' });
   const { data: workstreams, isLoading, error } = useWorkstreams({ state: 'closed' });
   const queryClient = useQueryClient();
 

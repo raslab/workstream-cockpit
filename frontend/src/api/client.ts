@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { buildLoginRedirectUrl, getCurrentReturnTo } from '@/utils/authRedirect';
+import { getResourceChangeClientId } from '@/utils/resourceChangeClient';
 
 // Use relative path for production (nginx proxies /api to backend)
 // or full URL for development
@@ -11,6 +12,11 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+apiClient.interceptors.request.use((config) => {
+  config.headers.set('X-Resource-Change-Client-Id', getResourceChangeClientId());
+  return config;
 });
 
 // Response interceptor for error handling

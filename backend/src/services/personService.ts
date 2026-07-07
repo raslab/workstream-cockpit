@@ -6,6 +6,7 @@ const prisma = new PrismaClient();
 export interface CreatePersonInput {
   email: string;
   name: string;
+  pictureUrl?: string | null;
 }
 
 /**
@@ -42,11 +43,12 @@ export async function findPersonById(id: string): Promise<Person | null> {
 export async function createPerson(input: CreatePersonInput): Promise<Person> {
   try {
     logger.info(`Creating new person: ${input.email}`);
-    
+
     const person = await prisma.person.create({
       data: {
         email: input.email,
         name: input.name,
+        pictureUrl: input.pictureUrl ?? null,
       },
     });
 
@@ -64,10 +66,16 @@ export async function createPerson(input: CreatePersonInput): Promise<Person> {
 export async function getOrCreatePerson(input: CreatePersonInput): Promise<Person> {
   try {
     let person = await findPersonByEmail(input.email);
-    
+
     if (!person) {
       person = await createPerson(input);
     } else {
+      if (input.pictureUrl && person.pictureUrl !== input.pictureUrl) {
+        person = await prisma.person.update({
+          where: { id: person.id },
+          data: { name: input.name, pictureUrl: input.pictureUrl },
+        });
+      }
       logger.info(`Existing person found: ${person.id}`);
     }
 

@@ -6,6 +6,7 @@ import {
   getSubstreamWorkstreamIds,
   isPublicNumberReference,
 } from './workstreamService';
+import { logResourceChange } from './resourceChangeService';
 
 const prisma = new PrismaClient();
 type PrismaTx = Prisma.TransactionClient;
@@ -129,7 +130,7 @@ export async function createStatusUpdate(input: CreateStatusUpdateInput): Promis
           throw new Error('Workstream not found');
         const projectId = workstream.projectId;
         const number = await allocateStatusUpdateNumber(tx, projectId);
-        return tx.statusUpdate.create({
+        const statusUpdate = await tx.statusUpdate.create({
           data: {
             projectId,
             number,
@@ -139,6 +140,18 @@ export async function createStatusUpdate(input: CreateStatusUpdateInput): Promis
             impact: input.impact ?? 'active',
           },
         });
+        await logResourceChange(
+          {
+            projectId,
+            resourceType: 'status_update',
+            resourceId: statusUpdate.id,
+            resourceLabel: statusUpdate.status,
+            operation: 'created',
+            workstreamId: statusUpdate.workstreamId,
+          },
+          tx,
+        );
+        return statusUpdate;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
@@ -231,9 +244,23 @@ export async function updateStatusUpdate(
     const updates: any = {};
     if (input.status !== undefined) updates.status = input.status;
     if (input.note !== undefined) updates.note = input.note;
-    const statusUpdate = await prisma.statusUpdate.update({
-      where: { id: existing.id },
-      data: updates,
+    const statusUpdate = await prisma.$transaction(async (tx) => {
+      const updated = await tx.statusUpdate.update({
+        where: { id: existing.id },
+        data: updates,
+      });
+      await logResourceChange(
+        {
+          projectId: updated.projectId,
+          resourceType: 'status_update',
+          resourceId: updated.id,
+          resourceLabel: updated.status,
+          operation: 'updated',
+          workstreamId: updated.workstreamId,
+        },
+        tx,
+      );
+      return updated;
     });
     logger.info(`Status update updated: ${statusUpdate.id}`);
     return statusUpdate;
@@ -252,7 +279,20 @@ export async function deleteStatusUpdate(
       where: { id: statusUpdateId, workstreamId },
     });
     if (!existing) throw new Error('Status update not found or access denied');
-    await prisma.statusUpdate.delete({ where: { id: statusUpdateId } });
+    await prisma.$transaction(async (tx) => {
+      await tx.statusUpdate.delete({ where: { id: statusUpdateId } });
+      await logResourceChange(
+        {
+          projectId: existing.projectId,
+          resourceType: 'status_update',
+          resourceId: existing.id,
+          resourceLabel: existing.status,
+          operation: 'deleted',
+          workstreamId: existing.workstreamId,
+        },
+        tx,
+      );
+    });
     logger.info(`Status update deleted: ${statusUpdateId}`);
   } catch (error) {
     logger.error('Error deleting status update:', error);
@@ -269,7 +309,20 @@ export async function deleteStatusUpdateByReference(
     const existing = await resolveStatusUpdateReference(statusUpdateReference, projectId);
     if (!existing || existing.workstreamId !== workstreamId)
       throw new Error('Status update not found or access denied');
-    await prisma.statusUpdate.delete({ where: { id: existing.id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.statusUpdate.delete({ where: { id: existing.id } });
+      await logResourceChange(
+        {
+          projectId: existing.projectId,
+          resourceType: 'status_update',
+          resourceId: existing.id,
+          resourceLabel: existing.status,
+          operation: 'deleted',
+          workstreamId: existing.workstreamId,
+        },
+        tx,
+      );
+    });
     logger.info(`Status update deleted: ${existing.id}`);
   } catch (error) {
     logger.error('Error deleting status update:', error);

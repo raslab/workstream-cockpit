@@ -21,9 +21,12 @@ function redactSessionId(sessionID: string | undefined): string | null {
  * GET /auth/google
  * Initiate Google OAuth flow
  */
-router.get('/google', passport.authenticate('google', {
-  scope: ['profile', 'email'],
-}));
+router.get(
+  '/google',
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+  }),
+);
 
 /**
  * GET /auth/google/callback
@@ -35,7 +38,7 @@ router.get(
   (req, res) => {
     // Successful authentication - ensure session is saved before redirect
     logger.info(`User ${(req.user as any)?.email} authenticated successfully`);
-    
+
     // Save session explicitly before redirecting to ensure cookie is set
     req.session.save((err) => {
       if (err) {
@@ -43,11 +46,11 @@ router.get(
         res.status(500).send('Authentication error');
         return;
       }
-      
+
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
       res.redirect(`${frontendUrl}/auth/callback`);
     });
-  }
+  },
 );
 
 /**
@@ -56,7 +59,7 @@ router.get(
  */
 router.get('/user', (req, res): void => {
   logger.info(`Auth check - Session ID: ${req.sessionID}, Authenticated: ${req.isAuthenticated()}`);
-  
+
   if (!req.isAuthenticated()) {
     logger.warn('User not authenticated - no session or session expired');
     res.status(401).json({ error: 'Not authenticated' });
@@ -69,6 +72,7 @@ router.get('/user', (req, res): void => {
     id: user.id,
     email: user.email,
     name: user.name,
+    pictureUrl: user.pictureUrl ?? null,
   });
 });
 
@@ -78,7 +82,7 @@ router.get('/user', (req, res): void => {
  */
 router.post('/logout', (req, res): void => {
   const user = req.user as any;
-  
+
   req.logout((err) => {
     if (err) {
       logger.error('Error during logout:', err);
@@ -129,6 +133,7 @@ router.get('/debug', (req, res): void => {
           id: user.id,
           email: user.email,
           name: user.name,
+          pictureUrl: user.pictureUrl ?? null,
         }
       : null,
     headers: {
