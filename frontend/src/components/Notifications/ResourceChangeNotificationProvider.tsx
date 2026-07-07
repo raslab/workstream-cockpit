@@ -182,6 +182,17 @@ function defaultCreateSocket(): WebSocket {
   return new WebSocket(resourceChangeSocketUrl());
 }
 
+function mergeRecentChanges(
+  current: ResourceChangeNotification[],
+  changes: ResourceChangeNotification[],
+): ResourceChangeNotification[] {
+  const byId = new Map<string, ResourceChangeNotification>();
+  [...changes, ...current].forEach((change) => byId.set(change.id, change));
+  return Array.from(byId.values())
+    .sort((a, b) => Date.parse(b.changedAt) - Date.parse(a.changedAt))
+    .slice(0, MAX_NOTIFICATIONS);
+}
+
 export function ResourceChangeNotificationProvider({
   children,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
@@ -203,6 +214,7 @@ export function ResourceChangeNotificationProvider({
   const [staleChangeIds, setStaleChangeIds] = useState<Set<string>>(new Set());
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [dirtyRefreshBlocked, setDirtyRefreshBlocked] = useState(false);
+  const staleEligibleIdsRef = useRef(new Set<string>());
   const dirtySourcesRef = useRef(new Map<string, boolean>());
   const screenRef = useRef<ScreenRegistration | null>(null);
   const fetcher = fetchChanges ?? fetchResourceChanges;
@@ -211,13 +223,8 @@ export function ResourceChangeNotificationProvider({
 
   const addChanges = useCallback((changes: ResourceChangeNotification[]) => {
     if (changes.length === 0) return;
-    setNotifications((current) => {
-      const byId = new Map<string, ResourceChangeNotification>();
-      [...changes, ...current].forEach((change) => byId.set(change.id, change));
-      return Array.from(byId.values())
-        .sort((a, b) => Date.parse(b.changedAt) - Date.parse(a.changedAt))
-        .slice(0, MAX_NOTIFICATIONS);
-    });
+    changes.forEach((change) => staleEligibleIdsRef.current.add(change.id));
+    setNotifications((current) => mergeRecentChanges(current, changes));
     setUnseenCount((count) => count + changes.length);
     const screen = screenRef.current;
     if (screen) {
@@ -246,6 +253,7 @@ export function ResourceChangeNotificationProvider({
     if (!hasBaseline) {
       cursorRef.current = data.cursor;
       setCursor(data.cursor);
+      setNotifications((current) => mergeRecentChanges(current, data.changes));
       setHasBaseline(true);
       return;
     }
@@ -286,6 +294,7 @@ export function ResourceChangeNotificationProvider({
         if (closed) return;
         cursorRef.current = data.cursor;
         setCursor(data.cursor);
+        setNotifications((current) => mergeRecentChanges(current, data.changes));
         setHasBaseline(true);
         connect();
       })
@@ -302,6 +311,7 @@ export function ResourceChangeNotificationProvider({
 
   useEffect(() => {
     screenRef.current = null;
+    staleEligibleIdsRef.current.clear();
     setStaleChangeIds(new Set());
     setDirtyRefreshBlocked(false);
     setRefreshError(null);
@@ -337,7 +347,10 @@ export function ResourceChangeNotificationProvider({
       screenRef.current = screen;
       setStaleChangeIds((ids) => {
         const relevantIds = notifications
-          .filter((change) => isChangeRelevantToScreen(change, screen))
+          .filter(
+            (change) =>
+              staleEligibleIdsRef.current.has(change.id) && isChangeRelevantToScreen(change, screen),
+          )
           .map((change) => change.id);
         return new Set([...ids, ...relevantIds]);
       });

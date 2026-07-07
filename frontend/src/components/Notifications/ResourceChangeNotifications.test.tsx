@@ -142,6 +142,31 @@ describe('resource change notifications', () => {
     expect(fetchChangesMock).toHaveBeenCalledTimes(1);
   });
 
+  it('loads historical changes during realtime baseline and still opens the socket', async () => {
+    const historicalChange: ResourceChangeNotification = {
+      id: 'historical-change-1',
+      resourceType: 'category',
+      resourceId: 'category-1',
+      resourceLabel: 'Projects',
+      operation: 'updated',
+      workstreamId: null,
+      changedAt: '2026-07-07T09:00:00.000Z',
+    };
+    fetchChangesMock.mockResolvedValue({
+      cursor: 'historical-change-1',
+      changes: [historicalChange],
+    });
+
+    renderRealtimeNotifications();
+
+    await waitFor(() => expect(FakeResourceChangeSocket.instances).toHaveLength(1));
+    await userEvent.click(screen.getByRole('button', { name: /notifications/i }));
+
+    expect(screen.getByText('Category changed: Projects')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /notifications/i })).not.toHaveTextContent('1');
+    expect(screen.queryByText('Settings changed. Refresh to see updates.')).not.toBeInTheDocument();
+  });
+
   it('shows unseen source-neutral notifications and a current-screen refresh popup', async () => {
     renderNotifications();
     await waitFor(() => expect(fetchChangesMock).toHaveBeenCalledWith(null));
