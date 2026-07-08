@@ -12,6 +12,7 @@ import {
 } from '../helpers/testDb';
 import { createTestApp } from '../helpers/testApp';
 import workstreamsRoutes from '../../src/routes/workstreams';
+import statusUpdatesRoutes from '../../src/routes/statusUpdates';
 
 let person: any;
 let project: any;
@@ -174,6 +175,55 @@ describe('Workstreams API Integration Tests', () => {
           depth: 1,
         }),
       ]);
+    });
+
+    it('treats status update creation, not later edits, as not-updated-today freshness', async () => {
+      const editedOldStream = await createTestWorkstream(project.id, { name: 'Edited old stream' });
+      const newlyUpdatedStream = await createTestWorkstream(project.id, {
+        name: 'Newly updated stream',
+      });
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const now = new Date();
+
+      const editedOldUpdate = await createTestStatusUpdate(editedOldStream.id, {
+        status: 'Original old history',
+      });
+      await prisma.statusUpdate.update({
+        where: { id: editedOldUpdate.id },
+        data: { createdAt: yesterday, updatedAt: yesterday },
+      });
+
+      const newlyCreatedUpdate = await createTestStatusUpdate(newlyUpdatedStream.id, {
+        status: 'New movement today',
+      });
+      await prisma.statusUpdate.update({
+        where: { id: newlyCreatedUpdate.id },
+        data: { createdAt: now, updatedAt: now },
+      });
+
+      const editResponse = await request(createTestApp(statusUpdatesRoutes, person))
+        .put(`/${editedOldUpdate.id}`)
+        .send({
+          workstreamId: editedOldStream.id,
+          status: 'Corrected old history',
+        });
+      expect(editResponse.status).toBe(200);
+      expect(editResponse.body.status).toBe('Corrected old history');
+      expect(new Date(editResponse.body.updatedAt).getTime()).toBeGreaterThan(
+        new Date(editResponse.body.createdAt).getTime(),
+      );
+
+      const response = await request(app).get('/?notUpdatedToday=true');
+
+      expect(response.status).toBe(200);
+      expect(response.body.map((workstream: any) => workstream.id)).toContain(editedOldStream.id);
+      expect(response.body.map((workstream: any) => workstream.id)).not.toContain(
+        newlyUpdatedStream.id,
+      );
+      expect(
+        response.body.find((workstream: any) => workstream.id === editedOldStream.id).latestStatus
+          .status,
+      ).toBe('Corrected old history');
     });
 
     it('scopes parent views to matching sub-streams without returning the selected parent', async () => {

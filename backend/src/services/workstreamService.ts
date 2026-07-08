@@ -687,7 +687,7 @@ export async function getWorkstreams(
       startOfToday.setHours(0, 0, 0, 0);
       workstreams = workstreams.filter(
         (ws) =>
-          ws.statusUpdates.length === 0 || new Date(ws.statusUpdates[0].updatedAt) < startOfToday,
+          ws.statusUpdates.length === 0 || new Date(ws.statusUpdates[0].createdAt) < startOfToday,
       );
     }
     workstreams = await applyWorkstreamHierarchyFilter(projectId, workstreams, hierarchy);
