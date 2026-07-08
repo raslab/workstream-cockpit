@@ -8,7 +8,7 @@ import { SelectMenu } from '../UI/SelectMenu';
 import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
 import { WorkstreamLink } from './WorkstreamReference';
 import { useDirtyResourceEditor } from '../Notifications/ResourceChangeNotificationProvider';
-import { DialogDraftNotice, useDialogDraft } from '../../hooks/useDialogDraft';
+import { useDialogDraft } from '../../hooks/useDialogDraft';
 
 interface WorkstreamEditDialogProps {
   workstream: Workstream;
@@ -28,6 +28,15 @@ export function WorkstreamEditDialog({
   const [context, setContext] = useState(workstream.context || '');
   const queryClient = useQueryClient();
   const { data: categories = [] } = useCategories();
+
+  useEffect(() => {
+    if (isOpen) {
+      setName(workstream.name);
+      setCategoryId(workstream.categoryId || '');
+      setContext(workstream.context || '');
+    }
+  }, [isOpen, workstream]);
+
   const currentDraft = { name, categoryId, context };
   const isDraftDirty =
     name !== workstream.name ||
@@ -48,14 +57,6 @@ export function WorkstreamEditDialog({
 
   // Ref for autocomplete
   const contextRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      setName(workstream.name);
-      setCategoryId(workstream.categoryId || '');
-      setContext(workstream.context || '');
-    }
-  }, [isOpen, workstream]);
 
   const updateMutation = useMutation({
     mutationFn: async (data: {
@@ -86,6 +87,7 @@ export function WorkstreamEditDialog({
     e.preventDefault();
     if (updateMutation.isPending) return;
     if (name.trim()) {
+      draftControls.clearDraft();
       updateMutation.mutate({
         name: name.trim(),
         categoryId: categoryId || null,
@@ -109,13 +111,6 @@ export function WorkstreamEditDialog({
         <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
           Edit <WorkstreamLink workstream={workstream} />
         </h2>
-
-        {draftControls.hasSavedDraft && (
-          <DialogDraftNotice
-            onRestore={draftControls.restoreDraft}
-            onDiscard={draftControls.discardDraft}
-          />
-        )}
 
         <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>
           <div className="mb-4">
@@ -186,7 +181,10 @@ export function WorkstreamEditDialog({
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                draftControls.clearDraft();
+                onClose();
+              }}
               className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               disabled={updateMutation.isPending}
             >

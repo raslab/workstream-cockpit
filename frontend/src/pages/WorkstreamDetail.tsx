@@ -38,7 +38,7 @@ import {
   useDirtyResourceEditor,
   useResourceChangeScreen,
 } from '../components/Notifications/ResourceChangeNotificationProvider';
-import { DialogDraftNotice, useDialogDraft } from '../hooks/useDialogDraft';
+import { useDialogDraft } from '../hooks/useDialogDraft';
 
 const STATUS_HISTORY_PAGE_SIZE = 10;
 
@@ -180,6 +180,7 @@ export function StatusEditDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (status.trim()) {
+      draftControls.clearDraft();
       updateMutation.mutate({ status: status.trim(), note: note.trim() });
     }
   };
@@ -192,13 +193,6 @@ export function StatusEditDialog({
         <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
           Edit Status Update
         </h2>
-
-        {draftControls.hasSavedDraft && (
-          <DialogDraftNotice
-            onRestore={draftControls.restoreDraft}
-            onDiscard={draftControls.discardDraft}
-          />
-        )}
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
@@ -261,7 +255,10 @@ export function StatusEditDialog({
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                draftControls.clearDraft();
+                onClose();
+              }}
               className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               disabled={updateMutation.isPending}
             >
@@ -345,6 +342,13 @@ function NextStepsSection({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const nextStepDraftControls = useDialogDraft({
+    storageKey: `cockpit:draft:next-step-create:${workstreamId}`,
+    isOpen: !isClosed,
+    draft: { text: newText },
+    isDirty: Boolean(newText.trim()),
+    onRestore: (draft) => setNewText(draft.text || ''),
+  });
   useDirtyResourceEditor(`next-step-create-${workstreamId}`, Boolean(newText.trim()));
   useDirtyResourceEditor(
     `next-step-edit-${workstreamId}`,
@@ -363,6 +367,7 @@ function NextStepsSection({
     event.preventDefault();
     const text = newText.trim();
     if (!text) return;
+    nextStepDraftControls.clearDraft();
     createNextStep.mutate(text, {
       onSuccess: () => setNewText(''),
     });

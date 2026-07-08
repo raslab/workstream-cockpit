@@ -9,7 +9,7 @@ import { WorkstreamLink } from './WorkstreamReference';
 import { SelectMenu } from '../UI/SelectMenu';
 import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
 import { useDirtyResourceEditor } from '../Notifications/ResourceChangeNotificationProvider';
-import { DialogDraftNotice, useDialogDraft } from '../../hooks/useDialogDraft';
+import { useDialogDraft } from '../../hooks/useDialogDraft';
 
 interface WorkstreamCreateDialogProps {
   isOpen: boolean;
@@ -95,6 +95,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
     e.preventDefault();
     if (isClosedParent || createWorkstreamMutation.isPending) return;
     if (name.trim()) {
+      draftControls.clearDraft();
       createWorkstreamMutation.mutate({
         name: name.trim(),
         categoryId: categoryId || undefined,
@@ -135,13 +136,6 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
           <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
             {CLOSED_PARENT_SUBSTREAM_MESSAGE}
           </div>
-        )}
-
-        {draftControls.hasSavedDraft && (
-          <DialogDraftNotice
-            onRestore={draftControls.restoreDraft}
-            onDiscard={draftControls.discardDraft}
-          />
         )}
 
         <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>
@@ -291,7 +285,10 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                draftControls.clearDraft();
+                onClose();
+              }}
               className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               disabled={createWorkstreamMutation.isPending}
             >

@@ -37,6 +37,10 @@ function renderWithProviders(ui: React.ReactElement) {
   );
 }
 
+function storedDraft<T extends Record<string, string>>(value: T, savedAt = Date.now()) {
+  return JSON.stringify({ version: 1, savedAt, value });
+}
+
 const baseWorkstream: Workstream = {
   id: 'stream-1',
   projectId: 'project-1',
@@ -64,7 +68,7 @@ describe('dialog draft preservation', () => {
     apiPutMock.mockReset();
   });
 
-  it('preserves a closed workstream create draft and lets the user restore or discard it', () => {
+  it('auto-restores a workstream create draft without showing a restore prompt', () => {
     const { rerender } = renderWithProviders(<WorkstreamCreateDialog isOpen onClose={vi.fn()} />);
 
     fireEvent.change(screen.getByLabelText(/Name/i), { target: { value: 'Draft stream title' } });
@@ -87,67 +91,53 @@ describe('dialog draft preservation', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/Unsaved draft available/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Name/i)).toHaveValue('');
-    expect(screen.getByLabelText(/Context/i)).toHaveValue('');
-
-    fireEvent.click(screen.getByRole('button', { name: /Restore draft/i }));
+    expect(screen.queryByText(/Unsaved draft available/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Restore draft/i })).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Name/i)).toHaveValue('Draft stream title');
     expect(screen.getByLabelText(/Context/i)).toHaveValue('Draft stream context');
-
-    localStorage.setItem(
-      'cockpit:draft:workstream-create:root',
-      JSON.stringify({
-        name: 'Discard me',
-        categoryId: '',
-        context: 'Discard this context',
-        initialStatus: '',
-        initialNote: '',
-      }),
-    );
-
-    rerender(
-      <MemoryRouter>
-        <QueryClientProvider client={new QueryClient()}>
-          <WorkstreamCreateDialog isOpen={false} onClose={vi.fn()} />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
-    rerender(
-      <MemoryRouter>
-        <QueryClientProvider client={new QueryClient()}>
-          <WorkstreamCreateDialog isOpen onClose={vi.fn()} />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByText(/Unsaved draft available/i)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /Discard draft/i }));
-    expect(screen.queryByText(/Unsaved draft available/i)).not.toBeInTheDocument();
   });
 
-  it('does not silently overwrite loaded workstream edit data with a saved draft', () => {
+  it('auto-restores workstream edit drafts over loaded data and clears them on cancel', async () => {
+    const onClose = vi.fn();
     localStorage.setItem(
       'cockpit:draft:workstream-edit:stream-1',
-      JSON.stringify({ name: 'Draft title', categoryId: '', context: 'Draft context' }),
+      storedDraft({ name: 'Draft title', categoryId: '', context: 'Draft context' }),
+    );
+
+    renderWithProviders(
+      <WorkstreamEditDialog isOpen onClose={onClose} workstream={baseWorkstream} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Name/i)).toHaveValue('Draft title');
+      expect(screen.getByLabelText(/Context/i)).toHaveValue('Draft context');
+    });
+    expect(screen.queryByText(/Unsaved draft available/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Cancel/i }));
+
+    expect(localStorage.getItem('cockpit:draft:workstream-edit:stream-1')).toBeNull();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('ignores and removes drafts older than seven days', () => {
+    const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000;
+    localStorage.setItem(
+      'cockpit:draft:workstream-edit:stream-1',
+      storedDraft({ name: 'Stale title', categoryId: '', context: 'Stale context' }, eightDaysAgo),
     );
 
     renderWithProviders(
       <WorkstreamEditDialog isOpen onClose={vi.fn()} workstream={baseWorkstream} />,
     );
 
-    expect(screen.getByText(/Unsaved draft available/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Name/i)).toHaveValue('Server stream title');
     expect(screen.getByLabelText(/Context/i)).toHaveValue('Server context');
-
-    fireEvent.click(screen.getByRole('button', { name: /Restore draft/i }));
-    expect(screen.getByLabelText(/Name/i)).toHaveValue('Draft title');
-    expect(screen.getByLabelText(/Context/i)).toHaveValue('Draft context');
+    expect(localStorage.getItem('cockpit:draft:workstream-edit:stream-1')).toBeNull();
   });
 
-  it('scopes status update create drafts by stream and clears the draft after save', async () => {
-    apiPostMock.mockResolvedValueOnce({ data: { id: 'update-2' } });
+  it('scopes status update create drafts by stream and clears the draft on submit', async () => {
+    apiPostMock.mockImplementationOnce(() => new Promise(() => undefined));
 
     renderWithProviders(
       <StatusUpdateDialog
@@ -168,15 +158,13 @@ describe('dialog draft preservation', () => {
       fireEvent.click(screen.getByRole('button', { name: /Save/i }));
     });
 
-    await waitFor(() => {
-      expect(localStorage.getItem('cockpit:draft:status-create:stream-1')).toBeNull();
-    });
+    expect(localStorage.getItem('cockpit:draft:status-create:stream-1')).toBeNull();
   });
 
-  it('preserves status edit drafts without replacing server data until restore is chosen', () => {
+  it('auto-restores status edit drafts over loaded update data', async () => {
     localStorage.setItem(
       'cockpit:draft:status-edit:update-1',
-      JSON.stringify({ status: 'Draft edited status', note: 'Draft edited note' }),
+      storedDraft({ status: 'Draft edited status', note: 'Draft edited note' }),
     );
 
     renderWithProviders(
@@ -188,12 +176,10 @@ describe('dialog draft preservation', () => {
       />,
     );
 
-    expect(screen.getByText(/Unsaved draft available/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Status/i)).toHaveValue('Server status');
-    expect(screen.getByLabelText(/Note/i)).toHaveValue('Server note');
-
-    fireEvent.click(screen.getByRole('button', { name: /Restore draft/i }));
-    expect(screen.getByLabelText(/Status/i)).toHaveValue('Draft edited status');
-    expect(screen.getByLabelText(/Note/i)).toHaveValue('Draft edited note');
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Status/i)).toHaveValue('Draft edited status');
+      expect(screen.getByLabelText(/Note/i)).toHaveValue('Draft edited note');
+    });
+    expect(screen.queryByText(/Unsaved draft available/i)).not.toBeInTheDocument();
   });
 });
