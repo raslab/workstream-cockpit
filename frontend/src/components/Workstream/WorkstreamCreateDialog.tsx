@@ -9,6 +9,7 @@ import { WorkstreamLink } from './WorkstreamReference';
 import { SelectMenu } from '../UI/SelectMenu';
 import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
 import { useDirtyResourceEditor } from '../Notifications/ResourceChangeNotificationProvider';
+import { DialogDraftNotice, useDialogDraft } from '../../hooks/useDialogDraft';
 
 interface WorkstreamCreateDialogProps {
   isOpen: boolean;
@@ -25,12 +26,28 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
   const queryClient = useQueryClient();
   const { data: categories } = useCategories();
   const isClosedParent = parent?.state === 'closed';
+  const currentDraft = { name, categoryId, context, initialStatus, initialNote };
+  const isDraftDirty = Boolean(
+    name.trim() || categoryId || context.trim() || initialStatus.trim() || initialNote.trim(),
+  );
+  const draftControls = useDialogDraft({
+    storageKey: parent?.id
+      ? `cockpit:draft:workstream-create:parent:${parent.id}`
+      : 'cockpit:draft:workstream-create:root',
+    isOpen,
+    draft: currentDraft,
+    isDirty: isDraftDirty,
+    onRestore: (draft) => {
+      setName(draft.name || '');
+      setCategoryId(draft.categoryId || '');
+      setContext(draft.context || '');
+      setInitialStatus(draft.initialStatus || '');
+      setInitialNote(draft.initialNote || '');
+    },
+  });
   useDirtyResourceEditor(
     parent?.id ? `workstream-create-${parent.id}` : 'workstream-create',
-    isOpen &&
-      Boolean(
-        name.trim() || categoryId || context.trim() || initialStatus.trim() || initialNote.trim(),
-      ),
+    isOpen && isDraftDirty,
   );
 
   // Refs for autocomplete
@@ -53,6 +70,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
       if (parent?.id) queryClient.invalidateQueries({ queryKey: ['workstream', parent.id] });
+      draftControls.clearDraft();
       resetForm();
       onClose();
     },
@@ -117,6 +135,13 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
           <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
             {CLOSED_PARENT_SUBSTREAM_MESSAGE}
           </div>
+        )}
+
+        {draftControls.hasSavedDraft && (
+          <DialogDraftNotice
+            onRestore={draftControls.restoreDraft}
+            onDiscard={draftControls.discardDraft}
+          />
         )}
 
         <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>

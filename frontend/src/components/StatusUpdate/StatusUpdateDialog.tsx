@@ -5,6 +5,7 @@ import { TagAutocomplete } from '../Tag/TagAutocomplete';
 import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
 import { WorkstreamLink } from '../Workstream/WorkstreamReference';
 import { useDirtyResourceEditor } from '../Notifications/ResourceChangeNotificationProvider';
+import { DialogDraftNotice, useDialogDraft } from '../../hooks/useDialogDraft';
 
 interface StatusUpdateDialogProps {
   workstreamId: string;
@@ -28,10 +29,19 @@ export function StatusUpdateDialog({
   const statusRef = useRef<HTMLTextAreaElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const queryClient = useQueryClient();
-  useDirtyResourceEditor(
-    `status-create-${workstreamId}`,
-    isOpen && Boolean(status.trim() || note.trim()),
-  );
+  const currentDraft = { status, note };
+  const isDraftDirty = Boolean(status.trim() || note.trim());
+  const draftControls = useDialogDraft({
+    storageKey: `cockpit:draft:status-create:${workstreamId}`,
+    isOpen,
+    draft: currentDraft,
+    isDirty: isDraftDirty,
+    onRestore: (draft) => {
+      setStatus(draft.status || '');
+      setNote(draft.note || '');
+    },
+  });
+  useDirtyResourceEditor(`status-create-${workstreamId}`, isOpen && isDraftDirty);
 
   const createStatusMutation = useMutation({
     mutationFn: async (data: { workstreamId: string; status: string; note?: string }) => {
@@ -52,6 +62,7 @@ export function StatusUpdateDialog({
         queryClient.invalidateQueries({ queryKey: ['workstream', reference] });
       });
       queryClient.invalidateQueries({ queryKey: ['timeline'] });
+      draftControls.clearDraft();
       setStatus('');
       setNote('');
       onClose();
@@ -96,6 +107,13 @@ export function StatusUpdateDialog({
             workstream={{ id: workstreamId, name: workstreamName, number: workstreamNumber }}
           />
         </h2>
+
+        {draftControls.hasSavedDraft && (
+          <DialogDraftNotice
+            onRestore={draftControls.restoreDraft}
+            onDiscard={draftControls.discardDraft}
+          />
+        )}
 
         <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>
           <div className="mb-4">

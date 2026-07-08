@@ -38,6 +38,7 @@ import {
   useDirtyResourceEditor,
   useResourceChangeScreen,
 } from '../components/Notifications/ResourceChangeNotificationProvider';
+import { DialogDraftNotice, useDialogDraft } from '../hooks/useDialogDraft';
 
 const STATUS_HISTORY_PAGE_SIZE = 10;
 
@@ -133,10 +134,19 @@ export function StatusEditDialog({
   const queryClient = useQueryClient();
   const statusRef = useRef<HTMLTextAreaElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
-  useDirtyResourceEditor(
-    `status-edit-${statusUpdate.id}`,
-    isOpen && (status !== statusUpdate.status || note !== (statusUpdate.note || '')),
-  );
+  const currentDraft = { status, note };
+  const isDraftDirty = status !== statusUpdate.status || note !== (statusUpdate.note || '');
+  const draftControls = useDialogDraft({
+    storageKey: `cockpit:draft:status-edit:${statusUpdate.id}`,
+    isOpen,
+    draft: currentDraft,
+    isDirty: isDraftDirty,
+    onRestore: (draft) => {
+      setStatus(draft.status || '');
+      setNote(draft.note || '');
+    },
+  });
+  useDirtyResourceEditor(`status-edit-${statusUpdate.id}`, isOpen && isDraftDirty);
 
   const updateMutation = useMutation({
     mutationFn: async (data: { status: string; note: string }) => {
@@ -162,6 +172,7 @@ export function StatusEditDialog({
         queryClient.invalidateQueries({ queryKey: ['workstream', workstreamReferenceId] });
       }
       queryClient.invalidateQueries({ queryKey: ['timeline'] });
+      draftControls.clearDraft();
       onClose();
     },
   });
@@ -181,6 +192,13 @@ export function StatusEditDialog({
         <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
           Edit Status Update
         </h2>
+
+        {draftControls.hasSavedDraft && (
+          <DialogDraftNotice
+            onRestore={draftControls.restoreDraft}
+            onDiscard={draftControls.discardDraft}
+          />
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">

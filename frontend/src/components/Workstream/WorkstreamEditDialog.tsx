@@ -8,6 +8,7 @@ import { SelectMenu } from '../UI/SelectMenu';
 import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
 import { WorkstreamLink } from './WorkstreamReference';
 import { useDirtyResourceEditor } from '../Notifications/ResourceChangeNotificationProvider';
+import { DialogDraftNotice, useDialogDraft } from '../../hooks/useDialogDraft';
 
 interface WorkstreamEditDialogProps {
   workstream: Workstream;
@@ -27,13 +28,23 @@ export function WorkstreamEditDialog({
   const [context, setContext] = useState(workstream.context || '');
   const queryClient = useQueryClient();
   const { data: categories = [] } = useCategories();
-  useDirtyResourceEditor(
-    `workstream-edit-${workstream.id}`,
-    isOpen &&
-      (name !== workstream.name ||
-        categoryId !== (workstream.categoryId || '') ||
-        context !== (workstream.context || '')),
-  );
+  const currentDraft = { name, categoryId, context };
+  const isDraftDirty =
+    name !== workstream.name ||
+    categoryId !== (workstream.categoryId || '') ||
+    context !== (workstream.context || '');
+  const draftControls = useDialogDraft({
+    storageKey: `cockpit:draft:workstream-edit:${workstream.id}`,
+    isOpen,
+    draft: currentDraft,
+    isDirty: isDraftDirty,
+    onRestore: (draft) => {
+      setName(draft.name || '');
+      setCategoryId(draft.categoryId || '');
+      setContext(draft.context || '');
+    },
+  });
+  useDirtyResourceEditor(`workstream-edit-${workstream.id}`, isOpen && isDraftDirty);
 
   // Ref for autocomplete
   const contextRef = useRef<HTMLTextAreaElement>(null);
@@ -66,6 +77,7 @@ export function WorkstreamEditDialog({
       onUpdated?.(updatedWorkstream);
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
       queryClient.invalidateQueries({ queryKey: ['workstream', workstream.id] });
+      draftControls.clearDraft();
       onClose();
     },
   });
@@ -97,6 +109,13 @@ export function WorkstreamEditDialog({
         <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
           Edit <WorkstreamLink workstream={workstream} />
         </h2>
+
+        {draftControls.hasSavedDraft && (
+          <DialogDraftNotice
+            onRestore={draftControls.restoreDraft}
+            onDiscard={draftControls.discardDraft}
+          />
+        )}
 
         <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>
           <div className="mb-4">
