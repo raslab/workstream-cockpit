@@ -8,6 +8,7 @@ import { SelectMenu } from '../UI/SelectMenu';
 import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
 import { WorkstreamLink } from './WorkstreamReference';
 import { useDirtyResourceEditor } from '../Notifications/ResourceChangeNotificationProvider';
+import { useDialogDraft } from '../../hooks/useDialogDraft';
 
 interface WorkstreamEditDialogProps {
   workstream: Workstream;
@@ -27,16 +28,6 @@ export function WorkstreamEditDialog({
   const [context, setContext] = useState(workstream.context || '');
   const queryClient = useQueryClient();
   const { data: categories = [] } = useCategories();
-  useDirtyResourceEditor(
-    `workstream-edit-${workstream.id}`,
-    isOpen &&
-      (name !== workstream.name ||
-        categoryId !== (workstream.categoryId || '') ||
-        context !== (workstream.context || '')),
-  );
-
-  // Ref for autocomplete
-  const contextRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -45,6 +36,27 @@ export function WorkstreamEditDialog({
       setContext(workstream.context || '');
     }
   }, [isOpen, workstream]);
+
+  const currentDraft = { name, categoryId, context };
+  const isDraftDirty =
+    name !== workstream.name ||
+    categoryId !== (workstream.categoryId || '') ||
+    context !== (workstream.context || '');
+  const draftControls = useDialogDraft({
+    storageKey: `cockpit:draft:workstream-edit:${workstream.id}`,
+    isOpen,
+    draft: currentDraft,
+    isDirty: isDraftDirty,
+    onRestore: (draft) => {
+      setName(draft.name || '');
+      setCategoryId(draft.categoryId || '');
+      setContext(draft.context || '');
+    },
+  });
+  useDirtyResourceEditor(`workstream-edit-${workstream.id}`, isOpen && isDraftDirty);
+
+  // Ref for autocomplete
+  const contextRef = useRef<HTMLTextAreaElement>(null);
 
   const updateMutation = useMutation({
     mutationFn: async (data: {
@@ -66,6 +78,7 @@ export function WorkstreamEditDialog({
       onUpdated?.(updatedWorkstream);
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
       queryClient.invalidateQueries({ queryKey: ['workstream', workstream.id] });
+      draftControls.clearDraft();
       onClose();
     },
   });
@@ -74,6 +87,7 @@ export function WorkstreamEditDialog({
     e.preventDefault();
     if (updateMutation.isPending) return;
     if (name.trim()) {
+      draftControls.clearDraft();
       updateMutation.mutate({
         name: name.trim(),
         categoryId: categoryId || null,
@@ -167,7 +181,10 @@ export function WorkstreamEditDialog({
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                draftControls.clearDraft();
+                onClose();
+              }}
               className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               disabled={updateMutation.isPending}
             >

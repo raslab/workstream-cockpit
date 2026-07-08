@@ -9,6 +9,7 @@ import { WorkstreamLink } from './WorkstreamReference';
 import { SelectMenu } from '../UI/SelectMenu';
 import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
 import { useDirtyResourceEditor } from '../Notifications/ResourceChangeNotificationProvider';
+import { useDialogDraft } from '../../hooks/useDialogDraft';
 
 interface WorkstreamCreateDialogProps {
   isOpen: boolean;
@@ -25,12 +26,28 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
   const queryClient = useQueryClient();
   const { data: categories } = useCategories();
   const isClosedParent = parent?.state === 'closed';
+  const currentDraft = { name, categoryId, context, initialStatus, initialNote };
+  const isDraftDirty = Boolean(
+    name.trim() || categoryId || context.trim() || initialStatus.trim() || initialNote.trim(),
+  );
+  const draftControls = useDialogDraft({
+    storageKey: parent?.id
+      ? `cockpit:draft:workstream-create:parent:${parent.id}`
+      : 'cockpit:draft:workstream-create:root',
+    isOpen,
+    draft: currentDraft,
+    isDirty: isDraftDirty,
+    onRestore: (draft) => {
+      setName(draft.name || '');
+      setCategoryId(draft.categoryId || '');
+      setContext(draft.context || '');
+      setInitialStatus(draft.initialStatus || '');
+      setInitialNote(draft.initialNote || '');
+    },
+  });
   useDirtyResourceEditor(
     parent?.id ? `workstream-create-${parent.id}` : 'workstream-create',
-    isOpen &&
-      Boolean(
-        name.trim() || categoryId || context.trim() || initialStatus.trim() || initialNote.trim(),
-      ),
+    isOpen && isDraftDirty,
   );
 
   // Refs for autocomplete
@@ -53,6 +70,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
       if (parent?.id) queryClient.invalidateQueries({ queryKey: ['workstream', parent.id] });
+      draftControls.clearDraft();
       resetForm();
       onClose();
     },
@@ -77,6 +95,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
     e.preventDefault();
     if (isClosedParent || createWorkstreamMutation.isPending) return;
     if (name.trim()) {
+      draftControls.clearDraft();
       createWorkstreamMutation.mutate({
         name: name.trim(),
         categoryId: categoryId || undefined,
@@ -266,7 +285,10 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                draftControls.clearDraft();
+                onClose();
+              }}
               className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               disabled={createWorkstreamMutation.isPending}
             >

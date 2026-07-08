@@ -5,6 +5,7 @@ import { TagAutocomplete } from '../Tag/TagAutocomplete';
 import { handleRichHtmlTextareaPaste } from '../../utils/richPasteTextarea';
 import { WorkstreamLink } from '../Workstream/WorkstreamReference';
 import { useDirtyResourceEditor } from '../Notifications/ResourceChangeNotificationProvider';
+import { useDialogDraft } from '../../hooks/useDialogDraft';
 
 interface StatusUpdateDialogProps {
   workstreamId: string;
@@ -28,10 +29,19 @@ export function StatusUpdateDialog({
   const statusRef = useRef<HTMLTextAreaElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const queryClient = useQueryClient();
-  useDirtyResourceEditor(
-    `status-create-${workstreamId}`,
-    isOpen && Boolean(status.trim() || note.trim()),
-  );
+  const currentDraft = { status, note };
+  const isDraftDirty = Boolean(status.trim() || note.trim());
+  const draftControls = useDialogDraft({
+    storageKey: `cockpit:draft:status-create:${workstreamId}`,
+    isOpen,
+    draft: currentDraft,
+    isDirty: isDraftDirty,
+    onRestore: (draft) => {
+      setStatus(draft.status || '');
+      setNote(draft.note || '');
+    },
+  });
+  useDirtyResourceEditor(`status-create-${workstreamId}`, isOpen && isDraftDirty);
 
   const createStatusMutation = useMutation({
     mutationFn: async (data: { workstreamId: string; status: string; note?: string }) => {
@@ -52,6 +62,7 @@ export function StatusUpdateDialog({
         queryClient.invalidateQueries({ queryKey: ['workstream', reference] });
       });
       queryClient.invalidateQueries({ queryKey: ['timeline'] });
+      draftControls.clearDraft();
       setStatus('');
       setNote('');
       onClose();
@@ -70,6 +81,7 @@ export function StatusUpdateDialog({
     e.preventDefault();
     if (createStatusMutation.isPending) return;
     if (status.trim()) {
+      draftControls.clearDraft();
       createStatusMutation.mutate({
         workstreamId,
         status: status.trim(),
@@ -156,7 +168,10 @@ export function StatusUpdateDialog({
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                draftControls.clearDraft();
+                onClose();
+              }}
               className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               disabled={createStatusMutation.isPending}
             >

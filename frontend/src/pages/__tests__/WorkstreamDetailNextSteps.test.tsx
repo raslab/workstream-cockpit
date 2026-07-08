@@ -70,8 +70,13 @@ function mockGet(url: string) {
   return Promise.reject(new Error(`unexpected GET ${url}`));
 }
 
+function storedDraft(value: Record<string, string>, savedAt = Date.now()) {
+  return JSON.stringify({ version: 1, savedAt, value });
+}
+
 describe('WorkstreamDetail next steps', () => {
   beforeEach(() => {
+    localStorage.clear();
     nextSteps = [
       {
         id: 'step-1',
@@ -214,4 +219,48 @@ describe('WorkstreamDetail next steps', () => {
     expect(within(section).queryByText('Confirm support owner')).not.toBeInTheDocument();
     expect(within(section).getByText('1 open next step')).toBeInTheDocument();
   }, 30000);
+
+  it('preserves the Add a next step draft across remounts and clears it on submit', async () => {
+    const { unmount } = renderDetail();
+
+    const section = await screen.findByRole('region', { name: 'Next steps' });
+    fireEvent.change(within(section).getByLabelText('New next step'), {
+      target: { value: 'Draft a follow-up task' },
+    });
+
+    expect(localStorage.getItem('cockpit:draft:next-step-create:stream-1')).toContain(
+      'Draft a follow-up task',
+    );
+
+    unmount();
+    renderDetail();
+
+    const restoredSection = await screen.findByRole('region', { name: 'Next steps' });
+    expect(within(restoredSection).getByLabelText('New next step')).toHaveValue(
+      'Draft a follow-up task',
+    );
+
+    fireEvent.click(within(restoredSection).getByRole('button', { name: 'Add next step' }));
+
+    await waitFor(() =>
+      expect(apiPostMock).toHaveBeenCalledWith('/api/workstreams/stream-1/next-steps', {
+        text: 'Draft a follow-up task',
+      }),
+    );
+    expect(localStorage.getItem('cockpit:draft:next-step-create:stream-1')).toBeNull();
+  });
+
+  it('auto-restores a fresh Add a next step draft from local storage', async () => {
+    localStorage.setItem(
+      'cockpit:draft:next-step-create:stream-1',
+      storedDraft({ text: 'Stored next-step draft' }),
+    );
+
+    renderDetail();
+
+    const section = await screen.findByRole('region', { name: 'Next steps' });
+    await waitFor(() =>
+      expect(within(section).getByLabelText('New next step')).toHaveValue('Stored next-step draft'),
+    );
+  });
 });
