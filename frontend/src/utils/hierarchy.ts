@@ -156,13 +156,13 @@ export function getHierarchyTimestamp(workstream: Workstream, field: SortConfig[
   let value: string | null | undefined;
   switch (field) {
     case 'lastDirectUpdateAt':
-      value = workstream.lastDirectUpdateAt || workstream.latestStatus?.updatedAt;
+      value = workstream.lastDirectUpdateAt || workstream.latestStatus?.createdAt;
       break;
     case 'lastSubstreamActivityAt':
       value = workstream.lastSubstreamActivityAt;
       break;
     case 'lastActivityAt':
-      value = workstream.lastActivityAt || workstream.latestStatus?.updatedAt;
+      value = workstream.lastActivityAt || workstream.latestStatus?.createdAt;
       break;
     case 'createdAt':
       value = workstream.createdAt;

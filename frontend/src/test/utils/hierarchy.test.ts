@@ -162,6 +162,22 @@ describe('parent stream utilities', () => {
     expect(getHierarchyTimestamp(ws, 'lastActivityAt')).toBe(Date.parse('2026-01-05T00:00:00Z'));
   });
 
+  it('falls back to status creation time, not edit time, for freshness sorting', () => {
+    const ws = base({
+      latestStatus: {
+        id: 's',
+        workstreamId: 'ws',
+        status: 'Corrected old history',
+        note: null,
+        createdAt: '2026-01-02T00:00:00Z',
+        updatedAt: '2026-01-08T00:00:00Z',
+      },
+    });
+
+    expect(getHierarchyTimestamp(ws, 'lastDirectUpdateAt')).toBe(Date.parse('2026-01-02T00:00:00Z'));
+    expect(getHierarchyTimestamp(ws, 'lastActivityAt')).toBe(Date.parse('2026-01-02T00:00:00Z'));
+  });
+
   it('normalizes backend parent stream naming variants', () => {
     expect(getWorkstreamName({ id: 'source', workstreamName: 'Source Name' })).toBe('Source Name');
     expect(getDirectSubstreamCount(base({ directSubstreamCount: 4, substreamCount: 1, substreams: [] }))).toBe(4);
