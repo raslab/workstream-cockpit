@@ -139,6 +139,39 @@ describe('Workstreams API Integration Tests', () => {
       expect(response.body[0].latestStatus.status).toBe('Latest status');
     });
 
+    it('includes stream context tags even when the stream has no status updates', async () => {
+      const taggedStream = await createTestWorkstream(project.id, {
+        name: 'Stream tagged only from context',
+        context: 'Track rollout ownership with #platform and #Launch_Risk before updates exist.',
+      });
+
+      const response = await request(app).get('/');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveLength(1);
+      expect(response.body[0].id).toBe(taggedStream.id);
+      expect(response.body[0]).not.toHaveProperty('latestStatus');
+      expect(response.body[0].allTags).toEqual(['platform', 'launch_risk']);
+    });
+
+    it('merges stream context tags with status update tags on list responses', async () => {
+      const taggedStream = await createTestWorkstream(project.id, {
+        name: 'Stream tagged from context and update',
+        context: 'Track rollout ownership with #platform.',
+      });
+      await createTestStatusUpdate(taggedStream.id, {
+        status: 'Latest movement for #launch_risk and #platform',
+      });
+
+      const response = await request(app).get('/');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveLength(1);
+      expect(response.body[0].id).toBe(taggedStream.id);
+      expect(response.body[0].latestStatus.status).toBe('Latest movement for #launch_risk and #platform');
+      expect(response.body[0].allTags).toEqual(['platform', 'launch_risk']);
+    });
+
     it('should preserve parent metadata when not-updated-today filters out the parent row', async () => {
       const parent = await createTestWorkstream(project.id, { name: 'Parent stream' });
       const substream = await createTestWorkstream(project.id, {

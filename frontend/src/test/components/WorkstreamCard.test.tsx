@@ -170,6 +170,15 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument();
   });
 
+  it('renders backend-provided stream tags even without a latest status update', () => {
+    renderCard(baseWorkstream({ latestStatus: undefined, allTags: ['platform', 'launch_risk'] }));
+
+    expect(screen.getByText('No status updates yet')).toBeInTheDocument();
+    expect(screen.getByTitle('Tag ID: #platform')).toBeInTheDocument();
+    expect(screen.getByTitle('Tag ID: #launch_risk')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'English learning plan' }).closest('article')).not.toHaveTextContent('No tags');
+  });
+
   it('stretches the tile to the grid row height while keeping content compact at the top', () => {
     renderCard(baseWorkstream());
 

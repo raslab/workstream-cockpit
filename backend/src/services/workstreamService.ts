@@ -243,6 +243,18 @@ async function applyWorkstreamHierarchyFilter(
   return workstreams.filter((ws) => includedIds.has(ws.id));
 }
 
+function extractWorkstreamTags(
+  workstream: Pick<Workstream, 'context'> & { statusUpdates?: StatusUpdate[] },
+  latestStatus?: StatusUpdate,
+): string[] {
+  const statusUpdates = workstream.statusUpdates ?? [];
+  const statusSources = statusUpdates.length ? statusUpdates : latestStatus ? [latestStatus] : [];
+  return extractTagsFromFields(
+    workstream.context,
+    ...statusSources.flatMap((statusUpdate) => [statusUpdate.status, statusUpdate.note]),
+  );
+}
+
 function substreamTreeMaxRelativeDepth(
   workstreamId: string,
   substreamsByParent: Map<string | null, Workstream[]>,
@@ -376,16 +388,10 @@ async function enrichWorkstreams<
     const workstreamData = { ...row } as any;
     delete workstreamData.statusUpdates;
     const latestStatus = directLatest || undefined;
-    const texts = [
-      row.context,
-      ...(statusUpdates.length ? statusUpdates : latestStatus ? [latestStatus] : []).flatMap(
-        (su) => [su.status, su.note],
-      ),
-    ];
     return {
       ...workstreamData,
       latestStatus,
-      allTags: extractTagsFromFields(...texts),
+      allTags: extractWorkstreamTags(row, latestStatus),
       parent,
       parentStreams,
       ...(includeSubstreams
@@ -552,18 +558,11 @@ async function enrichWorkstreamDetail<
   const workstreamData = { ...row } as any;
   delete workstreamData.statusUpdates;
   const latestStatus = directLatest || undefined;
-  const texts = [
-    row.context,
-    ...(statusUpdates.length ? statusUpdates : latestStatus ? [latestStatus] : []).flatMap((su) => [
-      su.status,
-      su.note,
-    ]),
-  ];
 
   return {
     ...workstreamData,
     latestStatus,
-    allTags: extractTagsFromFields(...texts),
+    allTags: extractWorkstreamTags(row, latestStatus),
     parent,
     parentStreams,
     substreams: directSubstreams.map(
@@ -674,11 +673,7 @@ export async function getWorkstreams(
     if (tags?.length) {
       const normalizedFilterTags = tags.map((t) => t.toLowerCase());
       workstreams = workstreams.filter((ws) => {
-        const texts = [
-          ws.context,
-          ...ws.statusUpdates.flatMap((su: StatusUpdate) => [su.status, su.note]),
-        ];
-        const wsTags = extractTagsFromFields(...texts);
+        const wsTags = extractWorkstreamTags(ws);
         return normalizedFilterTags.some((filterTag) => wsTags.includes(filterTag));
       });
     }
