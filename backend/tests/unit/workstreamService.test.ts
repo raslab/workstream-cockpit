@@ -96,6 +96,7 @@ describe('WorkstreamService', () => {
       expect(statusUpdates).toHaveLength(1);
       expect(statusUpdates[0].status).toBe('Starting work on this');
       expect(statusUpdates[0].note).toBe('First note');
+      expect(statusUpdates[0].impact).toBe('initial');
     });
 
     it('should create workstream without status update when not provided', async () => {
@@ -120,7 +121,7 @@ describe('WorkstreamService', () => {
     it('should return all workstreams for a project', async () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
-      
+
       await createTestWorkstream(project.id, { name: 'Workstream 1' });
       await createTestWorkstream(project.id, { name: 'Workstream 2' });
 
@@ -132,7 +133,7 @@ describe('WorkstreamService', () => {
     it('should filter active workstreams only', async () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
-      
+
       await createTestWorkstream(project.id, { name: 'Active 1', state: 'active' });
       await createTestWorkstream(project.id, { name: 'Closed 1', state: 'closed' });
       await createTestWorkstream(project.id, { name: 'Active 2', state: 'active' });
@@ -140,13 +141,13 @@ describe('WorkstreamService', () => {
       const workstreams = await getWorkstreams(project.id, 'active');
 
       expect(workstreams).toHaveLength(2);
-      expect(workstreams.every(ws => ws.state === 'active')).toBe(true);
+      expect(workstreams.every((ws) => ws.state === 'active')).toBe(true);
     });
 
     it('should filter closed workstreams only', async () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
-      
+
       await createTestWorkstream(project.id, { name: 'Active 1', state: 'active' });
       await createTestWorkstream(project.id, { name: 'Closed 1', state: 'closed' });
       await createTestWorkstream(project.id, { name: 'Closed 2', state: 'closed' });
@@ -154,14 +155,14 @@ describe('WorkstreamService', () => {
       const workstreams = await getWorkstreams(project.id, 'closed');
 
       expect(workstreams).toHaveLength(2);
-      expect(workstreams.every(ws => ws.state === 'closed')).toBe(true);
+      expect(workstreams.every((ws) => ws.state === 'closed')).toBe(true);
     });
 
     it('should include tag information', async () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
       const category = await createTestCategory(project.id, { name: 'urgent', color: '#FF0000' });
-      
+
       await createTestWorkstream(project.id, { name: 'Tagged WS', categoryId: category.id });
 
       const workstreams = await getWorkstreams(project.id);
@@ -175,9 +176,9 @@ describe('WorkstreamService', () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
       const workstream = await createTestWorkstream(project.id);
-      
+
       await createTestStatusUpdate(workstream.id, { status: 'Old status' });
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       await createTestStatusUpdate(workstream.id, { status: 'Latest status' });
 
       const workstreams = await getWorkstreams(project.id);
@@ -186,12 +187,46 @@ describe('WorkstreamService', () => {
       expect(workstreams[0].latestStatus?.status).toBe('Latest status');
     });
 
+    it('should not treat initial creation status as freshness activity until a normal update exists', async () => {
+      const person = await createTestPerson();
+      const project = await createTestProject(person.id);
+
+      const workstream = await createWorkstream({
+        projectId: project.id,
+        name: 'New stream with initial context',
+        initialStatus: 'Created with background context',
+        initialNote: 'Visible history, not operational movement',
+      });
+
+      const staleAfterCreation = await getWorkstreams(
+        project.id,
+        'active',
+        undefined,
+        undefined,
+        true,
+      );
+      expect(staleAfterCreation.map((ws) => ws.id)).toContain(workstream.id);
+      expect(staleAfterCreation[0].latestStatus).toBeUndefined();
+      expect(staleAfterCreation[0].lastDirectUpdateAt).toBeNull();
+
+      await createTestStatusUpdate(workstream.id, { status: 'Real follow-up movement today' });
+
+      const staleAfterFollowUp = await getWorkstreams(
+        project.id,
+        'active',
+        undefined,
+        undefined,
+        true,
+      );
+      expect(staleAfterFollowUp.map((ws) => ws.id)).not.toContain(workstream.id);
+    });
+
     it('should return workstreams in descending order by creation date', async () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
-      
+
       const ws1 = await createTestWorkstream(project.id, { name: 'First' });
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       const ws2 = await createTestWorkstream(project.id, { name: 'Second' });
 
       const workstreams = await getWorkstreams(project.id);
@@ -242,23 +277,44 @@ describe('WorkstreamService', () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
       const parent = await createTestWorkstream(project.id, { name: 'Parent' });
-      const substream = await createTestWorkstream(project.id, { name: 'Sub-stream with activity', parentId: parent.id });
-      const quietSubstream = await createTestWorkstream(project.id, { name: 'Sub-stream without activity', parentId: parent.id });
-      const nestedSubstream = await createTestWorkstream(project.id, { name: 'Nested sub-stream with latest activity', parentId: substream.id });
+      const substream = await createTestWorkstream(project.id, {
+        name: 'Sub-stream with activity',
+        parentId: parent.id,
+      });
+      const quietSubstream = await createTestWorkstream(project.id, {
+        name: 'Sub-stream without activity',
+        parentId: parent.id,
+      });
+      const nestedSubstream = await createTestWorkstream(project.id, {
+        name: 'Nested sub-stream with latest activity',
+        parentId: substream.id,
+      });
 
-      const substreamUpdate = await createTestStatusUpdate(substream.id, { status: 'Sub-stream direct update' });
-      await new Promise(resolve => setTimeout(resolve, 10));
-      const nestedSubstreamUpdate = await createTestStatusUpdate(nestedSubstream.id, { status: 'Nested sub-stream latest update' });
+      const substreamUpdate = await createTestStatusUpdate(substream.id, {
+        status: 'Sub-stream direct update',
+      });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      const nestedSubstreamUpdate = await createTestStatusUpdate(nestedSubstream.id, {
+        status: 'Nested sub-stream latest update',
+      });
 
       const found = await getWorkstreamById(parent.id, project.id);
       const substreams = found?.substreams ?? [];
-      const substreamSummary = substreams.find(summary => summary.id === substream.id) as any;
-      const quietSubstreamSummary = substreams.find(summary => summary.id === quietSubstream.id) as any;
+      const substreamSummary = substreams.find((summary) => summary.id === substream.id) as any;
+      const quietSubstreamSummary = substreams.find(
+        (summary) => summary.id === quietSubstream.id,
+      ) as any;
 
       expect(substreamSummary).toBeDefined();
-      expect(substreamSummary.lastDirectUpdateAt?.toISOString()).toBe(substreamUpdate.createdAt.toISOString());
-      expect(substreamSummary.lastSubstreamActivityAt?.toISOString()).toBe(nestedSubstreamUpdate.createdAt.toISOString());
-      expect(substreamSummary.lastActivityAt?.toISOString()).toBe(nestedSubstreamUpdate.createdAt.toISOString());
+      expect(substreamSummary.lastDirectUpdateAt?.toISOString()).toBe(
+        substreamUpdate.createdAt.toISOString(),
+      );
+      expect(substreamSummary.lastSubstreamActivityAt?.toISOString()).toBe(
+        nestedSubstreamUpdate.createdAt.toISOString(),
+      );
+      expect(substreamSummary.lastActivityAt?.toISOString()).toBe(
+        nestedSubstreamUpdate.createdAt.toISOString(),
+      );
       expect(substreamSummary.latestSubstreamActivitySource).toMatchObject({
         workstreamId: nestedSubstream.id,
         workstreamName: 'Nested sub-stream with latest activity',
@@ -290,7 +346,9 @@ describe('WorkstreamService', () => {
       const category = await createTestCategory(project.id);
       const workstream = await createTestWorkstream(project.id);
 
-      const updated = await updateWorkstream(workstream.id, project.id, { categoryId: category.id });
+      const updated = await updateWorkstream(workstream.id, project.id, {
+        categoryId: category.id,
+      });
 
       expect(updated.categoryId).toBe(category.id);
     });
@@ -325,7 +383,7 @@ describe('WorkstreamService', () => {
       const workstream = await createTestWorkstream(project1.id);
 
       await expect(
-        updateWorkstream(workstream.id, project2.id, { name: 'Hacked' })
+        updateWorkstream(workstream.id, project2.id, { name: 'Hacked' }),
       ).rejects.toThrow('Workstream not found or access denied');
     });
   });
@@ -350,7 +408,7 @@ describe('WorkstreamService', () => {
       const workstream = await createTestWorkstream(project1.id);
 
       await expect(closeWorkstream(workstream.id, project2.id)).rejects.toThrow(
-        'Workstream not found or access denied'
+        'Workstream not found or access denied',
       );
     });
   });
@@ -360,7 +418,7 @@ describe('WorkstreamService', () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
       const { prisma } = await import('../helpers/testDb');
-      
+
       const workstream = await createTestWorkstream(project.id, { state: 'active' });
       await prisma.workstream.update({
         where: { id: workstream.id },
@@ -380,7 +438,7 @@ describe('WorkstreamService', () => {
       const workstream = await createTestWorkstream(project1.id);
 
       await expect(reopenWorkstream(workstream.id, project2.id)).rejects.toThrow(
-        'Workstream not found or access denied'
+        'Workstream not found or access denied',
       );
     });
   });
@@ -410,7 +468,7 @@ describe('WorkstreamService', () => {
       const statusUpdates = await prisma.statusUpdate.findMany({
         where: { workstreamId: workstream.id },
       });
-      
+
       expect(statusUpdates).toHaveLength(0);
     });
 
@@ -421,7 +479,7 @@ describe('WorkstreamService', () => {
       const workstream = await createTestWorkstream(project1.id);
 
       await expect(deleteWorkstream(workstream.id, project2.id)).rejects.toThrow(
-        'Workstream not found or access denied'
+        'Workstream not found or access denied',
       );
     });
   });

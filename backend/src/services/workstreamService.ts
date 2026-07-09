@@ -799,6 +799,7 @@ export async function createWorkstream(
             workstreamId: workstream.id,
             status: input.initialStatus,
             note: input.initialNote,
+            impact: 'initial',
           },
         });
       }

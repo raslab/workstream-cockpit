@@ -228,7 +228,12 @@ export async function createTestWorkstream(
  */
 export async function createTestStatusUpdate(
   workstreamId: string,
-  data?: { status?: string; note?: string; number?: number; impact?: 'active' | 'info' },
+  data?: {
+    status?: string;
+    note?: string;
+    number?: number;
+    impact?: 'active' | 'info' | 'initial';
+  },
 ) {
   const workstream = await prisma.workstream.findUniqueOrThrow({
     where: { id: workstreamId },
