@@ -325,6 +325,47 @@ describe('resource change notifications', () => {
     expect(screen.getByRole('dialog', { name: /recent changes/i })).toHaveClass('z-50');
   });
 
+  it('clears the current refresh badge after a successful manual refresh', async () => {
+    renderRealtimeNotifications();
+    await waitFor(() => expect(FakeResourceChangeSocket.instances).toHaveLength(1));
+
+    FakeResourceChangeSocket.instances[0].emitChange({
+      id: 'change-1',
+      resourceType: 'status_update',
+      resourceId: 'update-1',
+      resourceLabel: null,
+      operation: 'created',
+      workstreamId: 'stream-1',
+      changedAt: '2026-07-07T10:00:00.000Z',
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText('Stream changed. Refresh to see updates.')).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('button', { name: /notifications/i })).toHaveTextContent('1');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+
+    await waitFor(() => expect(refetchQueriesMock).toHaveBeenCalledWith({ type: 'active' }));
+    expect(screen.queryByText('Stream changed. Refresh to see updates.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^notifications$/i })).not.toHaveTextContent('1');
+
+    FakeResourceChangeSocket.instances[0].emitChange({
+      id: 'change-2',
+      resourceType: 'status_update',
+      resourceId: 'update-2',
+      resourceLabel: null,
+      operation: 'created',
+      workstreamId: 'stream-1',
+      changedAt: '2026-07-07T10:01:00.000Z',
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText('Stream changed. Refresh to see updates.')).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('button', { name: /notifications/i })).toHaveTextContent('1');
+  });
+
   it('keeps refresh blocked until every dirty editor is cleared', async () => {
     const rendered = renderMultiDirtyNotifications(true, true);
     await waitFor(() => expect(fetchChangesMock).toHaveBeenCalledWith(null));

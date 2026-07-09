@@ -239,6 +239,7 @@ export function ResourceChangeNotificationProvider({
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [dirtyRefreshBlocked, setDirtyRefreshBlocked] = useState(false);
   const staleEligibleIdsRef = useRef(new Set<string>());
+  const refreshedChangeIdsRef = useRef(new Set<string>());
   const dirtySourcesRef = useRef(new Map<string, boolean>());
   const screenRef = useRef<ScreenRegistration | null>(null);
   const fetcher = fetchChanges ?? fetchResourceChanges;
@@ -257,6 +258,7 @@ export function ResourceChangeNotificationProvider({
       const relevantRemoteChanges = changes.filter(
         (change) =>
           change.metadata?.originClientId !== currentClientId &&
+          !refreshedChangeIdsRef.current.has(change.id) &&
           (!screen || isChangeRelevantToScreen(change, screen)),
       );
       relevantRemoteChanges.forEach((change) => staleEligibleIdsRef.current.add(change.id));
@@ -377,6 +379,9 @@ export function ResourceChangeNotificationProvider({
     try {
       await queryClient.invalidateQueries();
       await queryClient.refetchQueries({ type: 'active' });
+      staleEligibleIdsRef.current.forEach((id) => refreshedChangeIdsRef.current.add(id));
+      staleEligibleIdsRef.current.clear();
+      setUnseenGroupIds(new Set());
       setStaleChangeIds(new Set());
     } catch {
       setRefreshError('Could not refresh. Try again.');
