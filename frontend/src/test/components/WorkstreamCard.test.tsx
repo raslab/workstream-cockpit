@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { calculateVisibleTagCount, WorkstreamCard } from '../../components/Workstream/WorkstreamCard';
 import type { Workstream } from '../../types/workstream';
@@ -24,6 +24,25 @@ const renderCard = (workstream: Workstream) => {
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <WorkstreamCard workstream={workstream} />
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+};
+
+function LocationPath() {
+  const location = useLocation();
+  return <output aria-label="Current path">{location.pathname}</output>;
+}
+
+const renderCardWithLocation = (workstream: Workstream) => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/']}>
+        <LocationPath />
+        <Routes>
+          <Route path="*" element={<WorkstreamCard workstream={workstream} />} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>
   );
@@ -106,8 +125,10 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.getByRole('heading', { name: 'English learning plan' })).toHaveClass('text-base', 'font-semibold');
     expect(screen.getByText('Latest work happened in sub-stream: weekly lessons are moving.')).toHaveClass('text-sm');
     expect(screen.getByText(/Parent:/)).toHaveTextContent('Parent: Goals');
+    const parentRow = screen.getByTestId('workstream-parent-row');
+    expect(parentRow).toHaveClass('min-w-0', 'overflow-hidden', 'pr-36');
     const parentLink = screen.getByText(/Parent:/).closest('a');
-    expect(parentLink).toHaveClass('min-w-0', 'overflow-hidden', 'pr-36');
+    expect(parentLink).toHaveClass('inline-flex', 'max-w-full', 'min-w-0', 'overflow-hidden');
     expect(parentLink).not.toHaveClass('pr-4');
     expect(screen.getByText(/Parent:/)).toHaveClass('truncate');
     expect(screen.getByRole('button', { name: 'Log status' })).toHaveClass('absolute', 'right-2', 'top-2');
@@ -147,6 +168,23 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.getByRole('heading', { name: /#28\s+English learning plan/ })).toBeInTheDocument();
     expect(screen.getByText(/Parent:/)).toHaveTextContent('Parent: #7 Goals');
     expect(screen.getByText(/Parent:/).closest('a')).toHaveAttribute('href', '/workstreams/7');
+  });
+
+  it('keeps parent navigation limited to the visible parent text link', () => {
+    renderCardWithLocation(baseWorkstream({ parent: { id: 'parent-1', number: 7, name: 'Goals', state: 'active' } }));
+
+    fireEvent.click(screen.getByTestId('workstream-parent-row'));
+    expect(screen.getByLabelText('Current path')).toHaveTextContent('/');
+
+    fireEvent.click(screen.getByRole('link', { name: 'Parent: #7 Goals' }));
+    expect(screen.getByLabelText('Current path')).toHaveTextContent('/workstreams/7');
+  });
+
+  it('navigates to the stream from the main title link', () => {
+    renderCardWithLocation(baseWorkstream({ number: 28 }));
+
+    fireEvent.click(screen.getByRole('link', { name: '#28 English learning plan' }));
+    expect(screen.getByLabelText('Current path')).toHaveTextContent('/workstreams/28');
   });
 
   it('shows open next step count using Next steps terminology and never todo wording', () => {
