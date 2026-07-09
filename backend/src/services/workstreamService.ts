@@ -662,13 +662,21 @@ export async function getWorkstreams(
     const whereClause: any = { projectId };
     if (state && state !== 'all') whereClause.state = state;
     if (categoryIds?.length) whereClause.categoryId = { in: categoryIds };
+    const orderBy =
+      state === 'closed'
+        ? [
+            { closedAt: { sort: 'desc' as const, nulls: 'last' as const } },
+            { createdAt: 'desc' as const },
+            { id: 'asc' as const },
+          ]
+        : [{ createdAt: 'desc' as const }, { id: 'asc' as const }];
     let workstreams: any[] = await prisma.workstream.findMany({
       where: whereClause,
       include: {
         category: { select: { id: true, name: true, color: true, emoji: true, sortOrder: true } },
         statusUpdates: { where: { impact: 'active' }, orderBy: { createdAt: 'desc' } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
     });
     if (tags?.length) {
       const normalizedFilterTags = tags.map((t) => t.toLowerCase());

@@ -16,6 +16,7 @@ import {
   createTestCategory,
   createTestWorkstream,
   createTestStatusUpdate,
+  prisma,
 } from '../helpers/testDb';
 
 beforeAll(async () => {
@@ -155,6 +156,52 @@ describe('WorkstreamService', () => {
 
       expect(workstreams).toHaveLength(2);
       expect(workstreams.every(ws => ws.state === 'closed')).toBe(true);
+    });
+
+    it('should return closed workstreams ordered by close date, not creation or later updates', async () => {
+      const person = await createTestPerson();
+      const project = await createTestProject(person.id);
+
+      const createdLaterButClosedEarlier = await createTestWorkstream(project.id, {
+        name: 'Created later but closed earlier',
+        state: 'closed',
+      });
+      const createdEarlierButClosedLater = await createTestWorkstream(project.id, {
+        name: 'Created earlier but closed later',
+        state: 'closed',
+      });
+      await prisma.workstream.update({
+        where: { id: createdLaterButClosedEarlier.id },
+        data: {
+          createdAt: new Date('2026-01-02T10:00:00.000Z'),
+          closedAt: new Date('2026-01-10T10:00:00.000Z'),
+        },
+      });
+      await prisma.workstream.update({
+        where: { id: createdEarlierButClosedLater.id },
+        data: {
+          createdAt: new Date('2026-01-01T10:00:00.000Z'),
+          closedAt: new Date('2026-01-20T10:00:00.000Z'),
+        },
+      });
+
+      const laterUnrelatedUpdate = await createTestStatusUpdate(createdLaterButClosedEarlier.id, {
+        status: 'Corrected archived history after closure',
+      });
+      await prisma.statusUpdate.update({
+        where: { id: laterUnrelatedUpdate.id },
+        data: {
+          createdAt: new Date('2026-02-01T10:00:00.000Z'),
+          updatedAt: new Date('2026-02-01T10:00:00.000Z'),
+        },
+      });
+
+      const workstreams = await getWorkstreams(project.id, 'closed');
+
+      expect(workstreams.map((ws) => ws.id)).toEqual([
+        createdEarlierButClosedLater.id,
+        createdLaterButClosedEarlier.id,
+      ]);
     });
 
     it('should include tag information', async () => {
