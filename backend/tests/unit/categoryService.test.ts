@@ -50,9 +50,21 @@ describe('CategoryService', () => {
       expect(category.sortOrder).toBe(5);
     });
 
-    it('should use default sort order of 0 if not provided', async () => {
+    it('should append to the end of existing categories when sort order is not provided', async () => {
       const person = await createTestPerson();
       const project = await createTestProject(person.id);
+      await createCategory({
+        projectId: project.id,
+        name: 'first-category',
+        color: '#111111',
+        sortOrder: 0,
+      });
+      await createCategory({
+        projectId: project.id,
+        name: 'second-category',
+        color: '#222222',
+        sortOrder: 1,
+      });
 
       const category = await createCategory({
         projectId: project.id,
@@ -60,7 +72,7 @@ describe('CategoryService', () => {
         color: '#000000',
       });
 
-      expect(category.sortOrder).toBe(0);
+      expect(category.sortOrder).toBe(2);
     });
   });
 
