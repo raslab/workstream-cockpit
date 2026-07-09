@@ -1259,6 +1259,7 @@ export default function WorkstreamDetail() {
           isOpen={showCreateSubstreamDialog}
           onClose={() => setShowCreateSubstreamDialog(false)}
           parent={workstream}
+          parentReferenceId={id}
         />
       )}
 

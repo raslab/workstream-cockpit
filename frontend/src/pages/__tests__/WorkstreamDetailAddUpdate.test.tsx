@@ -92,8 +92,18 @@ const baseWorkstream: Workstream = {
   allTags: [],
 };
 
+const createdSubstream = {
+  id: 'substream-new',
+  number: 521,
+  name: 'New execution lane',
+  state: 'active' as const,
+  parentId: 'stream-uuid',
+  lastActivityAt: null,
+};
+
 let updates: StatusUpdate[];
 let nextSteps: NextStep[];
+let currentWorkstream: Workstream;
 
 function renderDetail() {
   const queryClient = new QueryClient({
@@ -112,10 +122,13 @@ function renderDetail() {
 }
 
 function mockGet(url: string) {
+  if (url === '/api/categories') {
+    return Promise.resolve({ data: [] });
+  }
   if (url === '/api/workstreams/520') {
     return Promise.resolve({
       data: {
-        ...baseWorkstream,
+        ...currentWorkstream,
         latestStatus: updates[0],
         lastDirectUpdateAt: updates[0]?.updatedAt ?? null,
       },
@@ -133,6 +146,7 @@ function mockGet(url: string) {
 describe('WorkstreamDetail add update flow', () => {
   beforeEach(() => {
     updates = [originalUpdate];
+    currentWorkstream = { ...baseWorkstream, substreams: [] };
     nextSteps = [
       {
         id: 'step-solve',
@@ -158,8 +172,32 @@ describe('WorkstreamDetail add update flow', () => {
     apiPutMock.mockReset();
     apiGetMock.mockImplementation(mockGet);
     apiPostMock.mockImplementation(
-      (url: string, body: { workstreamId: string; status: string; note?: string }) => {
-        if (url !== '/api/status-updates') return Promise.reject(new Error(`unexpected POST ${url}`));
+      (
+        url: string,
+        body: {
+          workstreamId?: string;
+          status?: string;
+          note?: string;
+          name?: string;
+          parentId?: string;
+        },
+      ) => {
+        if (url === '/api/workstreams') {
+          expect(body).toMatchObject({
+            name: 'New execution lane',
+            parentId: 'stream-uuid',
+          });
+          currentWorkstream = {
+            ...currentWorkstream,
+            substreams: [createdSubstream],
+            directSubstreamCount: 1,
+            activeSubstreamCount: 1,
+            closedSubstreamCount: 0,
+          };
+          return Promise.resolve({ data: createdSubstream });
+        }
+        if (url !== '/api/status-updates')
+          return Promise.reject(new Error(`unexpected POST ${url}`));
         expect(body).toMatchObject({
           workstreamId: 'stream-uuid',
           status: 'Fresh detail update',
@@ -222,7 +260,9 @@ describe('WorkstreamDetail add update flow', () => {
     const nextStepsSection = await screen.findByRole('region', { name: 'Next steps' });
     expect(await within(nextStepsSection).findByText('2 open next steps')).toBeInTheDocument();
 
-    fireEvent.click(within(nextStepsSection).getByRole('button', { name: 'Solve Confirm rollout owner' }));
+    fireEvent.click(
+      within(nextStepsSection).getByRole('button', { name: 'Solve Confirm rollout owner' }),
+    );
 
     expect(await screen.findByTestId('status-update-update-solved')).toBeInTheDocument();
     expect(screen.getByText('Solved next step: Confirm rollout owner')).toBeInTheDocument();
@@ -242,5 +282,30 @@ describe('WorkstreamDetail add update flow', () => {
         '/api/workstreams/520/status-updates?includeSubstreams=false&limit=10',
       ),
     );
+  });
+
+  it('refreshes parent detail sub-stream metadata after creating a sub-stream from a public-number detail route', async () => {
+    renderDetail();
+
+    const sidebar = await screen.findByTestId('workstream-detail-sidebar');
+    expect(within(sidebar).getByText('No direct sub-streams yet.')).toBeInTheDocument();
+    expect(within(sidebar).getByText('0')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create sub-stream' }));
+    const dialog = await screen.findByRole('heading', { name: 'Create Sub-stream' });
+    const form = dialog.closest('form') ?? dialog.parentElement?.querySelector('form');
+    if (!form) throw new Error('workstream create form not found');
+
+    fireEvent.change(within(form).getByLabelText(/Name/), {
+      target: { value: 'New execution lane' },
+    });
+    fireEvent.click(within(form).getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => expect(apiGetMock).toHaveBeenCalledWith('/api/workstreams/520'));
+    expect(
+      await within(sidebar).findByRole('link', { name: /521\s+New execution lane/ }),
+    ).toBeInTheDocument();
+    expect(within(sidebar).getByText('1')).toBeInTheDocument();
+    expect(within(sidebar).queryByText('No direct sub-streams yet.')).not.toBeInTheDocument();
   });
 });
