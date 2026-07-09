@@ -14,7 +14,7 @@ router.get('/', async (_req: Request, res: Response) => {
       uptime: process.uptime(),
       database: 'connected',
     });
-  } catch (error) {
+  } catch {
     res.status(503).json({
       status: 'error',
       timestamp: new Date().toISOString(),
