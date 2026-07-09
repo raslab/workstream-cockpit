@@ -273,14 +273,19 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
         </button>
 
         {workstream.parent && (
-          <Link
-            to={workstreamPath(workstream.parent)}
-            state={detailNavigationState}
-            className="relative z-10 col-start-3 col-end-5 row-start-2 mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden pl-3 pr-36 text-xs text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400"
+          <div
+            data-testid="workstream-parent-row"
+            className="relative z-10 col-start-3 col-end-5 row-start-2 mt-0.5 min-w-0 overflow-hidden pl-3 pr-36"
           >
-            <ParentIcon />
-            <span className="truncate">Parent: <WorkstreamReferenceContent workstream={workstream.parent} /></span>
-          </Link>
+            <Link
+              to={workstreamPath(workstream.parent)}
+              state={detailNavigationState}
+              className="inline-flex max-w-full min-w-0 items-center gap-1.5 overflow-hidden text-xs text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400"
+            >
+              <ParentIcon />
+              <span className="truncate">Parent: <WorkstreamReferenceContent workstream={workstream.parent} /></span>
+            </Link>
+          </div>
         )}
 
         <Link
