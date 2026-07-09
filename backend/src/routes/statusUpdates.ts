@@ -239,7 +239,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
     const statusUpdateId = req.params.id;
-    const { workstreamId } = req.body;
+    const { workstreamId } = req.body ?? {};
 
     // Validation
     if (!workstreamId || (typeof workstreamId !== 'string' && typeof workstreamId !== 'number')) {
