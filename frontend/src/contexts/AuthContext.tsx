@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await apiClient.get('/auth/user');
       setUser(response.data);
-    } catch (error) {
+    } catch {
       // User not authenticated
       setUser(null);
     } finally {
