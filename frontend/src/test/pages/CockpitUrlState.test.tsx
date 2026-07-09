@@ -286,6 +286,72 @@ describe('Cockpit URL state', () => {
     expect(screen.queryByTestId('workstream-card')).not.toHaveTextContent(/^Parent stream$/);
   });
 
+  it('orders category groups by the Settings category list instead of first stream order', async () => {
+    useCategoriesMock.mockReturnValue({
+      data: [
+        {
+          id: 'cat-platform',
+          name: 'platform',
+          color: '#2563eb',
+          sortOrder: 0,
+        },
+        {
+          id: 'cat-assets',
+          name: 'assets',
+          color: '#16a34a',
+          sortOrder: 1,
+        },
+      ],
+    });
+    useWorkstreamsMock.mockReturnValue({
+      data: [
+        {
+          id: 'stream-assets',
+          projectId: 'project-1',
+          name: 'Assets stream',
+          categoryId: 'cat-assets',
+          context: null,
+          state: 'active',
+          createdAt: '2026-06-02T00:00:00Z',
+          closedAt: null,
+          allTags: [],
+          category: {
+            id: 'cat-assets',
+            name: 'assets',
+            color: '#16a34a',
+            description: '',
+            sortOrder: 0,
+          },
+        },
+        {
+          id: 'stream-platform',
+          projectId: 'project-1',
+          name: 'Platform stream',
+          categoryId: 'cat-platform',
+          context: null,
+          state: 'active',
+          createdAt: '2026-06-01T00:00:00Z',
+          closedAt: null,
+          allTags: [],
+          category: {
+            id: 'cat-platform',
+            name: 'platform',
+            color: '#2563eb',
+            description: '',
+            sortOrder: 0,
+          },
+        },
+      ] satisfies Workstream[],
+      isLoading: false,
+      error: null,
+    });
+
+    renderCockpit('/');
+
+    const categoryHeadings = await screen.findAllByRole('heading', { level: 2 });
+    expect(categoryHeadings.map((heading) => heading.textContent)).toEqual(['platform', 'assets']);
+  });
+
   it('filters cockpit streams under multiple selected parents and nested sub-streams', async () => {
     useWorkstreamsMock.mockReturnValue({
       data: [

@@ -212,14 +212,17 @@ describe('Categorys API Integration Tests', () => {
       expect(response.body.name).toBe('Trimmed Category');
     });
 
-    it('should default sortOrder to 0 when not specified', async () => {
+    it('should append sortOrder after existing categories when not specified', async () => {
+      await createTestCategory(project.id, { name: 'First', color: '#FF0000', sortOrder: 0 });
+      await createTestCategory(project.id, { name: 'Second', color: '#00FF00', sortOrder: 1 });
+
       const response = await request(app).post('/').send({
         name: 'Default Order Category',
         color: '#0000FF',
       });
 
       expect(response.status).toBe(201);
-      expect(response.body.sortOrder).toBe(0);
+      expect(response.body.sortOrder).toBe(2);
     });
 
     it('should convert color to uppercase', async () => {

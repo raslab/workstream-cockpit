@@ -144,6 +144,9 @@ export default function Cockpit() {
   ]);
 
   const activeView = views.find((view) => view.id === activeViewId);
+  const categoryGroupOrder = useMemo(() => {
+    return new Map(categories.map((category, index) => [category.id, index]));
+  }, [categories]);
   const detailNavigationState = {
     from: {
       pathname: location.pathname,
@@ -286,23 +289,27 @@ export default function Cockpit() {
       groups.get(key)!.push(ws);
     });
 
-    // Sort workstreams within each group and add sortOrder
+    // Sort workstreams within each group and add category order from the Settings category list.
     const result = Array.from(groups.entries()).map(([key, wsList]) => ({
       key,
       name: key === 'untagged' ? null : wsList[0].category?.name || null,
       color: key === 'untagged' ? null : wsList[0].category?.color || null,
       emoji: key === 'untagged' ? null : wsList[0].category?.emoji || null,
-      sortOrder: key === 'untagged' ? 999999 : (wsList[0].category?.sortOrder ?? 999999),
+      sortOrder:
+        key === 'untagged'
+          ? Number.MAX_SAFE_INTEGER
+          : (categoryGroupOrder.get(key) ?? wsList[0].category?.sortOrder ?? 999999),
       parent: null,
       workstreams: wsList.sort(
         getSortComparator(currentConfig.sort.field, currentConfig.sort.direction),
       ),
     }));
 
-    // Sort groups by category sortOrder
-    return result.sort((a, b) => a.sortOrder - b.sortOrder);
+    // Sort groups by the same category order used in Settings, with stable fallbacks for stale rows.
+    return result.sort((a, b) => a.sortOrder - b.sortOrder || a.key.localeCompare(b.key));
   }, [
     workstreams,
+    categoryGroupOrder,
     currentConfig.sort.field,
     currentConfig.sort.direction,
     currentConfig.group.by,

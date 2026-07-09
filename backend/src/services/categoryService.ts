@@ -1,8 +1,10 @@
-import { PrismaClient, Category } from '@prisma/client';
+import { PrismaClient, Category, Prisma } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { logResourceChange } from './resourceChangeService';
 
 const prisma = new PrismaClient();
+
+type CategoryPrismaClient = PrismaClient | Prisma.TransactionClient;
 
 export interface CreateCategoryInput {
   projectId: string;
@@ -12,6 +14,18 @@ export interface CreateCategoryInput {
   description?: string;
   sortOrder?: number;
   recordChange?: boolean;
+}
+
+async function nextCategorySortOrder(
+  projectId: string,
+  client: CategoryPrismaClient,
+): Promise<number> {
+  const latest = await client.category.findFirst({
+    where: { projectId },
+    orderBy: { sortOrder: 'desc' },
+    select: { sortOrder: true },
+  });
+  return latest ? latest.sortOrder + 1 : 0;
 }
 
 // Default categories to create for new projects
@@ -30,6 +44,7 @@ export async function createCategory(input: CreateCategoryInput): Promise<Catego
     logger.info(`Creating new category: ${input.name} for project ${input.projectId}`);
 
     const category = await prisma.$transaction(async (tx) => {
+      const sortOrder = input.sortOrder ?? (await nextCategorySortOrder(input.projectId, tx));
       const created = await tx.category.create({
         data: {
           projectId: input.projectId,
@@ -37,7 +52,7 @@ export async function createCategory(input: CreateCategoryInput): Promise<Catego
           color: input.color,
           emoji: input.emoji ?? null,
           description: input.description ?? '',
-          sortOrder: input.sortOrder ?? 0,
+          sortOrder,
         },
       });
       if (input.recordChange !== false) {
@@ -70,7 +85,7 @@ export async function getCategoriesByProjectId(projectId: string): Promise<Categ
   try {
     return await prisma.category.findMany({
       where: { projectId },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
     });
   } catch (error) {
     logger.error('Error getting categories:', error);
