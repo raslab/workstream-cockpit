@@ -24,6 +24,7 @@ export function ViewTabs({
 }: ViewTabsProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const activeViewIndex = views.findIndex((view) => view.id === activeViewId);
 
   const handleDelete = (id: string) => {
     if (window.confirm('Are you sure you want to delete this view?')) {
@@ -37,13 +38,18 @@ export function ViewTabs({
         data-testid="view-tabs-panel"
         className="flex min-w-0 items-center justify-between overflow-hidden border-b border-gray-200 bg-gray-50 px-4 dark:border-gray-700 dark:bg-gray-900"
       >
-        <div data-testid="view-tabs-list" className="flex min-w-0 flex-1 flex-nowrap overflow-hidden pt-2">
-          {views.map((view) => (
+        <div
+          data-testid="view-tabs-list"
+          className="flex min-w-0 flex-1 flex-nowrap overflow-hidden pt-2"
+        >
+          {views.map((view, index) => (
             <ViewTabItem
               key={view.id}
               view={view}
               isActive={view.id === activeViewId}
               isEditing={editingId === view.id}
+              isFirst={index === 0}
+              showSeparator={view.id !== activeViewId && index !== activeViewIndex - 1}
               onClick={() => onViewChange(view.id)}
               onEdit={() => setEditingId(view.id)}
               onEditComplete={(newName) => {
@@ -58,10 +64,10 @@ export function ViewTabs({
 
           <button
             onClick={() => setIsCreating(true)}
-            className="flex shrink-0 items-center gap-1 whitespace-nowrap px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+            className="flex h-8 w-8 shrink-0 items-center justify-center gap-1 whitespace-nowrap pl-2 pr-0 text-sm text-gray-600 hover:text-gray-900 sm:w-auto sm:justify-start dark:text-gray-400 dark:hover:text-gray-100"
             title="Create new view"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -69,7 +75,7 @@ export function ViewTabs({
                 d="M12 4v16m8-8H4"
               />
             </svg>
-            <span>New View</span>
+            <span className="hidden sm:inline">New View</span>
           </button>
         </div>
 

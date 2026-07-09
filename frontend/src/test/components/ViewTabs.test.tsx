@@ -68,7 +68,12 @@ describe('ViewTabs', () => {
     expect(activeTab).toHaveClass('basis-[150px]');
     expect(activeTab).toHaveClass('shrink-0');
     expect(activeTab).toHaveClass('bg-white');
+    expect(activeTab).toHaveClass('px-2');
     expect(activeTab).toHaveAttribute('aria-current', 'page');
+
+    const firstTab = screen.getByTestId('view-tab-view-0');
+    expect(firstTab).toHaveClass('pl-0');
+    expect(firstTab).toHaveClass('pr-2');
 
     const inactiveTab = screen.getByTestId('view-tab-view-7');
     expect(inactiveTab).toHaveClass('basis-[150px]');
@@ -76,10 +81,13 @@ describe('ViewTabs', () => {
     expect(inactiveTab).toHaveClass('min-w-12');
     expect(inactiveTab).not.toHaveAttribute('aria-current');
 
-    expect(screen.getAllByTestId('view-tab-separator')).toHaveLength(11);
+    expect(screen.queryByTestId('view-tab-view-8-separator')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('view-tab-view-7-separator')).not.toBeInTheDocument();
+    expect(screen.getByTestId('view-tab-view-6-separator')).toBeInTheDocument();
+    expect(screen.getAllByText('|')).toHaveLength(10);
   });
 
-  it('overlays edit controls on hover/focus so text truncates more without reserving empty button space', async () => {
+  it('shows edit controls only on the active tab hover/focus and keeps inactive tabs passive', async () => {
     const user = userEvent.setup();
     const onViewRename = vi.fn();
     const onViewDelete = vi.fn();
@@ -89,6 +97,11 @@ describe('ViewTabs', () => {
       <ViewTabs
         views={[
           createView({ id: 'default', name: 'Default View', isDefault: true }),
+          createView({
+            id: 'inactive-custom',
+            name: 'Inactive Custom View',
+            isDefault: false,
+          }),
           createView({
             id: 'custom',
             name: 'Custom View With A Very Long Name',
@@ -103,6 +116,8 @@ describe('ViewTabs', () => {
       />,
     );
 
+    expect(screen.queryByTestId('view-tab-inactive-custom-actions')).not.toBeInTheDocument();
+
     const customTab = screen.getByTestId('view-tab-custom');
     expect(customTab).toHaveClass('basis-[150px]');
     expect(customTab).toHaveClass('overflow-hidden');
@@ -110,6 +125,7 @@ describe('ViewTabs', () => {
     const label = screen.getByRole('button', { name: /custom view with a very long name/i });
     expect(label).toHaveClass('truncate');
     expect(label).toHaveClass('group-hover:pr-10');
+    expect(label).not.toHaveClass('group-focus-within:pr-10');
     expect(label).toHaveAttribute('title', 'Custom View With A Very Long Name');
 
     const actions = screen.getByTestId('view-tab-custom-actions');
@@ -117,6 +133,7 @@ describe('ViewTabs', () => {
     expect(actions).toHaveClass('right-2');
     expect(actions).toHaveClass('opacity-0');
     expect(actions).toHaveClass('group-hover:opacity-100');
+    expect(actions).not.toHaveClass('group-focus-within:opacity-100');
     expect(actions).not.toHaveClass('w-10');
     expect(actions).not.toHaveClass('hidden');
 
@@ -137,5 +154,30 @@ describe('ViewTabs', () => {
       await user.click(screen.getByRole('button', { name: /delete view/i }));
     });
     expect(onViewDelete).toHaveBeenCalledWith('custom');
+  });
+
+  it('keeps New View as a non-shrinking plus button that reveals the label only at stable breakpoints', () => {
+    render(
+      <ViewTabs
+        views={[createView({ id: 'default', name: 'Default View', isDefault: true })]}
+        activeViewId="default"
+        onViewChange={vi.fn()}
+        onViewCreate={vi.fn()}
+        onViewDelete={vi.fn()}
+        onViewRename={vi.fn()}
+      />,
+    );
+
+    const newViewButton = screen.getByRole('button', { name: /new view/i });
+    expect(newViewButton).toHaveClass('shrink-0');
+    expect(newViewButton).toHaveClass('w-8');
+    expect(newViewButton).toHaveClass('sm:w-auto');
+    expect(newViewButton).toHaveClass('pl-2');
+    expect(newViewButton).toHaveClass('pr-0');
+    expect(newViewButton).not.toHaveClass('flex-1');
+
+    const newViewLabel = screen.getByText('New View');
+    expect(newViewLabel).toHaveClass('hidden');
+    expect(newViewLabel).toHaveClass('sm:inline');
   });
 });

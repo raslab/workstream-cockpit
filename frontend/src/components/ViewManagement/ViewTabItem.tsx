@@ -5,6 +5,8 @@ interface ViewTabItemProps {
   view: ViewConfig;
   isActive: boolean;
   isEditing: boolean;
+  isFirst: boolean;
+  showSeparator: boolean;
   onClick: () => void;
   onEdit: () => void;
   onEditComplete: (newName: string) => void;
@@ -15,6 +17,8 @@ export function ViewTabItem({
   view,
   isActive,
   isEditing,
+  isFirst,
+  showSeparator,
   onClick,
   onEdit,
   onEditComplete,
@@ -40,12 +44,13 @@ export function ViewTabItem({
   };
 
   const tabWidthClasses = isActive ? 'shrink-0' : 'min-w-12 shrink';
+  const tabPaddingClasses = isFirst ? 'pl-0 pr-2' : 'px-2';
 
   if (isEditing) {
     return (
       <div
         data-testid={`view-tab-${view.id}`}
-        className={`inline-flex basis-[150px] items-center overflow-hidden whitespace-nowrap px-3 py-1.5 ${tabWidthClasses}`}
+        className={`inline-flex basis-[150px] items-center overflow-hidden whitespace-nowrap py-1.5 ${tabPaddingClasses} ${tabWidthClasses}`}
         aria-current={isActive ? 'page' : undefined}
       >
         <input
@@ -65,7 +70,7 @@ export function ViewTabItem({
     <div
       data-testid={`view-tab-${view.id}`}
       aria-current={isActive ? 'page' : undefined}
-      className={`group relative flex basis-[150px] items-center overflow-hidden whitespace-nowrap px-3 py-1.5 transition-colors ${
+      className={`group relative flex basis-[150px] items-center overflow-hidden whitespace-nowrap py-1.5 transition-colors ${tabPaddingClasses} ${
         isActive
           ? 'shrink-0 rounded-t-md border-x border-t border-gray-200 bg-white text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100'
           : 'min-w-12 shrink cursor-pointer bg-transparent text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
@@ -73,16 +78,18 @@ export function ViewTabItem({
     >
       <button
         onClick={onClick}
-        className="min-w-0 flex-1 truncate text-left text-sm font-medium transition-[padding] group-focus-within:pr-10 group-hover:pr-10"
+        className={`min-w-0 flex-1 truncate text-left text-sm font-medium transition-[padding] ${
+          isActive ? 'group-hover:pr-10' : ''
+        }`}
         title={view.name}
       >
         {view.name}
       </button>
 
-      {!view.isDefault && (
+      {isActive && !view.isDefault && (
         <div
           data-testid={`view-tab-${view.id}-actions`}
-          className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
+          className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100"
         >
           <button
             onClick={(e) => {
@@ -123,9 +130,10 @@ export function ViewTabItem({
         </div>
       )}
 
-      {!isActive && (
+      {showSeparator && (
         <span
-          data-testid="view-tab-separator"
+          data-testid={`view-tab-${view.id}-separator`}
+          data-view-id={view.id}
           aria-hidden="true"
           className="pointer-events-none absolute right-0 text-gray-300 dark:text-gray-600"
         >
