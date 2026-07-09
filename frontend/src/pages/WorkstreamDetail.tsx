@@ -312,25 +312,27 @@ export function StatusEditDialog({
             </div>
           )}
 
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={requestClose}
-              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              disabled={updateMutation.isPending}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-              disabled={!status.trim() || updateMutation.isPending}
-            >
-              {updateMutation.isPending ? 'Saving...' : 'Save'}
-            </button>
-          </div>
+          {!showDiscardConfirm && (
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={requestClose}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                disabled={updateMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                disabled={!status.trim() || updateMutation.isPending}
+              >
+                {updateMutation.isPending ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          )}
           <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Enter adds a new line • Ctrl/Cmd+Enter submits • Esc cancels
+            Enter adds a new line • Ctrl/Cmd | Enter submits • Esc cancels
           </div>
         </form>
       </div>

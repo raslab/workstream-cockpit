@@ -26,6 +26,7 @@ export function WorkstreamEditDialog({
   const [name, setName] = useState(workstream.name);
   const [categoryId, setCategoryId] = useState<string>(workstream.categoryId || '');
   const [context, setContext] = useState(workstream.context || '');
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const queryClient = useQueryClient();
   const { data: categories = [] } = useCategories();
 
@@ -34,6 +35,7 @@ export function WorkstreamEditDialog({
       setName(workstream.name);
       setCategoryId(workstream.categoryId || '');
       setContext(workstream.context || '');
+      setShowDiscardConfirm(false);
     }
   }, [isOpen, workstream]);
 
@@ -96,10 +98,30 @@ export function WorkstreamEditDialog({
     }
   };
 
-  const handleShortcutSubmit = (e: React.KeyboardEvent<HTMLFormElement>) => {
+  const closeWithoutSaving = () => {
+    draftControls.clearDraft();
+    setShowDiscardConfirm(false);
+    onClose();
+  };
+
+  const requestClose = () => {
+    if (updateMutation.isPending) return;
+    if (isDraftDirty) {
+      setShowDiscardConfirm(true);
+      return;
+    }
+    closeWithoutSaving();
+  };
+
+  const handleShortcutKeys = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       e.currentTarget.requestSubmit();
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      requestClose();
     }
   };
 
@@ -112,7 +134,7 @@ export function WorkstreamEditDialog({
           Edit <WorkstreamLink workstream={workstream} />
         </h2>
 
-        <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>
+        <form onSubmit={handleSubmit} onKeyDown={handleShortcutKeys}>
           <div className="mb-4">
             <label
               htmlFor="name"
@@ -124,7 +146,10 @@ export function WorkstreamEditDialog({
               type="text"
               id="name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setShowDiscardConfirm(false);
+              }}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               maxLength={200}
               autoFocus
@@ -138,7 +163,10 @@ export function WorkstreamEditDialog({
             <SelectMenu
               label="Category (optional)"
               value={categoryId}
-              onChange={setCategoryId}
+              onChange={(value) => {
+                setCategoryId(value);
+                setShowDiscardConfirm(false);
+              }}
               buttonClassName="w-full"
               options={[
                 { value: '', label: 'No category' },
@@ -159,7 +187,10 @@ export function WorkstreamEditDialog({
                 ref={contextRef}
                 id="context"
                 value={context}
-                onChange={(e) => setContext(e.target.value)}
+                onChange={(e) => {
+                  setContext(e.target.value);
+                  setShowDiscardConfirm(false);
+                }}
                 onPaste={(e) => handleRichHtmlTextareaPaste(e, context, setContext, 2000)}
                 className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={4}
@@ -178,28 +209,52 @@ export function WorkstreamEditDialog({
             </div>
           )}
 
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                draftControls.clearDraft();
-                onClose();
-              }}
-              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              disabled={updateMutation.isPending}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-              disabled={updateMutation.isPending || !name.trim()}
-            >
-              {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
+          {showDiscardConfirm && (
+            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+              <div className="font-semibold">Discard changes?</div>
+              <div className="mt-1">Your stream edits have not been saved.</div>
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDiscardConfirm(false)}
+                  className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-gray-900 dark:text-amber-100 dark:hover:bg-amber-900/40"
+                  disabled={updateMutation.isPending}
+                >
+                  Keep editing
+                </button>
+                <button
+                  type="button"
+                  onClick={closeWithoutSaving}
+                  className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                  disabled={updateMutation.isPending}
+                >
+                  Discard changes
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!showDiscardConfirm && (
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={requestClose}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                disabled={updateMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                disabled={updateMutation.isPending || !name.trim()}
+              >
+                {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          )}
           <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Enter adds a new line • Ctrl/Cmd+Enter submits
+            Enter adds a new line • Ctrl/Cmd | Enter submits • Esc cancels
           </div>
         </form>
       </div>

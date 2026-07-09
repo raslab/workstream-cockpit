@@ -63,7 +63,7 @@ describe('dialog keyboard submission hints', () => {
     renderWithClient(<WorkstreamCreateDialog isOpen onClose={vi.fn()} />);
 
     expect(screen.getByText(/Enter adds a new line/i)).toBeInTheDocument();
-    expect(screen.getByText(/Ctrl\/Cmd\+Enter submits/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ctrl\/Cmd \| Enter submits/i)).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/Name/i), { target: { value: 'New stream' } });
     fireEvent.change(screen.getByLabelText(/Initial Status/i), { target: { value: 'Status line' } });
@@ -83,7 +83,7 @@ describe('dialog keyboard submission hints', () => {
     renderWithClient(<WorkstreamEditDialog isOpen onClose={vi.fn()} workstream={baseWorkstream} />);
 
     expect(screen.getByText(/Enter adds a new line/i)).toBeInTheDocument();
-    expect(screen.getByText(/Ctrl\/Cmd\+Enter submits/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ctrl\/Cmd \| Enter submits/i)).toBeInTheDocument();
 
     const context = screen.getByLabelText(/Context/i);
     fireEvent.change(context, { target: { value: 'First line\nsecond line' } });
@@ -107,7 +107,7 @@ describe('dialog keyboard submission hints', () => {
     );
 
     expect(screen.getByText(/Enter adds a new line/i)).toBeInTheDocument();
-    expect(screen.getByText(/Ctrl\/Cmd\+Enter submits/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ctrl\/Cmd \| Enter submits/i)).toBeInTheDocument();
 
     const status = screen.getByLabelText(/Status/i);
     fireEvent.change(status, { target: { value: 'First line\nsecond line' } });
@@ -136,7 +136,7 @@ describe('dialog keyboard submission hints', () => {
     );
 
     expect(screen.getByText(/Enter adds a new line/i)).toBeInTheDocument();
-    expect(screen.getByText(/Ctrl\/Cmd\+Enter submits/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ctrl\/Cmd \| Enter submits/i)).toBeInTheDocument();
 
     const status = screen.getByLabelText(/Status/i);
     fireEvent.change(status, { target: { value: 'Edited status\nsecond line' } });
@@ -158,7 +158,7 @@ describe('dialog keyboard submission hints', () => {
     });
   });
 
-  it('closes a status update edit on Escape when unchanged', () => {
+  it('closes dirty-free dialogs on Escape without showing discard confirmation', () => {
     const onClose = vi.fn();
     renderWithClient(
       <StatusEditDialog
@@ -191,11 +191,15 @@ describe('dialog keyboard submission hints', () => {
     fireEvent.keyDown(status, { key: 'Escape' });
 
     expect(screen.getByText(/Discard changes\?/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Cancel$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Save$/i })).not.toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: /Keep editing/i }));
 
     expect(screen.queryByText(/Discard changes\?/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cancel$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Save$/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/Status/i)).toHaveValue('Unsaved edit');
     expect(onClose).not.toHaveBeenCalled();
 
@@ -203,5 +207,94 @@ describe('dialog keyboard submission hints', () => {
     fireEvent.click(screen.getByRole('button', { name: /Discard changes/i }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the same Escape discard confirmation for creating status updates', () => {
+    const onClose = vi.fn();
+    renderWithClient(
+      <StatusUpdateDialog isOpen onClose={onClose} workstreamId="stream-1" workstreamName="Existing stream" />,
+    );
+
+    const status = screen.getByLabelText(/Status/i);
+    fireEvent.change(status, { target: { value: 'Draft update' } });
+    fireEvent.keyDown(status, { key: 'Escape' });
+
+    expect(screen.getByText(/Discard changes\?/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Cancel$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Save$/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Keep editing/i }));
+
+    expect(screen.queryByText(/Discard changes\?/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cancel$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Save$/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Status/i)).toHaveValue('Draft update');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('uses the same Escape discard confirmation for creating streams', () => {
+    const onClose = vi.fn();
+    renderWithClient(<WorkstreamCreateDialog isOpen onClose={onClose} />);
+
+    const name = screen.getByLabelText(/Name/i);
+    fireEvent.change(name, { target: { value: 'Draft stream' } });
+    fireEvent.keyDown(name, { key: 'Escape' });
+
+    expect(screen.getByText(/Discard changes\?/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Cancel$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Create$/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Keep editing/i }));
+
+    expect(screen.queryByText(/Discard changes\?/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cancel$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Create$/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Name/i)).toHaveValue('Draft stream');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+
+  it('uses the same Escape discard confirmation for creating sub-streams', () => {
+    const onClose = vi.fn();
+    renderWithClient(<WorkstreamCreateDialog isOpen onClose={onClose} parent={baseWorkstream} />);
+
+    expect(screen.getByText(/Create Sub-stream/i)).toBeInTheDocument();
+
+    const name = screen.getByLabelText(/Name/i);
+    fireEvent.change(name, { target: { value: 'Draft sub-stream' } });
+    fireEvent.keyDown(name, { key: 'Escape' });
+
+    expect(screen.getByText(/Discard changes\?/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Cancel$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Create$/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Keep editing/i }));
+
+    expect(screen.queryByText(/Discard changes\?/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cancel$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Create$/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Name/i)).toHaveValue('Draft sub-stream');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('uses the same Escape discard confirmation for editing streams', () => {
+    const onClose = vi.fn();
+    renderWithClient(<WorkstreamEditDialog isOpen onClose={onClose} workstream={baseWorkstream} />);
+
+    const context = screen.getByLabelText(/Context/i);
+    fireEvent.change(context, { target: { value: 'Unsaved context' } });
+    fireEvent.keyDown(context, { key: 'Escape' });
+
+    expect(screen.getByText(/Discard changes\?/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Cancel$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Save Changes$/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Keep editing/i }));
+
+    expect(screen.queryByText(/Discard changes\?/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cancel$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Save Changes$/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Context/i)).toHaveValue('Unsaved context');
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

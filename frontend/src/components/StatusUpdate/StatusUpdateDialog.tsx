@@ -26,6 +26,7 @@ export function StatusUpdateDialog({
 }: StatusUpdateDialogProps) {
   const [status, setStatus] = useState('');
   const [note, setNote] = useState('');
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const statusRef = useRef<HTMLTextAreaElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const queryClient = useQueryClient();
@@ -74,6 +75,7 @@ export function StatusUpdateDialog({
     if (!isOpen) {
       setStatus('');
       setNote('');
+      setShowDiscardConfirm(false);
     }
   }, [isOpen]);
 
@@ -90,10 +92,30 @@ export function StatusUpdateDialog({
     }
   };
 
-  const handleShortcutSubmit = (e: React.KeyboardEvent<HTMLFormElement>) => {
+  const closeWithoutSaving = () => {
+    draftControls.clearDraft();
+    setShowDiscardConfirm(false);
+    onClose();
+  };
+
+  const requestClose = () => {
+    if (createStatusMutation.isPending) return;
+    if (isDraftDirty) {
+      setShowDiscardConfirm(true);
+      return;
+    }
+    closeWithoutSaving();
+  };
+
+  const handleShortcutKeys = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       e.currentTarget.requestSubmit();
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      requestClose();
     }
   };
 
@@ -109,7 +131,7 @@ export function StatusUpdateDialog({
           />
         </h2>
 
-        <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>
+        <form onSubmit={handleSubmit} onKeyDown={handleShortcutKeys}>
           <div className="mb-4">
             <label
               htmlFor="status"
@@ -121,7 +143,10 @@ export function StatusUpdateDialog({
               id="status"
               ref={statusRef}
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                setShowDiscardConfirm(false);
+              }}
               onPaste={(e) => handleRichHtmlTextareaPaste(e, status, setStatus, 500)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               rows={3}
@@ -146,7 +171,10 @@ export function StatusUpdateDialog({
               id="note"
               ref={noteRef}
               value={note}
-              onChange={(e) => setNote(e.target.value)}
+              onChange={(e) => {
+                setNote(e.target.value);
+                setShowDiscardConfirm(false);
+              }}
               onPaste={(e) => handleRichHtmlTextareaPaste(e, note, setNote, 2000)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               rows={3}
@@ -165,24 +193,47 @@ export function StatusUpdateDialog({
             </div>
           )}
 
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                draftControls.clearDraft();
-                onClose();
-              }}
-              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              disabled={createStatusMutation.isPending}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-              disabled={!status.trim() || createStatusMutation.isPending}
-            >
-              {createStatusMutation.isPending && (
+          {showDiscardConfirm && (
+            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+              <div className="font-semibold">Discard changes?</div>
+              <div className="mt-1">Your new status update text has not been saved.</div>
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDiscardConfirm(false)}
+                  className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-gray-900 dark:text-amber-100 dark:hover:bg-amber-900/40"
+                  disabled={createStatusMutation.isPending}
+                >
+                  Keep editing
+                </button>
+                <button
+                  type="button"
+                  onClick={closeWithoutSaving}
+                  className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                  disabled={createStatusMutation.isPending}
+                >
+                  Discard changes
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!showDiscardConfirm && (
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={requestClose}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                disabled={createStatusMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                disabled={!status.trim() || createStatusMutation.isPending}
+              >
+                {createStatusMutation.isPending && (
                 <svg
                   className="-ml-1 mr-2 h-4 w-4 animate-spin text-white"
                   xmlns="http://www.w3.org/2000/svg"
@@ -203,13 +254,14 @@ export function StatusUpdateDialog({
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-              )}
-              Save
-            </button>
-          </div>
+                )}
+                Save
+              </button>
+            </div>
+          )}
 
           <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Enter adds a new line • Ctrl/Cmd+Enter submits
+            Enter adds a new line • Ctrl/Cmd | Enter submits • Esc cancels
           </div>
         </form>
       </div>
