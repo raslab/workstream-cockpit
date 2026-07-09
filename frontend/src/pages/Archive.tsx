@@ -5,6 +5,7 @@ import { apiClient } from '../api/client';
 import { format, parseISO } from 'date-fns';
 import { WorkstreamLink } from '../components/Workstream/WorkstreamReference';
 import { useResourceChangeScreen } from '../components/Notifications/ResourceChangeNotificationProvider';
+import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 
 export default function Archive() {
   useResourceChangeScreen({ screen: 'archive' });
@@ -78,10 +79,11 @@ export default function Archive() {
                   </div>
 
                   {workstream.latestStatus && (
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        {workstream.latestStatus.status}
-                      </p>
+                    <div className="mt-2" data-testid={`archive-latest-status-${workstream.id}`}>
+                      <MarkdownRenderer
+                        content={workstream.latestStatus.status}
+                        className="text-sm leading-6 text-gray-700 dark:text-gray-300"
+                      />
                     </div>
                   )}
 
