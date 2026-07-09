@@ -117,6 +117,37 @@ describe('Timeline API Integration Tests', () => {
       expect(statusUpdateEvent.id).toMatch(/^status-/);
     });
 
+    it('should return each status update impact for timeline badges', async () => {
+      const workstream = await createTestWorkstream(project.id, {
+        name: 'Impact Workstream',
+      });
+
+      await createTestStatusUpdate(workstream.id, {
+        status: 'Active movement',
+        impact: 'active',
+      });
+      await createTestStatusUpdate(workstream.id, {
+        status: 'Passive note',
+        impact: 'info',
+      });
+      await createTestStatusUpdate(workstream.id, {
+        status: 'Creation context',
+        impact: 'initial',
+      });
+
+      const res = await request(app).get('/').query({ eventTypes: 'status_update' });
+
+      expect(res.status).toBe(200);
+      const impactsByStatus = Object.fromEntries(
+        eventsOf(res).map((event: any) => [event.status, event.impact]),
+      );
+      expect(impactsByStatus).toMatchObject({
+        'Active movement': 'active',
+        'Passive note': 'info',
+        'Creation context': 'initial',
+      });
+    });
+
     it('should filter timeline by startDate', async () => {
       const workstream = await prisma.workstream.create({
         data: {

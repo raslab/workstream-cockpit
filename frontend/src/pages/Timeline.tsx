@@ -63,10 +63,11 @@ function timelineTrail(entry: TimelineEntry) {
 
 function UpdateImpactChip({ impact }: { impact?: TimelineEntry['impact'] }) {
   const normalizedImpact = impact ?? 'active';
-  const className =
-    normalizedImpact === 'info'
-      ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-200'
-      : 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-200';
+  const className = {
+    active: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-200',
+    info: 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-200',
+    initial: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200',
+  }[normalizedImpact];
 
   return (
     <span
