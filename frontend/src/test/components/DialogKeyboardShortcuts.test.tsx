@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StatusUpdateDialog } from '../../components/StatusUpdate/StatusUpdateDialog';
 import { WorkstreamCreateDialog } from '../../components/Workstream/WorkstreamCreateDialog';
 import { WorkstreamEditDialog } from '../../components/Workstream/WorkstreamEditDialog';
-import type { Workstream } from '../../types/workstream';
+import { StatusEditDialog } from '../../pages/WorkstreamDetail';
+import type { StatusUpdate, Workstream } from '../../types/workstream';
 
 const apiPostMock = vi.hoisted(() => vi.fn());
 const apiPutMock = vi.hoisted(() => vi.fn());
@@ -39,6 +40,15 @@ const baseWorkstream: Workstream = {
   state: 'active',
   createdAt: '2026-06-01T00:00:00Z',
   closedAt: null,
+};
+
+const baseStatusUpdate: StatusUpdate = {
+  id: 'status-1',
+  workstreamId: 'stream-1',
+  status: 'Existing status',
+  note: 'Existing note',
+  createdAt: '2026-06-01T00:00:00Z',
+  updatedAt: '2026-06-01T00:00:00Z',
 };
 
 describe('dialog keyboard submission hints', () => {
@@ -113,5 +123,85 @@ describe('dialog keyboard submission hints', () => {
         status: 'First line\nsecond line',
       }));
     });
+  });
+
+  it('submits a status update edit with Cmd+Enter from a multi-line field', async () => {
+    renderWithClient(
+      <StatusEditDialog
+        statusUpdate={baseStatusUpdate}
+        workstreamId="stream-1"
+        isOpen
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Enter adds a new line/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ctrl\/Cmd\+Enter submits/i)).toBeInTheDocument();
+
+    const status = screen.getByLabelText(/Status/i);
+    fireEvent.change(status, { target: { value: 'Edited status\nsecond line' } });
+    expect(status).toHaveValue('Edited status\nsecond line');
+
+    await act(async () => {
+      fireEvent.keyDown(status, { key: 'Enter', metaKey: true });
+    });
+
+    await waitFor(() => {
+      expect(apiPutMock).toHaveBeenCalledWith(
+        '/api/status-updates/status-1',
+        expect.objectContaining({
+          workstreamId: 'stream-1',
+          status: 'Edited status\nsecond line',
+          note: 'Existing note',
+        }),
+      );
+    });
+  });
+
+  it('closes a status update edit on Escape when unchanged', () => {
+    const onClose = vi.fn();
+    renderWithClient(
+      <StatusEditDialog
+        statusUpdate={baseStatusUpdate}
+        workstreamId="stream-1"
+        isOpen
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.keyDown(screen.getByLabelText(/Status/i), { key: 'Escape' });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Discard changes/i)).not.toBeInTheDocument();
+  });
+
+  it('confirms before discarding changed status update edits and preserves text when kept', () => {
+    const onClose = vi.fn();
+    renderWithClient(
+      <StatusEditDialog
+        statusUpdate={baseStatusUpdate}
+        workstreamId="stream-1"
+        isOpen
+        onClose={onClose}
+      />,
+    );
+
+    const status = screen.getByLabelText(/Status/i);
+    fireEvent.change(status, { target: { value: 'Unsaved edit' } });
+    fireEvent.keyDown(status, { key: 'Escape' });
+
+    expect(screen.getByText(/Discard changes\?/i)).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /Keep editing/i }));
+
+    expect(screen.queryByText(/Discard changes\?/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Status/i)).toHaveValue('Unsaved edit');
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(screen.getByLabelText(/Status/i), { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: /Discard changes/i }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
