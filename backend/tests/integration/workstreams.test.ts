@@ -168,7 +168,9 @@ describe('Workstreams API Integration Tests', () => {
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(1);
       expect(response.body[0].id).toBe(taggedStream.id);
-      expect(response.body[0].latestStatus.status).toBe('Latest movement for #launch_risk and #platform');
+      expect(response.body[0].latestStatus.status).toBe(
+        'Latest movement for #launch_risk and #platform',
+      );
       expect(response.body[0].allTags).toEqual(['platform', 'launch_risk']);
     });
 
@@ -208,6 +210,50 @@ describe('Workstreams API Integration Tests', () => {
           depth: 1,
         }),
       ]);
+    });
+
+    it('keeps initial creation updates visible without satisfying updated-today freshness', async () => {
+      const statusApp = createTestApp(statusUpdatesRoutes, person);
+      const createResponse = await request(app).post('/').send({
+        name: 'Created with initial context',
+        initialStatus: 'Initial background only',
+        initialNote: 'Visible in history but not operational movement',
+      });
+      expect(createResponse.status).toBe(201);
+      const workstreamId = createResponse.body.id;
+
+      const initialHistoryResponse = await request(statusApp).get(
+        `/workstreams/${workstreamId}/status-updates`,
+      );
+      expect(initialHistoryResponse.status).toBe(200);
+      expect(initialHistoryResponse.body.updates).toHaveLength(1);
+      expect(initialHistoryResponse.body.updates[0]).toMatchObject({
+        workstreamId,
+        status: 'Initial background only',
+        note: 'Visible in history but not operational movement',
+        impact: 'initial',
+      });
+
+      const staleAfterCreation = await request(app).get('/?notUpdatedToday=true');
+      expect(staleAfterCreation.status).toBe(200);
+      expect(staleAfterCreation.body.map((workstream: any) => workstream.id)).toContain(
+        workstreamId,
+      );
+      expect(staleAfterCreation.body[0]).not.toHaveProperty('latestStatus');
+      expect(staleAfterCreation.body[0].lastDirectUpdateAt).toBeNull();
+
+      const normalUpdateResponse = await request(statusApp).post('/').send({
+        workstreamId,
+        status: 'Real operational progress today',
+      });
+      expect(normalUpdateResponse.status).toBe(201);
+      expect(normalUpdateResponse.body.impact).toBe('active');
+
+      const staleAfterFollowUp = await request(app).get('/?notUpdatedToday=true');
+      expect(staleAfterFollowUp.status).toBe(200);
+      expect(staleAfterFollowUp.body.map((workstream: any) => workstream.id)).not.toContain(
+        workstreamId,
+      );
     });
 
     it('treats status update creation, not later edits, as not-updated-today freshness', async () => {
