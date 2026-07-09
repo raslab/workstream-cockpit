@@ -56,6 +56,10 @@ export function getLatestSubstreamActivityAt(
   );
 }
 
+function isActiveStatusForFallback(status: StatusUpdate | undefined): boolean {
+  return Boolean(status && status.impact !== 'info' && status.impact !== 'initial');
+}
+
 export function getBreadcrumbLabel(workstream: Workstream | WorkstreamSummary): string {
   return getBreadcrumbItems(workstream)
     .map((item) => workstreamReferenceText(item))
@@ -156,13 +160,13 @@ export function getHierarchyTimestamp(workstream: Workstream, field: SortConfig[
   let value: string | null | undefined;
   switch (field) {
     case 'lastDirectUpdateAt':
-      value = workstream.lastDirectUpdateAt || workstream.latestStatus?.createdAt;
+      value = workstream.lastDirectUpdateAt || (isActiveStatusForFallback(workstream.latestStatus) ? workstream.latestStatus?.createdAt : null);
       break;
     case 'lastSubstreamActivityAt':
       value = workstream.lastSubstreamActivityAt;
       break;
     case 'lastActivityAt':
-      value = workstream.lastActivityAt || workstream.latestStatus?.createdAt;
+      value = workstream.lastActivityAt || (isActiveStatusForFallback(workstream.latestStatus) ? workstream.latestStatus?.createdAt : null);
       break;
     case 'createdAt':
       value = workstream.createdAt;

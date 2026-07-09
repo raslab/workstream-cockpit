@@ -195,7 +195,13 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
   const categoryColor = category?.color || DEFAULT_CATEGORY_COLOR;
   const categorySoftColor = getCategoryIconBandBackground(categoryColor, DEFAULT_CATEGORY_COLOR);
   const categoryEmoji = category?.emoji || DEFAULT_CATEGORY_EMOJI;
-  const directActivityAt = workstream.lastDirectUpdateAt || latestStatus?.updatedAt;
+  const directActivityAt =
+    workstream.lastDirectUpdateAt ||
+    (latestStatus && latestStatus.impact !== 'info' && latestStatus.impact !== 'initial'
+      ? latestStatus.createdAt
+      : null);
+  const selfDisplayAt = directActivityAt || latestStatus?.createdAt || workstream.createdAt;
+  const selfActivityLabel = latestStatus || directActivityAt ? 'Self:' : 'Created:';
   const sourceStream = workstream.latestSubstreamActivitySource;
   const substreamActivityAge = workstream.lastSubstreamActivityAt ? formatActivity(workstream.lastSubstreamActivityAt) : null;
   const substreamCount = workstream.substreamCount ?? 0;
@@ -296,10 +302,10 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
         </Link>
 
         <div className={`relative z-10 col-start-3 col-end-5 flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden pl-3 pr-14 ${workstream.parent ? 'row-start-4 mt-2' : 'row-start-3 mt-2'} ${hasTags || hasCountRow ? '' : 'pb-3'}`}>
-          <span className={`inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1 text-xs text-gray-600 dark:text-gray-300 ${directActivityAt ? 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/40' : 'border-gray-100 bg-gray-50/70 text-gray-500 dark:border-gray-700 dark:bg-gray-900/20 dark:text-gray-400'}`}>
+          <span className={`inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1 text-xs text-gray-600 dark:text-gray-300 ${directActivityAt || latestStatus ? 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/40' : 'border-gray-100 bg-gray-50/70 text-gray-500 dark:border-gray-700 dark:bg-gray-900/20 dark:text-gray-400'}`}>
             <ClockIcon />
-            <strong className="font-bold text-gray-700 dark:text-gray-200">Self:</strong>
-            {formatActivity(directActivityAt)}
+            <strong className="font-bold text-gray-700 dark:text-gray-200">{selfActivityLabel}</strong>
+            {formatActivity(selfDisplayAt)}
           </span>
 
           {substreamActivityAge && (

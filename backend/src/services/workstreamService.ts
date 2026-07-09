@@ -255,6 +255,14 @@ function extractWorkstreamTags(
   );
 }
 
+function firstStatusByWorkstream(updates: StatusUpdate[]): Map<string, StatusUpdate> {
+  const byWorkstream = new Map<string, StatusUpdate>();
+  for (const update of updates) {
+    if (!byWorkstream.has(update.workstreamId)) byWorkstream.set(update.workstreamId, update);
+  }
+  return byWorkstream;
+}
+
 function substreamTreeMaxRelativeDepth(
   workstreamId: string,
   substreamsByParent: Map<string | null, Workstream[]>,
@@ -289,14 +297,16 @@ async function enrichWorkstreams<
   const byId = new Map(allWorkstreams.map((ws) => [ws.id, ws]));
   const substreamsByParent = buildSubstreamsByParent(allWorkstreams);
   const allIds = allWorkstreams.map((ws) => ws.id);
-  const latestUpdates = await prisma.statusUpdate.findMany({
+  const latestActiveUpdates = await prisma.statusUpdate.findMany({
     where: { workstreamId: { in: allIds }, impact: 'active' },
     orderBy: { createdAt: 'desc' },
   });
-  const latestByWorkstream = new Map<string, StatusUpdate>();
-  for (const update of latestUpdates)
-    if (!latestByWorkstream.has(update.workstreamId))
-      latestByWorkstream.set(update.workstreamId, update);
+  const latestByWorkstream = firstStatusByWorkstream(latestActiveUpdates);
+  const latestDisplayUpdates = await prisma.statusUpdate.findMany({
+    where: { workstreamId: { in: allIds }, impact: { in: ['active', 'initial'] } },
+    orderBy: { createdAt: 'desc' },
+  });
+  const latestDisplayByWorkstream = firstStatusByWorkstream(latestDisplayUpdates);
   const nextStepCounts = await prisma.nextStep.groupBy({
     by: ['workstreamId'],
     where: { workstreamId: { in: allIds } },
@@ -374,8 +384,8 @@ async function enrichWorkstreams<
 
   return rows.map((row: any) => {
     const statusUpdates: StatusUpdate[] = row.statusUpdates ?? [];
-    const directLatest = statusUpdates[0] ?? latestByWorkstream.get(row.id);
-    const activity = computeActivityMetadata(row.id, directLatest);
+    const activeLatest = statusUpdates[0] ?? latestByWorkstream.get(row.id);
+    const activity = computeActivityMetadata(row.id, activeLatest);
     const directSubstreams = substreamsByParent.get(row.id) ?? [];
     const depth = computeDepth(row, byId);
     const parentStreams = computeParentStreams(row, byId).map(
@@ -387,7 +397,7 @@ async function enrichWorkstreams<
     );
     const workstreamData = { ...row } as any;
     delete workstreamData.statusUpdates;
-    const latestStatus = directLatest || undefined;
+    const latestStatus = activeLatest ?? latestDisplayByWorkstream.get(row.id) ?? undefined;
     return {
       ...workstreamData,
       latestStatus,
@@ -458,14 +468,16 @@ async function enrichWorkstreamDetail<
   const substreamsByParent = buildSubstreamsByParent(hierarchyRows);
   const scopedIds = hierarchyRows.map((ws) => ws.id);
 
-  const latestUpdates = await prisma.statusUpdate.findMany({
+  const latestActiveUpdates = await prisma.statusUpdate.findMany({
     where: { workstreamId: { in: scopedIds }, impact: 'active' },
     orderBy: { createdAt: 'desc' },
   });
-  const latestByWorkstream = new Map<string, StatusUpdate>();
-  for (const update of latestUpdates)
-    if (!latestByWorkstream.has(update.workstreamId))
-      latestByWorkstream.set(update.workstreamId, update);
+  const latestByWorkstream = firstStatusByWorkstream(latestActiveUpdates);
+  const latestDisplayUpdates = await prisma.statusUpdate.findMany({
+    where: { workstreamId: { in: scopedIds }, impact: { in: ['active', 'initial'] } },
+    orderBy: { createdAt: 'desc' },
+  });
+  const latestDisplayByWorkstream = firstStatusByWorkstream(latestDisplayUpdates);
 
   const nextStepCounts = await prisma.nextStep.groupBy({
     by: ['workstreamId'],
@@ -544,8 +556,8 @@ async function enrichWorkstreamDetail<
   };
 
   const statusUpdates: StatusUpdate[] = row.statusUpdates ?? [];
-  const directLatest = statusUpdates[0] ?? latestByWorkstream.get(row.id);
-  const activity = computeActivityMetadata(row.id, directLatest);
+  const activeLatest = statusUpdates[0] ?? latestByWorkstream.get(row.id);
+  const activity = computeActivityMetadata(row.id, activeLatest);
   const directSubstreams = substreamsByParent.get(row.id) ?? [];
   const depth = computeDepth(row, byId);
   const parentStreams = computeParentStreams(row, byId).map(
@@ -557,7 +569,7 @@ async function enrichWorkstreamDetail<
   );
   const workstreamData = { ...row } as any;
   delete workstreamData.statusUpdates;
-  const latestStatus = directLatest || undefined;
+  const latestStatus = activeLatest ?? latestDisplayByWorkstream.get(row.id) ?? undefined;
 
   return {
     ...workstreamData,
