@@ -23,6 +23,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
   const [context, setContext] = useState('');
   const [initialStatus, setInitialStatus] = useState('');
   const [initialNote, setInitialNote] = useState('');
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const queryClient = useQueryClient();
   const { data: categories } = useCategories();
   const isClosedParent = parent?.state === 'closed';
@@ -82,6 +83,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
     setContext('');
     setInitialStatus('');
     setInitialNote('');
+    setShowDiscardConfirm(false);
   };
 
   // Reset form when dialog closes
@@ -107,10 +109,30 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
     }
   };
 
-  const handleShortcutSubmit = (e: React.KeyboardEvent<HTMLFormElement>) => {
+  const closeWithoutSaving = () => {
+    draftControls.clearDraft();
+    resetForm();
+    onClose();
+  };
+
+  const requestClose = () => {
+    if (createWorkstreamMutation.isPending) return;
+    if (isDraftDirty) {
+      setShowDiscardConfirm(true);
+      return;
+    }
+    closeWithoutSaving();
+  };
+
+  const handleShortcutKeys = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       e.currentTarget.requestSubmit();
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      requestClose();
     }
   };
 
@@ -138,7 +160,7 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
           </div>
         )}
 
-        <form onSubmit={handleSubmit} onKeyDown={handleShortcutSubmit}>
+        <form onSubmit={handleSubmit} onKeyDown={handleShortcutKeys}>
           <div className="mb-4">
             <label
               htmlFor="name"
@@ -150,7 +172,10 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
               id="name"
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setShowDiscardConfirm(false);
+              }}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               maxLength={200}
               placeholder="Enter workstream name"
@@ -165,7 +190,10 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
             <SelectMenu
               label="Category (optional)"
               value={categoryId}
-              onChange={setCategoryId}
+              onChange={(value) => {
+                setCategoryId(value);
+                setShowDiscardConfirm(false);
+              }}
               buttonClassName="w-full"
               options={[
                 { value: '', label: 'No category' },
@@ -200,7 +228,10 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
                 ref={contextRef}
                 id="context"
                 value={context}
-                onChange={(e) => setContext(e.target.value)}
+                onChange={(e) => {
+                  setContext(e.target.value);
+                  setShowDiscardConfirm(false);
+                }}
                 onPaste={(e) => handleRichHtmlTextareaPaste(e, context, setContext, 2000)}
                 className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={3}
@@ -226,7 +257,10 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
                 ref={initialStatusRef}
                 id="initialStatus"
                 value={initialStatus}
-                onChange={(e) => setInitialStatus(e.target.value)}
+                onChange={(e) => {
+                  setInitialStatus(e.target.value);
+                  setShowDiscardConfirm(false);
+                }}
                 onPaste={(e) =>
                   handleRichHtmlTextareaPaste(e, initialStatus, setInitialStatus, 500)
                 }
@@ -258,7 +292,10 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
                 ref={initialNoteRef}
                 id="initialNote"
                 value={initialNote}
-                onChange={(e) => setInitialNote(e.target.value)}
+                onChange={(e) => {
+                  setInitialNote(e.target.value);
+                  setShowDiscardConfirm(false);
+                }}
                 onPaste={(e) => handleRichHtmlTextareaPaste(e, initialNote, setInitialNote, 2000)}
                 className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 rows={2}
@@ -282,24 +319,47 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
             </div>
           )}
 
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                draftControls.clearDraft();
-                onClose();
-              }}
-              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              disabled={createWorkstreamMutation.isPending}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-              disabled={!name.trim() || isClosedParent || createWorkstreamMutation.isPending}
-            >
-              {createWorkstreamMutation.isPending && (
+          {showDiscardConfirm && (
+            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+              <div className="font-semibold">Discard changes?</div>
+              <div className="mt-1">Your new stream draft has not been saved.</div>
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDiscardConfirm(false)}
+                  className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-gray-900 dark:text-amber-100 dark:hover:bg-amber-900/40"
+                  disabled={createWorkstreamMutation.isPending}
+                >
+                  Keep editing
+                </button>
+                <button
+                  type="button"
+                  onClick={closeWithoutSaving}
+                  className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                  disabled={createWorkstreamMutation.isPending}
+                >
+                  Discard changes
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!showDiscardConfirm && (
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={requestClose}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                disabled={createWorkstreamMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                disabled={!name.trim() || isClosedParent || createWorkstreamMutation.isPending}
+              >
+                {createWorkstreamMutation.isPending && (
                 <svg
                   className="-ml-1 mr-2 h-4 w-4 animate-spin text-white"
                   xmlns="http://www.w3.org/2000/svg"
@@ -320,12 +380,13 @@ export function WorkstreamCreateDialog({ isOpen, onClose, parent }: WorkstreamCr
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-              )}
-              Create
-            </button>
-          </div>
+                )}
+                Create
+              </button>
+            </div>
+          )}
           <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Enter adds a new line • Ctrl/Cmd+Enter submits
+            Enter adds a new line • Ctrl/Cmd | Enter submits • Esc cancels
           </div>
         </form>
       </div>

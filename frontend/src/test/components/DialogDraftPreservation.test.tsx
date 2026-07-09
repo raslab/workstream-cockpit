@@ -115,6 +115,7 @@ describe('dialog draft preservation', () => {
     expect(screen.queryByText(/Unsaved draft available/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Cancel/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Discard changes/i }));
 
     expect(localStorage.getItem('cockpit:draft:workstream-edit:stream-1')).toBeNull();
     expect(onClose).toHaveBeenCalled();
