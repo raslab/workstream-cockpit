@@ -20,6 +20,7 @@ export interface TimelineEntry {
   workstreamNumber?: number;
   workstreamName: string;
   statusUpdateNumber?: number;
+  impact?: 'active' | 'info' | 'initial';
   status?: string;
   note?: string | null;
   createdAt: Date;
@@ -248,6 +249,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelinePag
           workstreamNumber: update.workstream.number,
           workstreamName: update.workstream.name,
           statusUpdateNumber: update.number,
+          impact: update.impact as 'active' | 'info' | 'initial',
           status: update.status,
           note: update.note,
           createdAt: update.createdAt,

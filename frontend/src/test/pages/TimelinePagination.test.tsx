@@ -84,11 +84,30 @@ describe('Timeline date quick filters and pagination', () => {
     expect(screen.getAllByText('Page 1')).toHaveLength(2);
   });
 
-  it('shows an info chip after the update number for info updates', () => {
+  it('shows distinct impact chips after update numbers for active, info, and initial updates', () => {
     useTimelineMock.mockReturnValue({
       isLoading: false,
       error: null,
-      data: { events: [{ ...entry, statusUpdateNumber: 17, impact: 'info' }], nextCursor: null },
+      data: {
+        events: [
+          { ...entry, id: 'entry-active', statusUpdateNumber: 11, impact: 'active' },
+          {
+            ...entry,
+            id: 'entry-info',
+            status: 'Passive note',
+            statusUpdateNumber: 12,
+            impact: 'info',
+          },
+          {
+            ...entry,
+            id: 'entry-initial',
+            status: 'Creation context',
+            statusUpdateNumber: 13,
+            impact: 'initial',
+          },
+        ],
+        nextCursor: null,
+      },
     });
 
     render(
@@ -97,8 +116,15 @@ describe('Timeline date quick filters and pagination', () => {
       </MemoryRouter>,
     );
 
-    const updateRef = screen.getByText(/update #17/).parentElement;
-    expect(updateRef).toHaveTextContent('info');
+    const activeRef = screen.getByText(/update #11/).parentElement;
+    const infoRef = screen.getByText(/update #12/).parentElement;
+    const initialRef = screen.getByText(/update #13/).parentElement;
+    expect(activeRef).toHaveTextContent('active');
+    expect(infoRef).toHaveTextContent('info');
+    expect(initialRef).toHaveTextContent('initial');
+    expect(within(activeRef as HTMLElement).getByText('active')).toHaveClass('bg-green-100');
+    expect(within(infoRef as HTMLElement).getByText('info')).toHaveClass('bg-sky-100');
+    expect(within(initialRef as HTMLElement).getByText('initial')).toHaveClass('bg-amber-100');
   });
 
   it('applies 14, 30, and 60 day quick filters and resets pagination', () => {

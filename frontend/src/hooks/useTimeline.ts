@@ -16,7 +16,7 @@ export interface TimelineEntry {
   workstreamNumber?: number;
   workstreamName: string;
   statusUpdateNumber?: number;
-  impact?: 'active' | 'info';
+  impact?: 'active' | 'info' | 'initial';
   status?: string;
   note?: string | null;
   createdAt: string;
