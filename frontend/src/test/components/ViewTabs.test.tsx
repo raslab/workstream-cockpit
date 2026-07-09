@@ -72,8 +72,8 @@ describe('ViewTabs', () => {
     expect(activeTab).toHaveAttribute('aria-current', 'page');
 
     const firstTab = screen.getByTestId('view-tab-view-0');
-    expect(firstTab).toHaveClass('pl-0');
-    expect(firstTab).toHaveClass('pr-2');
+    expect(firstTab).toHaveClass('px-2');
+    expect(firstTab).not.toHaveClass('pl-0');
 
     const inactiveTab = screen.getByTestId('view-tab-view-7');
     expect(inactiveTab).toHaveClass('basis-[150px]');

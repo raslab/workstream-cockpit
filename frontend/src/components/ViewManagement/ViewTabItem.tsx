@@ -5,7 +5,6 @@ interface ViewTabItemProps {
   view: ViewConfig;
   isActive: boolean;
   isEditing: boolean;
-  isFirst: boolean;
   showSeparator: boolean;
   onClick: () => void;
   onEdit: () => void;
@@ -17,7 +16,6 @@ export function ViewTabItem({
   view,
   isActive,
   isEditing,
-  isFirst,
   showSeparator,
   onClick,
   onEdit,
@@ -44,7 +42,7 @@ export function ViewTabItem({
   };
 
   const tabWidthClasses = isActive ? 'shrink-0' : 'min-w-12 shrink';
-  const tabPaddingClasses = isFirst ? 'pl-0 pr-2' : 'px-2';
+  const tabPaddingClasses = 'px-2';
 
   if (isEditing) {
     return (

@@ -48,7 +48,6 @@ export function ViewTabs({
               view={view}
               isActive={view.id === activeViewId}
               isEditing={editingId === view.id}
-              isFirst={index === 0}
               showSeparator={view.id !== activeViewId && index !== activeViewIndex - 1}
               onClick={() => onViewChange(view.id)}
               onEdit={() => setEditingId(view.id)}
