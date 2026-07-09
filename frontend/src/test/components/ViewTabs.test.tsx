@@ -33,8 +33,8 @@ const createView = (overrides: Partial<ViewConfig> = {}): ViewConfig => ({
 });
 
 describe('ViewTabs', () => {
-  it('keeps many view tabs on one horizontally scrollable row without wrapping', () => {
-    const views = Array.from({ length: 16 }, (_, index) =>
+  it('uses Chrome-like fixed tabs that shrink inactive tabs equally without a horizontal scrollbar', () => {
+    const views = Array.from({ length: 12 }, (_, index) =>
       createView({
         id: `view-${index}`,
         name: `Long operational planning view ${index + 1}`,
@@ -54,24 +54,32 @@ describe('ViewTabs', () => {
       />,
     );
 
-    const tabsScroller = screen.getByTestId('view-tabs-scroll-container');
-    expect(tabsScroller).toHaveClass('min-w-0');
-    expect(tabsScroller).toHaveClass('flex-1');
-    expect(tabsScroller).toHaveClass('overflow-x-auto');
-    expect(tabsScroller).toHaveClass('whitespace-nowrap');
-    expect(tabsScroller).not.toHaveClass('flex-wrap');
+    const tabsPanel = screen.getByTestId('view-tabs-panel');
+    expect(tabsPanel).toHaveClass('overflow-hidden');
+    expect(tabsPanel).not.toHaveClass('overflow-x-auto');
 
     const tabsList = screen.getByTestId('view-tabs-list');
+    expect(tabsList).toHaveClass('min-w-0');
+    expect(tabsList).toHaveClass('flex-1');
+    expect(tabsList).toHaveClass('overflow-hidden');
     expect(tabsList).toHaveClass('flex-nowrap');
-    expect(tabsList).toHaveClass('w-max');
 
     const activeTab = screen.getByTestId('view-tab-view-8');
+    expect(activeTab).toHaveClass('basis-[150px]');
     expect(activeTab).toHaveClass('shrink-0');
     expect(activeTab).toHaveClass('bg-white');
     expect(activeTab).toHaveAttribute('aria-current', 'page');
+
+    const inactiveTab = screen.getByTestId('view-tab-view-7');
+    expect(inactiveTab).toHaveClass('basis-[150px]');
+    expect(inactiveTab).toHaveClass('shrink');
+    expect(inactiveTab).toHaveClass('min-w-12');
+    expect(inactiveTab).not.toHaveAttribute('aria-current');
+
+    expect(screen.getAllByTestId('view-tab-separator')).toHaveLength(11);
   });
 
-  it('reserves edit controls space so hover controls do not shift or wrap tabs', async () => {
+  it('overlays edit controls on hover/focus so text truncates more without reserving empty button space', async () => {
     const user = userEvent.setup();
     const onViewRename = vi.fn();
     const onViewDelete = vi.fn();
@@ -81,7 +89,11 @@ describe('ViewTabs', () => {
       <ViewTabs
         views={[
           createView({ id: 'default', name: 'Default View', isDefault: true }),
-          createView({ id: 'custom', name: 'Custom View', isDefault: false }),
+          createView({
+            id: 'custom',
+            name: 'Custom View With A Very Long Name',
+            isDefault: false,
+          }),
         ]}
         activeViewId="custom"
         onViewChange={vi.fn()}
@@ -92,16 +104,21 @@ describe('ViewTabs', () => {
     );
 
     const customTab = screen.getByTestId('view-tab-custom');
-    expect(customTab).toHaveClass('shrink-0');
-    expect(customTab).toHaveClass('whitespace-nowrap');
+    expect(customTab).toHaveClass('basis-[150px]');
+    expect(customTab).toHaveClass('overflow-hidden');
+
+    const label = screen.getByRole('button', { name: /custom view with a very long name/i });
+    expect(label).toHaveClass('truncate');
+    expect(label).toHaveClass('group-hover:pr-10');
+    expect(label).toHaveAttribute('title', 'Custom View With A Very Long Name');
 
     const actions = screen.getByTestId('view-tab-custom-actions');
-    expect(actions).toHaveClass('flex');
-    expect(actions).toHaveClass('w-10');
-    expect(actions).toHaveClass('opacity-100');
+    expect(actions).toHaveClass('absolute');
+    expect(actions).toHaveClass('right-2');
+    expect(actions).toHaveClass('opacity-0');
     expect(actions).toHaveClass('group-hover:opacity-100');
+    expect(actions).not.toHaveClass('w-10');
     expect(actions).not.toHaveClass('hidden');
-    expect(actions).not.toHaveClass('group-hover:flex');
 
     await act(async () => {
       await user.click(screen.getByRole('button', { name: /rename view/i }));

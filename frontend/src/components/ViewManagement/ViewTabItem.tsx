@@ -39,11 +39,13 @@ export function ViewTabItem({
     }
   };
 
+  const tabWidthClasses = isActive ? 'shrink-0' : 'min-w-12 shrink';
+
   if (isEditing) {
     return (
       <div
         data-testid={`view-tab-${view.id}`}
-        className="inline-flex shrink-0 items-center whitespace-nowrap px-3 py-1.5"
+        className={`inline-flex basis-[150px] items-center overflow-hidden whitespace-nowrap px-3 py-1.5 ${tabWidthClasses}`}
         aria-current={isActive ? 'page' : undefined}
       >
         <input
@@ -53,7 +55,7 @@ export function ViewTabItem({
           onChange={(e) => setEditName(e.target.value)}
           onBlur={() => onEditComplete(editName)}
           onKeyDown={handleKeyDown}
-          className="w-32 border-b border-primary-600 bg-transparent text-sm outline-none dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+          className="w-full min-w-0 border-b border-primary-600 bg-transparent text-sm outline-none dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
         />
       </div>
     );
@@ -63,31 +65,31 @@ export function ViewTabItem({
     <div
       data-testid={`view-tab-${view.id}`}
       aria-current={isActive ? 'page' : undefined}
-      className={`group relative flex max-w-[16rem] shrink-0 items-center gap-2 whitespace-nowrap rounded-t-md px-3 py-1.5 transition-colors ${
+      className={`group relative flex basis-[150px] items-center overflow-hidden whitespace-nowrap px-3 py-1.5 transition-colors ${
         isActive
-          ? 'border-x border-t border-gray-200 bg-white text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100'
-          : 'cursor-pointer bg-transparent text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
+          ? 'shrink-0 rounded-t-md border-x border-t border-gray-200 bg-white text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100'
+          : 'min-w-12 shrink cursor-pointer bg-transparent text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
       }`}
     >
-      <button onClick={onClick} className="min-w-0 truncate text-sm font-medium">
+      <button
+        onClick={onClick}
+        className="min-w-0 flex-1 truncate text-left text-sm font-medium transition-[padding] group-focus-within:pr-10 group-hover:pr-10"
+        title={view.name}
+      >
         {view.name}
       </button>
 
       {!view.isDefault && (
         <div
           data-testid={`view-tab-${view.id}-actions`}
-          className={`flex w-10 shrink-0 items-center justify-end gap-1 transition-opacity ${
-            isActive
-              ? 'opacity-100 group-focus-within:opacity-100 group-hover:opacity-100'
-              : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'
-          }`}
+          className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
         >
           <button
             onClick={(e) => {
               e.stopPropagation();
               onEdit();
             }}
-            className="rounded p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+            className="rounded bg-gray-50 p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
             title="Rename view"
             aria-label="Rename view"
           >
@@ -105,7 +107,7 @@ export function ViewTabItem({
               e.stopPropagation();
               onDelete();
             }}
-            className="rounded p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+            className="rounded bg-gray-50 p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
             title="Delete view"
             aria-label="Delete view"
           >
@@ -119,6 +121,16 @@ export function ViewTabItem({
             </svg>
           </button>
         </div>
+      )}
+
+      {!isActive && (
+        <span
+          data-testid="view-tab-separator"
+          aria-hidden="true"
+          className="pointer-events-none absolute right-0 text-gray-300 dark:text-gray-600"
+        >
+          |
+        </span>
       )}
     </div>
   );
