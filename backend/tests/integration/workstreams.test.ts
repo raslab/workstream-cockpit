@@ -239,8 +239,14 @@ describe('Workstreams API Integration Tests', () => {
       expect(staleAfterCreation.body.map((workstream: any) => workstream.id)).toContain(
         workstreamId,
       );
-      expect(staleAfterCreation.body[0]).not.toHaveProperty('latestStatus');
-      expect(staleAfterCreation.body[0].lastDirectUpdateAt).toBeNull();
+      const initialTile = staleAfterCreation.body.find(
+        (workstream: any) => workstream.id === workstreamId,
+      );
+      expect(initialTile.latestStatus).toMatchObject({
+        status: 'Initial background only',
+        impact: 'initial',
+      });
+      expect(initialTile.lastDirectUpdateAt).toBeNull();
 
       const normalUpdateResponse = await request(statusApp).post('/').send({
         workstreamId,
@@ -248,6 +254,12 @@ describe('Workstreams API Integration Tests', () => {
       });
       expect(normalUpdateResponse.status).toBe(201);
       expect(normalUpdateResponse.body.impact).toBe('active');
+
+      const allAfterFollowUp = await request(app).get('/');
+      expect(
+        allAfterFollowUp.body.find((workstream: any) => workstream.id === workstreamId).latestStatus
+          .status,
+      ).toBe('Real operational progress today');
 
       const staleAfterFollowUp = await request(app).get('/?notUpdatedToday=true');
       expect(staleAfterFollowUp.status).toBe(200);

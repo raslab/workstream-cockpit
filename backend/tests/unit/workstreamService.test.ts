@@ -252,11 +252,17 @@ describe('WorkstreamService', () => {
         undefined,
         true,
       );
-      expect(staleAfterCreation.map((ws) => ws.id)).toContain(workstream.id);
-      expect(staleAfterCreation[0].latestStatus).toBeUndefined();
-      expect(staleAfterCreation[0].lastDirectUpdateAt).toBeNull();
+      const initialOnly = staleAfterCreation.find((ws) => ws.id === workstream.id);
+      expect(initialOnly?.latestStatus?.status).toBe('Created with background context');
+      expect(initialOnly?.latestStatus?.impact).toBe('initial');
+      expect(initialOnly?.lastDirectUpdateAt).toBeNull();
 
       await createTestStatusUpdate(workstream.id, { status: 'Real follow-up movement today' });
+
+      const allAfterFollowUp = await getWorkstreams(project.id, 'active');
+      expect(allAfterFollowUp.find((ws) => ws.id === workstream.id)?.latestStatus?.status).toBe(
+        'Real follow-up movement today',
+      );
 
       const staleAfterFollowUp = await getWorkstreams(
         project.id,

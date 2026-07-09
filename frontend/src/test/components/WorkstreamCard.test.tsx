@@ -179,6 +179,44 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.getByRole('heading', { name: 'English learning plan' }).closest('article')).not.toHaveTextContent('No tags');
   });
 
+  it('renders an initial update as the latest self-update preview without active freshness metadata', () => {
+    renderCard(baseWorkstream({
+      latestStatus: {
+        id: 'initial-status-1',
+        workstreamId: 'stream-1',
+        status: 'Initial background context for the new stream.',
+        note: null,
+        impact: 'initial',
+        createdAt: '2026-06-01T00:00:00Z',
+        updatedAt: '2026-06-01T00:00:00Z',
+      },
+      lastDirectUpdateAt: null,
+      lastActivityAt: null,
+      lastSubstreamActivityAt: null,
+      latestSubstreamActivitySource: null,
+    }));
+
+    expect(screen.getByText('Initial background context for the new stream.')).toBeInTheDocument();
+    expect(screen.queryByText('No status updates yet')).not.toBeInTheDocument();
+    const selfPill = screen.getByText(/Self:/).parentElement;
+    expect(selfPill).toHaveTextContent(/Self:.*ago/);
+    expect(selfPill).not.toHaveTextContent('no updates');
+  });
+
+  it('uses stream creation time for the empty self-update state', () => {
+    renderCard(baseWorkstream({
+      latestStatus: undefined,
+      lastDirectUpdateAt: null,
+      lastActivityAt: null,
+      lastSubstreamActivityAt: null,
+      latestSubstreamActivitySource: null,
+    }));
+
+    expect(screen.getByText('No status updates yet')).toBeInTheDocument();
+    expect(screen.getByText(/Created:/).parentElement).toHaveTextContent(/Created:.*ago/);
+    expect(screen.queryByText(/no updates/)).not.toBeInTheDocument();
+  });
+
   it('stretches the tile to the grid row height while keeping content compact at the top', () => {
     renderCard(baseWorkstream());
 
