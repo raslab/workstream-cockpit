@@ -85,19 +85,27 @@ export default function Cockpit() {
   });
   const visibleWorkstreamsEmpty =
     viewSelectionReady && !isLoading && !error && workstreams !== undefined && workstreams.length === 0;
-  const needsEmptyStateReferences = visibleWorkstreamsEmpty;
-
-  // Keep an unfiltered reference list so URL state can resolve and serialize public stream numbers
-  // even when the visible list is scoped under parent streams and excludes those parents. Reuse the
-  // same lightweight reference endpoint to distinguish an actually empty Cockpit from a strict view.
-  const { data: referenceWorkstreams, isLoading: referencesLoading } = useWorkstreamReferences({
+  // Keep an unfiltered active reference list so URL state can resolve and serialize public stream
+  // numbers even when the visible list is scoped under parent streams and excludes those parents.
+  const { data: referenceWorkstreams } = useWorkstreamReferences({
     state: 'active',
-    enabled: needsWorkstreamReferences || needsEmptyStateReferences,
+    enabled: needsWorkstreamReferences,
+  });
+
+  // A strict active view can be empty even when Cockpit has closed streams. Check all lightweight
+  // references before deciding whether this is an empty database or only an empty current view.
+  const {
+    data: allWorkstreamReferences,
+    isLoading: allWorkstreamReferencesLoading,
+  } = useWorkstreamReferences({
+    state: 'all',
+    enabled: visibleWorkstreamsEmpty,
   });
   const hasAnyKnownWorkstreams =
-    (workstreams?.length ?? 0) > 0 || (referenceWorkstreams?.length ?? 0) > 0;
-  const emptyStateReferenceCheckComplete = !needsEmptyStateReferences || referenceWorkstreams !== undefined;
-  const showEmptyState = visibleWorkstreamsEmpty && emptyStateReferenceCheckComplete && !referencesLoading;
+    (workstreams?.length ?? 0) > 0 || (allWorkstreamReferences?.length ?? 0) > 0;
+  const emptyStateReferenceCheckComplete = !visibleWorkstreamsEmpty || allWorkstreamReferences !== undefined;
+  const showEmptyState =
+    visibleWorkstreamsEmpty && emptyStateReferenceCheckComplete && !allWorkstreamReferencesLoading;
   const emptyStateMessage = hasAnyKnownWorkstreams
     ? 'No workstreams match this view.'
     : 'No workstreams yet. Create your first one!';

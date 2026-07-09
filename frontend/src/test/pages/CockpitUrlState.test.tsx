@@ -226,11 +226,14 @@ describe('Cockpit URL state', () => {
   });
 
   it('shows a filter-specific centered empty state when existing workstreams are hidden by the current view', async () => {
-    useWorkstreamReferencesMock.mockReturnValue({
-      data: [{ id: 'stream-1', number: 1, name: 'Existing stream', state: 'active' }],
+    useWorkstreamReferencesMock.mockImplementation((options) => ({
+      data:
+        options.state === 'all'
+          ? [{ id: 'stream-1', number: 1, name: 'Existing stream', state: 'active' }]
+          : [],
       isLoading: false,
       error: null,
-    });
+    }));
 
     renderCockpit('/?view=tagged-view');
 
@@ -239,9 +242,25 @@ describe('Cockpit URL state', () => {
     expect(screen.queryByText('No workstreams yet. Create your first one!')).not.toBeInTheDocument();
     await waitFor(() =>
       expect(useWorkstreamReferencesMock).toHaveBeenCalledWith(
-        expect.objectContaining({ state: 'active', enabled: true }),
+        expect.objectContaining({ state: 'all', enabled: true }),
       ),
     );
+  });
+
+  it('does not imply first-workstream setup when only closed streams exist', async () => {
+    useWorkstreamReferencesMock.mockImplementation((options) => ({
+      data:
+        options.state === 'all'
+          ? [{ id: 'closed-stream-1', number: 2, name: 'Closed stream', state: 'closed' }]
+          : [],
+      isLoading: false,
+      error: null,
+    }));
+
+    renderCockpit('/');
+
+    expect(await screen.findByText('No workstreams match this view.')).toBeInTheDocument();
+    expect(screen.queryByText('No workstreams yet. Create your first one!')).not.toBeInTheDocument();
   });
 
   it('leaves missing view params omitted and removes invalid view params from the URL', async () => {
