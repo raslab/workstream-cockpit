@@ -66,13 +66,6 @@ export default function Cockpit() {
     (!searchParams.has('view') || hasInvalidViewParam || resolvedUrlViewId === activeViewId);
   const needsWorkstreamReferences = searchParams.has('parentId') || searchParams.has('parentIds');
 
-  // Keep an unfiltered reference list so URL state can resolve and serialize public stream numbers
-  // even when the visible list is scoped under parent streams and excludes those parents.
-  const { data: referenceWorkstreams } = useWorkstreamReferences({
-    state: 'active',
-    enabled: needsWorkstreamReferences,
-  });
-
   // Fetch workstreams with current filter config
   const {
     data: workstreams,
@@ -90,6 +83,24 @@ export default function Cockpit() {
     includeSubstreams: currentConfig.filters.hierarchy.includeSubstreams,
     enabled: viewSelectionReady,
   });
+  const visibleWorkstreamsEmpty =
+    viewSelectionReady && !isLoading && !error && workstreams !== undefined && workstreams.length === 0;
+  const needsEmptyStateReferences = visibleWorkstreamsEmpty;
+
+  // Keep an unfiltered reference list so URL state can resolve and serialize public stream numbers
+  // even when the visible list is scoped under parent streams and excludes those parents. Reuse the
+  // same lightweight reference endpoint to distinguish an actually empty Cockpit from a strict view.
+  const { data: referenceWorkstreams, isLoading: referencesLoading } = useWorkstreamReferences({
+    state: 'active',
+    enabled: needsWorkstreamReferences || needsEmptyStateReferences,
+  });
+  const hasAnyKnownWorkstreams =
+    (workstreams?.length ?? 0) > 0 || (referenceWorkstreams?.length ?? 0) > 0;
+  const emptyStateReferenceCheckComplete = !needsEmptyStateReferences || referenceWorkstreams !== undefined;
+  const showEmptyState = visibleWorkstreamsEmpty && emptyStateReferenceCheckComplete && !referencesLoading;
+  const emptyStateMessage = hasAnyKnownWorkstreams
+    ? 'No workstreams match this view.'
+    : 'No workstreams yet. Create your first one!';
   useResourceChangeScreen({
     screen: 'cockpit',
     workstreamIds: workstreams?.map((workstream) => workstream.id),
@@ -363,10 +374,10 @@ export default function Cockpit() {
             </div>
           )}
 
-          {!isLoading && workstreams && workstreams.length === 0 && (
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          {showEmptyState && (
+            <div className="flex min-h-[18rem] items-center justify-center rounded-lg border border-gray-200 bg-white p-6 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                No workstreams yet. Create your first one!
+                {emptyStateMessage}
               </p>
             </div>
           )}

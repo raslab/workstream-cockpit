@@ -213,8 +213,34 @@ describe('Cockpit URL state', () => {
     expect(referenceCalls).toEqual(
       expect.arrayContaining([expect.objectContaining({ state: 'active', enabled: false })]),
     );
-    expect(referenceCalls).not.toContainEqual(
-      expect.objectContaining({ state: 'active', enabled: true }),
+  });
+
+  it('shows the create-first empty state only when no active workstreams exist', async () => {
+    useWorkstreamReferencesMock.mockReturnValue({ data: [], isLoading: false, error: null });
+
+    renderCockpit('/');
+
+    const emptyMessage = await screen.findByText('No workstreams yet. Create your first one!');
+    expect(emptyMessage.closest('div')).toHaveClass('flex', 'items-center', 'justify-center');
+    expect(screen.queryByText('No workstreams match this view.')).not.toBeInTheDocument();
+  });
+
+  it('shows a filter-specific centered empty state when existing workstreams are hidden by the current view', async () => {
+    useWorkstreamReferencesMock.mockReturnValue({
+      data: [{ id: 'stream-1', number: 1, name: 'Existing stream', state: 'active' }],
+      isLoading: false,
+      error: null,
+    });
+
+    renderCockpit('/?view=tagged-view');
+
+    const emptyMessage = await screen.findByText('No workstreams match this view.');
+    expect(emptyMessage.closest('div')).toHaveClass('flex', 'items-center', 'justify-center');
+    expect(screen.queryByText('No workstreams yet. Create your first one!')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(useWorkstreamReferencesMock).toHaveBeenCalledWith(
+        expect.objectContaining({ state: 'active', enabled: true }),
+      ),
     );
   });
 
