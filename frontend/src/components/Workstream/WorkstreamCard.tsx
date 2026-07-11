@@ -12,6 +12,7 @@ import { WorkstreamEditDialog } from './WorkstreamEditDialog';
 import { ParentSelectorDialog } from './ParentSelectorDialog';
 import { DEFAULT_CATEGORY_COLOR, DEFAULT_CATEGORY_EMOJI, getCategoryIconBandBackground } from '../../utils/categoryColor';
 import { WorkstreamLink, WorkstreamReferenceContent, workstreamPath } from './WorkstreamReference';
+import { LocalizedTimestamp } from '../UI/LocalizedTimestamp';
 
 interface WorkstreamCardProps {
   workstream: Workstream;
@@ -23,7 +24,9 @@ function formatActivity(value?: string | null) {
     return 'no updates';
   }
 
-  return formatDistanceToNow(new Date(value), { addSuffix: true }).replace(/^about /, '');
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'no updates';
+  return formatDistanceToNow(date, { addSuffix: true }).replace(/^about /, '');
 }
 
 function StatusIcon() {
@@ -312,14 +315,14 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
           <span className={`inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1 text-xs text-gray-600 dark:text-gray-300 ${directActivityAt || latestStatus ? 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/40' : 'border-gray-100 bg-gray-50/70 text-gray-500 dark:border-gray-700 dark:bg-gray-900/20 dark:text-gray-400'}`}>
             <ClockIcon />
             <strong className="font-bold text-gray-700 dark:text-gray-200">{selfActivityLabel}</strong>
-            {formatActivity(selfDisplayAt)}
+            <LocalizedTimestamp value={selfDisplayAt}>{formatActivity(selfDisplayAt)}</LocalizedTimestamp>
           </span>
 
           {substreamActivityAge && (
             <span className="inline-flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300">
               <SubstreamIcon />
               <strong className="flex-none whitespace-nowrap font-bold text-gray-700 dark:text-gray-200">Sub-stream:</strong>
-              <span className="flex-none whitespace-nowrap">{substreamActivityAge}{sourceStream ? ' via' : ''}</span>
+              <span className="flex-none whitespace-nowrap"><LocalizedTimestamp value={workstream.lastSubstreamActivityAt!}>{substreamActivityAge}</LocalizedTimestamp>{sourceStream ? ' via' : ''}</span>
               {sourceStream && <WorkstreamLink workstream={sourceStream} state={detailNavigationState} className="min-w-0 flex-1 truncate text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200" />}
             </span>
           )}

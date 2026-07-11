@@ -5,7 +5,7 @@ import { apiClient } from '../api/client';
 import { Workstream, StatusUpdate, NextStep } from '../types/workstream';
 import { useStatusHistory } from '../hooks/useStatusHistory';
 import { useNextSteps } from '../hooks/useNextSteps';
-import { format, formatDistanceToNow, parseISO } from 'date-fns';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 import { StatusUpdateDialog } from '../components/StatusUpdate/StatusUpdateDialog';
 import { WorkstreamEditDialog } from '../components/Workstream/WorkstreamEditDialog';
 import { WorkstreamCreateDialog } from '../components/Workstream/WorkstreamCreateDialog';
@@ -40,6 +40,7 @@ import {
 } from '../components/Notifications/ResourceChangeNotificationProvider';
 import { useDialogDraft } from '../hooks/useDialogDraft';
 import { shortenDocumentTitleText, useDocumentTitle } from '../components/DocumentTitle';
+import { LocalizedTimestamp } from '../components/UI/LocalizedTimestamp';
 
 const STATUS_HISTORY_PAGE_SIZE = 10;
 
@@ -73,13 +74,10 @@ function replaceStatusUpdateInHistoryCache(
   };
 }
 
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) return 'Not yet';
-  return format(parseISO(value), 'MMM d, yyyy • h:mm a');
-}
-
 function formatRelativeTime(value: string): string {
-  return formatDistanceToNow(parseISO(value), { addSuffix: true }).replace(/^about /, '');
+  const date = parseISO(value);
+  if (Number.isNaN(date.getTime())) return 'No updates yet';
+  return formatDistanceToNow(date, { addSuffix: true }).replace(/^about /, '');
 }
 
 function RelativeTime({
@@ -90,11 +88,7 @@ function RelativeTime({
   emptyLabel?: string;
 }) {
   if (!value) return <span>{emptyLabel}</span>;
-  return (
-    <time dateTime={value} title={formatDateTime(value)}>
-      {formatRelativeTime(value)}
-    </time>
-  );
+  return <LocalizedTimestamp value={value}>{formatRelativeTime(value)}</LocalizedTimestamp>;
 }
 
 function statusUpdateReference(
@@ -1002,12 +996,9 @@ export default function WorkstreamDetail() {
                         <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
                           <div className="grid gap-2">
                             <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                              <time
-                                dateTime={update.createdAt}
-                                title={formatDateTime(update.createdAt)}
-                              >
+                              <LocalizedTimestamp value={update.createdAt}>
                                 {formatRelativeTime(update.createdAt)}
-                              </time>
+                              </LocalizedTimestamp>
                               {update.createdAt !== update.updatedAt && (
                                 <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">
                                   (edited)

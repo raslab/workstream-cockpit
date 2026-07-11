@@ -176,6 +176,15 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.getByTestId('workstream-tags')).toHaveClass('row-start-6');
   });
 
+  it('exposes localized timestamps for self and sub-stream activity labels', () => {
+    const workstream = baseWorkstream();
+    renderCard(workstream);
+    const exact = (value: string) => new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+    expect(screen.getByText(/Self:/).parentElement?.querySelector('time')).toHaveAttribute('title', exact(workstream.lastDirectUpdateAt!));
+    expect(screen.getByText(/Sub-stream:/).parentElement?.querySelector('time')).toHaveAttribute('title', exact(workstream.lastSubstreamActivityAt!));
+  });
+
   it('shows public stream numbers and links with them when available', () => {
     renderCard(baseWorkstream({ number: 28, parent: { id: 'parent-1', number: 7, name: 'Goals', state: 'active' } }));
 

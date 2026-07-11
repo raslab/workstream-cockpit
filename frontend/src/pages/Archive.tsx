@@ -6,6 +6,25 @@ import { format, parseISO } from 'date-fns';
 import { WorkstreamLink } from '../components/Workstream/WorkstreamReference';
 import { useResourceChangeScreen } from '../components/Notifications/ResourceChangeNotificationProvider';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
+import { LocalizedTimestamp } from '../components/UI/LocalizedTimestamp';
+
+function ClosureTimestamp({ closedAt }: { closedAt: string | null | undefined }) {
+  if (!closedAt) return null;
+
+  const closureDate = parseISO(closedAt);
+  if (Number.isNaN(closureDate.getTime())) return null;
+
+  return (
+    <p className="mt-2 w-fit text-xs text-gray-500 dark:text-gray-400">
+      <LocalizedTimestamp
+        value={closedAt}
+        accessibleLabel={`Closed on ${format(closureDate, 'MMM d, yyyy')} (exact timestamp: ${closureDate.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })})`}
+      >
+        Closed on {format(closureDate, 'MMM d, yyyy')}
+      </LocalizedTimestamp>
+    </p>
+  );
+}
 
 export default function Archive() {
   useResourceChangeScreen({ screen: 'archive' });
@@ -87,11 +106,7 @@ export default function Archive() {
                     </div>
                   )}
 
-                  {workstream.closedAt && (
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      Closed on {format(parseISO(workstream.closedAt), 'MMM d, yyyy')}
-                    </p>
-                  )}
+                  <ClosureTimestamp closedAt={workstream.closedAt} />
                 </div>
 
                 <div className="ml-4">

@@ -68,6 +68,13 @@ describe('Timeline parent stream path rendering', () => {
     expect(screen.getByText('Created under Flat parent')).toBeInTheDocument();
   });
 
+  it('exposes a localized timestamp on timeline time labels', () => {
+    render(<MemoryRouter><Timeline /></MemoryRouter>);
+    const exactTimestamp = new Date('2026-06-20T10:00:00Z').toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+    expect(screen.getByText('10:00 AM')).toHaveAttribute('title', exactTimestamp);
+  });
+
   it('uses custom listbox controls for parent stream and activity filters', () => {
     render(<MemoryRouter><Timeline /></MemoryRouter>);
 

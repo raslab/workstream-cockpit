@@ -42,6 +42,7 @@ import {
   urlDateToDate,
 } from '../utils/urlState';
 import { useResourceChangeScreen } from '../components/Notifications/ResourceChangeNotificationProvider';
+import { LocalizedTimestamp } from '../components/UI/LocalizedTimestamp';
 
 function timelineTrail(entry: TimelineEntry) {
   return [...(entry.parentStreams || []), entry].map((stream) => {
@@ -202,7 +203,9 @@ export default function Timeline() {
   const nextCursor = Array.isArray(timelineData)
     ? undefined
     : (timelineData?.nextCursor ?? undefined);
-  const currentPageTimeline = timeline?.slice(0, pageSize);
+  const currentPageTimeline = timeline
+    ?.slice(0, pageSize)
+    .filter((entry) => !Number.isNaN(parseISO(entry.createdAt).getTime()));
 
   const handleNextPage = () => {
     if (!nextCursor) return;
@@ -552,9 +555,12 @@ export default function Timeline() {
                                   </span>
                                 )}
                             </Link>
-                            <time className="text-xs text-gray-500 dark:text-gray-400">
+                            <LocalizedTimestamp
+                              value={entry.createdAt}
+                              className="text-xs text-gray-500 dark:text-gray-400"
+                            >
                               {format(parseISO(entry.createdAt), 'h:mm a')}
-                            </time>
+                            </LocalizedTimestamp>
                           </div>
                           <div className="mt-1">{renderEventContent(entry)}</div>
                         </div>

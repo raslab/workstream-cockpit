@@ -484,7 +484,9 @@ describe('WorkstreamDetail reference redesign', () => {
     await screen.findByTestId('workstream-detail-shell');
 
     const sidebar = screen.getByTestId('workstream-detail-sidebar');
-    const latestSelfTime = within(sidebar).getByTitle('Jun 19, 2026 • 12:30 PM');
+    const localizedTimestamp = (value: string) =>
+      new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    const latestSelfTime = within(sidebar).getByTitle(localizedTimestamp('2026-06-19T12:30:00Z'));
     expect(latestSelfTime).toHaveTextContent(/ago$/);
     expect(within(sidebar).queryByText('Jun 1, 2026 • 8:00 AM')).not.toBeInTheDocument();
 
@@ -494,7 +496,7 @@ describe('WorkstreamDetail reference redesign', () => {
     expect(childTime).not.toHaveTextContent(/^about /);
 
     const ownUpdate = screen.getByTestId('status-update-self-update');
-    const ownTime = within(ownUpdate).getByTitle('Jun 18, 2026 • 11:00 AM');
+    const ownTime = within(ownUpdate).getByTitle(localizedTimestamp('2026-06-18T11:00:00Z'));
     expect(ownTime).toHaveTextContent(/ago$/);
   });
 });
