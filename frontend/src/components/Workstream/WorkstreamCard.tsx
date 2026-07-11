@@ -8,6 +8,7 @@ import { apiClient } from '../../api/client';
 import { MarkdownRenderer } from '../Markdown/MarkdownRenderer';
 import { TagChip } from '../Tag/TagChip';
 import { WorkstreamCreateDialog } from './WorkstreamCreateDialog';
+import { WorkstreamEditDialog } from './WorkstreamEditDialog';
 import { ParentSelectorDialog } from './ParentSelectorDialog';
 import { DEFAULT_CATEGORY_COLOR, DEFAULT_CATEGORY_EMOJI, getCategoryIconBandBackground } from '../../utils/categoryColor';
 import { WorkstreamLink, WorkstreamReferenceContent, workstreamPath } from './WorkstreamReference';
@@ -187,6 +188,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
   const [showDialog, setShowDialog] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showCreateSubstream, setShowCreateSubstream] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [showParentDialog, setShowParentDialog] = useState(false);
   const queryClient = useQueryClient();
 
@@ -358,6 +360,9 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
 
           {showMenu && (
             <div className="absolute bottom-full right-0 z-10 mb-1 w-44 rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+              <button onClick={() => { setShowEditDialog(true); setShowMenu(false); }} className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
+                Edit stream
+              </button>
               <button onClick={() => { setShowCreateSubstream(true); setShowMenu(false); }} className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
                 Create sub-stream
               </button>
@@ -373,6 +378,7 @@ export function WorkstreamCard({ workstream }: WorkstreamCardProps) {
       </article>
 
       <StatusUpdateDialog workstreamId={workstream.id} workstreamName={workstream.name} workstreamNumber={workstream.number} isOpen={showDialog} onClose={() => setShowDialog(false)} />
+      {showEditDialog && <WorkstreamEditDialog workstream={workstream} isOpen onClose={() => setShowEditDialog(false)} />}
       <WorkstreamCreateDialog isOpen={showCreateSubstream} onClose={() => setShowCreateSubstream(false)} parent={{ id: workstream.id, number: workstream.number, name: workstream.name, state: workstream.state, depth: workstream.depth }} />
       <ParentSelectorDialog workstream={workstream} isOpen={showParentDialog} onClose={() => setShowParentDialog(false)} />
     </>
