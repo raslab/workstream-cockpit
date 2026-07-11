@@ -16,7 +16,10 @@ function ClosureTimestamp({ closedAt }: { closedAt: string | null | undefined })
 
   return (
     <p className="mt-2 w-fit text-xs text-gray-500 dark:text-gray-400">
-      <LocalizedTimestamp value={closedAt}>
+      <LocalizedTimestamp
+        value={closedAt}
+        accessibleLabel={`Closed on ${format(closureDate, 'MMM d, yyyy')} (exact timestamp: ${closureDate.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })})`}
+      >
         Closed on {format(closureDate, 'MMM d, yyyy')}
       </LocalizedTimestamp>
     </p>

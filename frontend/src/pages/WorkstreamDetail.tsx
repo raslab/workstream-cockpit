@@ -75,7 +75,9 @@ function replaceStatusUpdateInHistoryCache(
 }
 
 function formatRelativeTime(value: string): string {
-  return formatDistanceToNow(parseISO(value), { addSuffix: true }).replace(/^about /, '');
+  const date = parseISO(value);
+  if (Number.isNaN(date.getTime())) return 'No updates yet';
+  return formatDistanceToNow(date, { addSuffix: true }).replace(/^about /, '');
 }
 
 function RelativeTime({

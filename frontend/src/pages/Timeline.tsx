@@ -203,7 +203,9 @@ export default function Timeline() {
   const nextCursor = Array.isArray(timelineData)
     ? undefined
     : (timelineData?.nextCursor ?? undefined);
-  const currentPageTimeline = timeline?.slice(0, pageSize);
+  const currentPageTimeline = timeline
+    ?.slice(0, pageSize)
+    .filter((entry) => !Number.isNaN(parseISO(entry.createdAt).getTime()));
 
   const handleNextPage = () => {
     if (!nextCursor) return;

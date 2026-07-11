@@ -23,7 +23,9 @@ function formatActivity(value?: string | null) {
     return 'no updates';
   }
 
-  return formatDistanceToNow(new Date(value), { addSuffix: true }).replace(/^about /, '');
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'no updates';
+  return formatDistanceToNow(date, { addSuffix: true }).replace(/^about /, '');
 }
 
 function StatusIcon() {
