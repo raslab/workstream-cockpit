@@ -42,6 +42,7 @@ import {
   urlDateToDate,
 } from '../utils/urlState';
 import { useResourceChangeScreen } from '../components/Notifications/ResourceChangeNotificationProvider';
+import { LocalizedTimestamp } from '../components/UI/LocalizedTimestamp';
 
 function timelineTrail(entry: TimelineEntry) {
   return [...(entry.parentStreams || []), entry].map((stream) => {
@@ -552,9 +553,12 @@ export default function Timeline() {
                                   </span>
                                 )}
                             </Link>
-                            <time className="text-xs text-gray-500 dark:text-gray-400">
+                            <LocalizedTimestamp
+                              value={entry.createdAt}
+                              className="text-xs text-gray-500 dark:text-gray-400"
+                            >
                               {format(parseISO(entry.createdAt), 'h:mm a')}
-                            </time>
+                            </LocalizedTimestamp>
                           </div>
                           <div className="mt-1">{renderEventContent(entry)}</div>
                         </div>

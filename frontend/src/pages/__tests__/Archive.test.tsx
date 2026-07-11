@@ -102,15 +102,21 @@ describe('Archive rendering', () => {
     renderArchive();
 
     const closureText = screen.getByText('Closed on Jul 1, 2026');
-    const exactTimestamp = new Date(closedWorkstream.closedAt!).toLocaleString();
+    const exactTimestamp = new Date(closedWorkstream.closedAt!).toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
 
     expect(closureText).toHaveAttribute('title', exactTimestamp);
-    expect(closureText).toHaveAttribute('aria-label', `Closed on ${exactTimestamp}`);
+    expect(closureText).toHaveAttribute('aria-label', exactTimestamp);
     expect(closureText).toHaveAttribute('tabindex', '0');
 
     const visualTooltip = screen.getByText(exactTimestamp);
     expect(visualTooltip).toHaveAttribute('aria-hidden', 'true');
-    expect(visualTooltip).toHaveClass('group-hover:block', 'group-focus:block');
+    expect(visualTooltip).toHaveClass(
+      'group-hover/timestamp:block',
+      'group-focus-within/timestamp:block',
+    );
   });
 
   it.each([undefined, 'not-a-date'])(
