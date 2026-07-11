@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,8 +14,11 @@ vi.mock('../../components/Tag/TagChip', () => ({
   TagChip: ({ tagName }: { tagName: string }) => <button title={`Tag ID: #${tagName}`} className="min-w-0 max-w-full truncate">#{tagName}</button>,
 }));
 
+const apiGetMock = vi.hoisted(() => vi.fn());
+const apiPutMock = vi.hoisted(() => vi.fn());
+
 vi.mock('../../api/client', () => ({
-  apiClient: { put: vi.fn() },
+  apiClient: { get: apiGetMock, put: apiPutMock },
 }));
 
 const renderCard = (workstream: Workstream) => {
@@ -46,6 +49,16 @@ const renderCardWithLocation = (workstream: Workstream) => {
       </MemoryRouter>
     </QueryClientProvider>
   );
+};
+
+function CachedCard({ workstream }: { workstream: Workstream }) {
+  const { data = [] } = useQuery({ queryKey: ['workstreams', { state: 'active' }], queryFn: () => new Promise<Workstream[]>(() => undefined), initialData: [workstream] });
+  return <WorkstreamCard workstream={data[0]} />;
+}
+
+const renderCachedCard = (workstream: Workstream) => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  return render(<QueryClientProvider client={queryClient}><MemoryRouter><CachedCard workstream={workstream} /></MemoryRouter></QueryClientProvider>);
 };
 
 const baseWorkstream = (overrides: Partial<Workstream> = {}): Workstream => ({
@@ -84,6 +97,9 @@ describe('WorkstreamCard tile layout', () => {
   let mockTagsWidth = 600;
 
   beforeEach(() => {
+    apiGetMock.mockReset();
+    apiPutMock.mockReset();
+    apiGetMock.mockImplementation((url: string) => Promise.resolve({ data: url === '/api/categories' ? [baseWorkstream().category] : { tags: [] } }));
     mockTagsWidth = 600;
     rectSpy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function getMockRect() {
       const element = this as HTMLElement;
@@ -311,4 +327,49 @@ describe('WorkstreamCard tile layout', () => {
       expect(dot).toHaveAttribute('r', '1.8');
     });
   });
+
+  it('opens the existing stream edit dialog from the options menu with current values', async () => {
+    renderCard(baseWorkstream({ context: 'Current cockpit context' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit stream' }));
+    expect(await screen.findByRole('heading', { name: /Edit.*English learning plan/ })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Name/)).toHaveValue('English learning plan');
+    expect(screen.getByLabelText('Context')).toHaveValue('Current cockpit context');
+  });
+
+  it('updates the visible card immediately after a successful edit', async () => {
+    apiPutMock.mockResolvedValue({ data: baseWorkstream({ name: 'Corrected stream name', context: 'Corrected context' }) });
+    renderCachedCard(baseWorkstream({ context: 'Old context' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit stream' }));
+    fireEvent.change(await screen.findByLabelText(/^Name/), { target: { value: 'Corrected stream name' } });
+    fireEvent.change(screen.getByLabelText('Context'), { target: { value: 'Corrected context' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await waitFor(() => expect(apiPutMock).toHaveBeenCalledWith('/api/workstreams/stream-1', { name: 'Corrected stream name', categoryId: 'cat-1', context: 'Corrected context' }));
+    expect(await screen.findByRole('heading', { name: 'Corrected stream name' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save Changes' })).not.toBeInTheDocument();
+  });
+
+  it('cancels an unchanged edit without updating the stream', async () => {
+    renderCard(baseWorkstream());
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit stream' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(apiPutMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Save Changes' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'English learning plan' })).toBeInTheDocument();
+  });
+
+  it('keeps the edit dialog open with feedback and entered values after an update failure', async () => {
+    apiPutMock.mockRejectedValue(new Error('update failed'));
+    renderCard(baseWorkstream());
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit stream' }));
+    fireEvent.change(await screen.findByLabelText(/^Name/), { target: { value: 'Unsaved corrected name' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    expect(await screen.findByText('Failed to update workstream. Please try again.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Name/)).toHaveValue('Unsaved corrected name');
+    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeInTheDocument();
+  });
+
 });
