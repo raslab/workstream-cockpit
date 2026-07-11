@@ -7,6 +7,32 @@ import { WorkstreamLink } from '../components/Workstream/WorkstreamReference';
 import { useResourceChangeScreen } from '../components/Notifications/ResourceChangeNotificationProvider';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 
+function ClosureTimestamp({ closedAt }: { closedAt: string | null | undefined }) {
+  if (!closedAt) return null;
+
+  const closureDate = parseISO(closedAt);
+  if (Number.isNaN(closureDate.getTime())) return null;
+
+  const exactTimestamp = closureDate.toLocaleString();
+
+  return (
+    <p
+      className="group relative mt-2 w-fit text-xs text-gray-500 dark:text-gray-400"
+      title={exactTimestamp}
+      aria-label={`Closed on ${exactTimestamp}`}
+      tabIndex={0}
+    >
+      Closed on {format(closureDate, 'MMM d, yyyy')}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-full left-0 z-10 mb-1 hidden whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white shadow-lg group-hover:block group-focus:block dark:bg-gray-100 dark:text-gray-900"
+      >
+        {exactTimestamp}
+      </span>
+    </p>
+  );
+}
+
 export default function Archive() {
   useResourceChangeScreen({ screen: 'archive' });
   const { data: workstreams, isLoading, error } = useWorkstreams({ state: 'closed' });
@@ -87,11 +113,7 @@ export default function Archive() {
                     </div>
                   )}
 
-                  {workstream.closedAt && (
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      Closed on {format(parseISO(workstream.closedAt), 'MMM d, yyyy')}
-                    </p>
-                  )}
+                  <ClosureTimestamp closedAt={workstream.closedAt} />
                 </div>
 
                 <div className="ml-4">

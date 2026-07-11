@@ -74,7 +74,7 @@ function renderArchive() {
   );
 }
 
-describe('Archive Markdown rendering', () => {
+describe('Archive rendering', () => {
   beforeEach(() => {
     useWorkstreamsMock.mockReset();
     useWorkstreamsMock.mockReturnValue({ data: [closedWorkstream], isLoading: false, error: null });
@@ -97,4 +97,33 @@ describe('Archive Markdown rendering', () => {
     expect(statusRegion).not.toHaveTextContent('**Fixed**');
     expect(statusRegion).not.toHaveTextContent('[runbook](https://example.com/runbook)');
   });
+
+  it('exposes the exact localized closure timestamp without changing the readable date', () => {
+    renderArchive();
+
+    const closureText = screen.getByText('Closed on Jul 1, 2026');
+    const exactTimestamp = new Date(closedWorkstream.closedAt!).toLocaleString();
+
+    expect(closureText).toHaveAttribute('title', exactTimestamp);
+    expect(closureText).toHaveAttribute('aria-label', `Closed on ${exactTimestamp}`);
+    expect(closureText).toHaveAttribute('tabindex', '0');
+
+    const visualTooltip = screen.getByText(exactTimestamp);
+    expect(visualTooltip).toHaveAttribute('aria-hidden', 'true');
+    expect(visualTooltip).toHaveClass('group-hover:block', 'group-focus:block');
+  });
+
+  it.each([undefined, 'not-a-date'])(
+    'safely omits an unusable closure timestamp: %s',
+    (closedAt) => {
+      useWorkstreamsMock.mockReturnValue({
+        data: [{ ...closedWorkstream, closedAt }],
+        isLoading: false,
+        error: null,
+      });
+
+      expect(() => renderArchive()).not.toThrow();
+      expect(screen.queryByText(/^Closed on /)).not.toBeInTheDocument();
+    },
+  );
 });
