@@ -334,6 +334,7 @@ describe('WorkstreamCard tile layout', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit stream' }));
     expect(await screen.findByRole('heading', { name: /Edit.*English learning plan/ })).toBeInTheDocument();
     expect(screen.getByLabelText(/^Name/)).toHaveValue('English learning plan');
+    expect(await screen.findByRole('button', { name: /Category \(optional\).*goals/ })).toBeInTheDocument();
     expect(screen.getByLabelText('Context')).toHaveValue('Current cockpit context');
   });
 
@@ -350,11 +351,17 @@ describe('WorkstreamCard tile layout', () => {
     expect(screen.queryByRole('button', { name: 'Save Changes' })).not.toBeInTheDocument();
   });
 
-  it('cancels an unchanged edit without updating the stream', async () => {
+  it('cancels a changed edit without updating the stream', async () => {
     renderCard(baseWorkstream());
     fireEvent.click(screen.getByRole('button', { name: 'More' }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit stream' }));
+    fireEvent.change(await screen.findByLabelText(/^Name/), { target: { value: 'Unsaved corrected name' } });
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(screen.getByText('Discard changes?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByLabelText(/^Name/)).toHaveValue('Unsaved corrected name');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
     expect(apiPutMock).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Save Changes' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'English learning plan' })).toBeInTheDocument();
