@@ -166,6 +166,24 @@ describe('WorkstreamDetail reference redesign', () => {
     expect(document.title).toBe('Workstream — Workstream Cockpit');
   });
 
+  it('shortens long stream names in the browser title', async () => {
+    apiGetMock.mockResolvedValueOnce({
+      data: {
+        ...workstream,
+        number: 314,
+        name: 'A very long workstream title that should be shortened in the browser tab',
+      },
+    });
+
+    renderDetail();
+
+    await waitFor(() =>
+      expect(document.title).toBe(
+        '#314 A very long workstream title that sho... — Workstream Cockpit',
+      ),
+    );
+  });
+
   it('renders the reference detail shell with category rail, icon band, deep breadcrumbs, title, and inline context hashtags without duplicated tag pills', async () => {
     renderDetail();
 

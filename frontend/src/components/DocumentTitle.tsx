@@ -2,6 +2,12 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
 const APP_NAME = 'Workstream Cockpit';
+const MAX_DYNAMIC_TITLE_LENGTH = 40;
+
+export function shortenDocumentTitleText(text: string): string {
+  if (text.length <= MAX_DYNAMIC_TITLE_LENGTH) return text;
+  return `${text.slice(0, MAX_DYNAMIC_TITLE_LENGTH - 3)}...`;
+}
 
 export function formatDocumentTitle(pageName: string): string {
   return `${pageName} — ${APP_NAME}`;
