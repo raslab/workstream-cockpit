@@ -23,6 +23,7 @@ import {
   useDirtyResourceEditor,
   useResourceChangeScreen,
 } from '../components/Notifications/ResourceChangeNotificationProvider';
+import { useDocumentTitle } from '../components/DocumentTitle';
 
 function softCategoryColor(color?: string | null) {
   if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) return '#c5dae4';
@@ -45,6 +46,7 @@ export default function Cockpit() {
   // View management
   const {
     views,
+    activeView,
     activeViewId,
     currentConfig,
     hasUnsavedChanges,
@@ -57,6 +59,7 @@ export default function Cockpit() {
     renameView,
   } = useViewManager({ preferredViewValue: searchParams.get('view') });
   useDirtyResourceEditor('cockpit-view-config', hasUnsavedChanges);
+  useDocumentTitle(activeView ? `${activeView.name}${hasUnsavedChanges ? '*' : ''}` : 'Cockpit');
 
   const urlViewParam = searchParams.get('view');
   const resolvedUrlViewId = resolveEntityParam(urlViewParam, views);
@@ -84,7 +87,11 @@ export default function Cockpit() {
     enabled: viewSelectionReady,
   });
   const visibleWorkstreamsEmpty =
-    viewSelectionReady && !isLoading && !error && workstreams !== undefined && workstreams.length === 0;
+    viewSelectionReady &&
+    !isLoading &&
+    !error &&
+    workstreams !== undefined &&
+    workstreams.length === 0;
   // Keep an unfiltered active reference list so URL state can resolve and serialize public stream
   // numbers even when the visible list is scoped under parent streams and excludes those parents.
   const { data: referenceWorkstreams } = useWorkstreamReferences({
@@ -94,16 +101,15 @@ export default function Cockpit() {
 
   // A strict active view can be empty even when Cockpit has closed streams. Check all lightweight
   // references before deciding whether this is an empty database or only an empty current view.
-  const {
-    data: allWorkstreamReferences,
-    isLoading: allWorkstreamReferencesLoading,
-  } = useWorkstreamReferences({
-    state: 'all',
-    enabled: visibleWorkstreamsEmpty,
-  });
+  const { data: allWorkstreamReferences, isLoading: allWorkstreamReferencesLoading } =
+    useWorkstreamReferences({
+      state: 'all',
+      enabled: visibleWorkstreamsEmpty,
+    });
   const hasAnyKnownWorkstreams =
     (workstreams?.length ?? 0) > 0 || (allWorkstreamReferences?.length ?? 0) > 0;
-  const emptyStateReferenceCheckComplete = !visibleWorkstreamsEmpty || allWorkstreamReferences !== undefined;
+  const emptyStateReferenceCheckComplete =
+    !visibleWorkstreamsEmpty || allWorkstreamReferences !== undefined;
   const showEmptyState =
     visibleWorkstreamsEmpty && emptyStateReferenceCheckComplete && !allWorkstreamReferencesLoading;
   const emptyStateMessage = hasAnyKnownWorkstreams
@@ -162,7 +168,6 @@ export default function Cockpit() {
     resolvedUrlViewId,
   ]);
 
-  const activeView = views.find((view) => view.id === activeViewId);
   const categoryGroupOrder = useMemo(() => {
     return new Map(categories.map((category, index) => [category.id, index]));
   }, [categories]);
@@ -384,9 +389,7 @@ export default function Cockpit() {
 
           {showEmptyState && (
             <div className="flex min-h-[18rem] items-center justify-center rounded-lg border border-gray-200 bg-white p-6 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {emptyStateMessage}
-              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{emptyStateMessage}</p>
             </div>
           )}
 

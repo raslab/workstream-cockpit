@@ -152,6 +152,16 @@ describe('Cockpit URL state', () => {
     });
   });
 
+  it('shows the active view in the browser title and marks modified view filters', async () => {
+    renderCockpit('/?view=tagged-view');
+
+    await waitFor(() => expect(document.title).toBe('Tagged View — Workstream Cockpit'));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Set frontend tag' }));
+
+    await waitFor(() => expect(document.title).toBe('Tagged View* — Workstream Cockpit'));
+  });
+
   it('selects view from URL, applies query overrides, and writes clean view/custom filter URLs', async () => {
     renderCockpit('/?view=tagged-view&tags=frontend&categories=platform-team');
 
@@ -239,7 +249,9 @@ describe('Cockpit URL state', () => {
 
     const emptyMessage = await screen.findByText('No workstreams match this view.');
     expect(emptyMessage.closest('div')).toHaveClass('flex', 'items-center', 'justify-center');
-    expect(screen.queryByText('No workstreams yet. Create your first one!')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('No workstreams yet. Create your first one!'),
+    ).not.toBeInTheDocument();
     await waitFor(() =>
       expect(useWorkstreamReferencesMock).toHaveBeenCalledWith(
         expect.objectContaining({ state: 'all', enabled: true }),
@@ -260,7 +272,9 @@ describe('Cockpit URL state', () => {
     renderCockpit('/');
 
     expect(await screen.findByText('No workstreams match this view.')).toBeInTheDocument();
-    expect(screen.queryByText('No workstreams yet. Create your first one!')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('No workstreams yet. Create your first one!'),
+    ).not.toBeInTheDocument();
   });
 
   it('leaves missing view params omitted and removes invalid view params from the URL', async () => {
