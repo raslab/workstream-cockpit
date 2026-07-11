@@ -236,8 +236,10 @@ describe('WorkstreamDetail next steps', () => {
     renderDetail();
 
     const restoredSection = await screen.findByRole('region', { name: 'Next steps' });
-    expect(within(restoredSection).getByLabelText('New next step')).toHaveValue(
-      'Draft a follow-up task',
+    await waitFor(() =>
+      expect(within(restoredSection).getByLabelText('New next step')).toHaveValue(
+        'Draft a follow-up task',
+      ),
     );
 
     fireEvent.click(within(restoredSection).getByRole('button', { name: 'Add next step' }));
