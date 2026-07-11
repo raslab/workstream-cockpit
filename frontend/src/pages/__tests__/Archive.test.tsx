@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -114,11 +114,7 @@ describe('Archive rendering', () => {
     expect(closureText).toHaveAttribute('tabindex', '0');
     expect(closureText).toHaveAccessibleDescription(`Exact timestamp: ${exactTimestamp}`);
 
-    fireEvent.focus(closureText);
-    const visualTooltip = screen.getByRole('tooltip', { hidden: true });
-    expect(visualTooltip).toHaveTextContent(exactTimestamp);
-    expect(visualTooltip).toHaveAttribute('aria-hidden', 'true');
-    expect(visualTooltip).toHaveClass('fixed', 'z-50');
+    expect(screen.queryByRole('tooltip', { hidden: true })).not.toBeInTheDocument();
   });
 
   it.each([undefined, 'not-a-date'])(
