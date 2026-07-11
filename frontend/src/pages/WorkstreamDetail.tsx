@@ -39,6 +39,7 @@ import {
   useResourceChangeScreen,
 } from '../components/Notifications/ResourceChangeNotificationProvider';
 import { useDialogDraft } from '../hooks/useDialogDraft';
+import { useDocumentTitle } from '../components/DocumentTitle';
 
 const STATUS_HISTORY_PAGE_SIZE = 10;
 
@@ -630,6 +631,9 @@ export default function WorkstreamDetail() {
     },
     enabled: !!id,
   });
+  useDocumentTitle(
+    workstream?.number !== undefined ? `#${workstream.number} ${workstream.name}` : 'Workstream',
+  );
   useResourceChangeScreen({ screen: 'stream-detail', workstreamId: workstream?.id ?? null });
 
   const {

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -134,6 +134,38 @@ describe('WorkstreamDetail reference redesign', () => {
     useStatusHistoryMock.mockReturnValue({ data: updates, isLoading: false });
   });
 
+  it('uses a generic title while loading and replaces it with the fetched stream reference', async () => {
+    let resolveWorkstream: (value: { data: Workstream }) => void = () => undefined;
+    apiGetMock.mockImplementation((url: string) => {
+      if (url === '/api/workstreams/current-stream') {
+        return new Promise((resolve) => {
+          resolveWorkstream = resolve;
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderDetail();
+    await waitFor(() => expect(document.title).toBe('Workstream — Workstream Cockpit'));
+
+    await act(async () => resolveWorkstream({ data: { ...workstream, number: 314 } }));
+
+    await waitFor(() =>
+      expect(document.title).toBe(
+        '#314 Payments latency regression follow-up — Workstream Cockpit',
+      ),
+    );
+  });
+
+  it('keeps a generic workstream title when the stream is missing', async () => {
+    apiGetMock.mockResolvedValueOnce({ data: null });
+
+    renderDetail();
+
+    expect(await screen.findByText('Workstream not found.')).toBeInTheDocument();
+    expect(document.title).toBe('Workstream — Workstream Cockpit');
+  });
+
   it('renders the reference detail shell with category rail, icon band, deep breadcrumbs, title, and inline context hashtags without duplicated tag pills', async () => {
     renderDetail();
 
@@ -188,7 +220,9 @@ describe('WorkstreamDetail reference redesign', () => {
     renderDetail();
     expect(await screen.findByText(/Goal: track mitigation work/)).toBeInTheDocument();
 
-    fireEvent.click(within(screen.getByTestId('workstream-detail-actions')).getByRole('button', { name: 'Edit' }));
+    fireEvent.click(
+      within(screen.getByTestId('workstream-detail-actions')).getByRole('button', { name: 'Edit' }),
+    );
     fireEvent.change(screen.getByLabelText('Context'), {
       target: { value: updatedWorkstream.context },
     });
@@ -209,14 +243,20 @@ describe('WorkstreamDetail reference redesign', () => {
     renderDetail();
     await screen.findByTestId('workstream-detail-shell');
 
-    fireEvent.click(within(screen.getByTestId('workstream-detail-actions')).getByRole('button', { name: 'Edit' }));
+    fireEvent.click(
+      within(screen.getByTestId('workstream-detail-actions')).getByRole('button', { name: 'Edit' }),
+    );
     fireEvent.change(screen.getByLabelText('Context'), {
       target: { value: 'Unsaved context should stay editable. #Retry' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
-    expect(await screen.findByText('Failed to update workstream. Please try again.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Context')).toHaveValue('Unsaved context should stay editable. #Retry');
+    expect(
+      await screen.findByText('Failed to update workstream. Please try again.'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Context')).toHaveValue(
+      'Unsaved context should stay editable. #Retry',
+    );
     expect(screen.getByText(/Goal: track mitigation work/)).toBeInTheDocument();
   });
 

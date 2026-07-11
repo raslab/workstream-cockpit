@@ -10,11 +10,13 @@ import Timeline from '@/pages/Timeline';
 import Archive from '@/pages/Archive';
 import Settings from '@/pages/Settings';
 import WorkstreamDetail from '@/pages/WorkstreamDetail';
+import { RouteDocumentTitle } from '@/components/DocumentTitle';
 
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
+        <RouteDocumentTitle />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/auth/callback" element={<OAuthCallback />} />
