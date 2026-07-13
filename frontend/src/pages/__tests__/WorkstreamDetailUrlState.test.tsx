@@ -203,6 +203,7 @@ describe('WorkstreamDetail URL state', () => {
     });
     expect(useResourceChangeScreenMock).toHaveBeenLastCalledWith({
       screen: 'stream-detail',
+      workstreamId: 'stream-1',
       workstreamNumber: 1,
       includeSubstreamUpdates: true,
     });
@@ -216,6 +217,7 @@ describe('WorkstreamDetail URL state', () => {
     });
     expect(useResourceChangeScreenMock).toHaveBeenLastCalledWith({
       screen: 'stream-detail',
+      workstreamId: 'stream-1',
       workstreamNumber: 1,
       includeSubstreamUpdates: false,
     });

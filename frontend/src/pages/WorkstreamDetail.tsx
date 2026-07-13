@@ -673,6 +673,7 @@ export default function WorkstreamDetail() {
   );
   useResourceChangeScreen({
     screen: 'stream-detail',
+    workstreamId: workstream?.id ?? null,
     workstreamNumber: workstream?.number ?? null,
     includeSubstreamUpdates: includeSubstreams,
   });

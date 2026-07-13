@@ -195,17 +195,16 @@ model View {
 }
 
 model ResourceChange {
-  id               String   @id @default(uuid())
-  sequence         BigInt   @unique @default(autoincrement())
-  projectId        String   @map("project_id")
-  resourceType     String   @map("resource_type")
-  resourceId       String?  @map("resource_id")
-  resourceLabel    String?  @map("resource_label")
-  operation        String
-  workstreamId     String?  @map("workstream_id")
-  workstreamNumber Int?     @map("workstream_number")
-  metadata         Json?
-  changedAt        DateTime @default(now()) @map("changed_at")
+  id            String   @id @default(uuid())
+  sequence      BigInt   @unique @default(autoincrement())
+  projectId     String   @map("project_id")
+  resourceType  String   @map("resource_type")
+  resourceId    String?  @map("resource_id")
+  resourceLabel String?  @map("resource_label")
+  operation     String
+  workstreamId  String?  @map("workstream_id")
+  metadata      Json?
+  changedAt     DateTime @default(now()) @map("changed_at")
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 

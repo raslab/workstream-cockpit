@@ -117,9 +117,7 @@ export default function Cockpit() {
     : 'No workstreams yet. Create your first one!';
   useResourceChangeScreen({
     screen: 'cockpit',
-    workstreamNumbers: workstreams?.flatMap((workstream) =>
-      workstream.number === undefined ? [] : [workstream.number],
-    ),
+    workstreamIds: workstreams?.map((workstream) => workstream.id),
   });
 
   // Apply URL view selection and filter overrides, then canonicalize the URL to the actual screen state.
