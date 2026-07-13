@@ -29,7 +29,7 @@ export interface ResourceChangeNotification {
   metadata?: {
     correlationId?: string;
     originClientId?: string;
-    ancestorWorkstreamIds?: string[];
+    parentStreamNumbers?: number[];
   } | null;
 }
 
@@ -45,6 +45,7 @@ type ScreenRegistration =
   | {
       screen: 'stream-detail';
       workstreamId?: string | null;
+      workstreamNumber?: number | null;
       includeSubstreamUpdates?: boolean;
     };
 
@@ -142,14 +143,15 @@ function isChangeRelevantToScreen(
     if (screen.section === 'tags') return change.resourceType === 'tag';
   }
   if (screen.screen === 'stream-detail') {
-    const isDescendant = Boolean(
-      screen.workstreamId && change.metadata?.ancestorWorkstreamIds?.includes(screen.workstreamId),
+    const isSubstream = Boolean(
+      screen.workstreamNumber &&
+      change.metadata?.parentStreamNumbers?.includes(screen.workstreamNumber),
     );
     return (
       ['category', 'tag'].includes(change.resourceType) ||
       change.workstreamId === screen.workstreamId ||
       change.resourceId === screen.workstreamId ||
-      (isDescendant &&
+      (isSubstream &&
         ((change.resourceType === 'workstream' &&
           ['created', 'closed', 'reopened'].includes(change.operation)) ||
           (change.resourceType === 'status_update' && Boolean(screen.includeSubstreamUpdates))))

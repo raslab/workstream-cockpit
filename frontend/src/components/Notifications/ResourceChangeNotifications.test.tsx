@@ -52,6 +52,7 @@ function ScreenRegistration({
   useResourceChangeScreen({
     screen: 'stream-detail',
     workstreamId: 'stream-1',
+    workstreamNumber: 1,
     includeSubstreamUpdates,
   });
   useDirtyResourceEditor('test-editor', dirty);
@@ -262,19 +263,19 @@ describe('resource change notifications', () => {
   });
 
   it.each(['created', 'closed', 'reopened'] as const)(
-    'marks detail stale for an external descendant workstream %s event',
+    'marks detail stale for an external sub-stream workstream %s event',
     async (operation) => {
       renderRealtimeNotifications();
       await waitFor(() => expect(FakeResourceChangeSocket.instances).toHaveLength(1));
       FakeResourceChangeSocket.instances[0].emitChange({
         id: `change-${operation}`,
         resourceType: 'workstream',
-        resourceId: 'grandchild-stream',
+        resourceId: 'nested-substream',
         resourceLabel: 'Nested stream',
         operation,
-        workstreamId: 'grandchild-stream',
+        workstreamId: 'nested-substream',
         changedAt: '2026-07-07T10:00:00.000Z',
-        metadata: { ancestorWorkstreamIds: ['stream-1', 'child-stream'] },
+        metadata: { parentStreamNumbers: [1, 2] },
       });
 
       await waitFor(() =>
@@ -284,20 +285,20 @@ describe('resource change notifications', () => {
     },
   );
 
-  it('marks recursive descendant status updates stale only when substream history is enabled', async () => {
+  it('marks recursive sub-stream status updates stale only when sub-stream history is enabled', async () => {
     const disabled = renderRealtimeNotifications();
     await waitFor(() => expect(FakeResourceChangeSocket.instances).toHaveLength(1));
-    const descendantChange: ResourceChangeNotification = {
-      id: 'descendant-update',
+    const substreamChange: ResourceChangeNotification = {
+      id: 'substream-update',
       resourceType: 'status_update',
       resourceId: 'update-1',
-      resourceLabel: 'Grandchild update',
+      resourceLabel: 'Nested sub-stream update',
       operation: 'created',
-      workstreamId: 'grandchild-stream',
+      workstreamId: 'nested-substream',
       changedAt: '2026-07-07T10:00:00.000Z',
-      metadata: { ancestorWorkstreamIds: ['stream-1', 'child-stream'] },
+      metadata: { parentStreamNumbers: [1, 2] },
     };
-    FakeResourceChangeSocket.instances[0].emitChange(descendantChange);
+    FakeResourceChangeSocket.instances[0].emitChange(substreamChange);
 
     await userEvent.click(screen.getByRole('button', { name: /notifications/i }));
     expect(screen.getByRole('button', { name: /notifications/i })).not.toHaveTextContent('1');
@@ -306,7 +307,7 @@ describe('resource change notifications', () => {
 
     renderRealtimeNotifications({ includeSubstreamUpdates: true });
     await waitFor(() => expect(FakeResourceChangeSocket.instances).toHaveLength(2));
-    FakeResourceChangeSocket.instances[1].emitChange(descendantChange);
+    FakeResourceChangeSocket.instances[1].emitChange(substreamChange);
 
     await waitFor(() =>
       expect(screen.getByText('Stream changed. Refresh to see updates.')).toBeInTheDocument(),
@@ -314,18 +315,18 @@ describe('resource change notifications', () => {
     expect(screen.getByRole('button', { name: /notifications/i })).toHaveTextContent('1');
   });
 
-  it('clears a descendant-status stale prompt when sub-stream history is disabled', async () => {
+  it('clears a sub-stream status stale prompt when sub-stream history is disabled', async () => {
     renderToggleableRealtimeNotifications();
     await waitFor(() => expect(FakeResourceChangeSocket.instances).toHaveLength(1));
     FakeResourceChangeSocket.instances[0].emitChange({
-      id: 'toggle-descendant-update',
+      id: 'toggle-substream-update',
       resourceType: 'status_update',
       resourceId: 'update-1',
-      resourceLabel: 'Grandchild update',
+      resourceLabel: 'Nested sub-stream update',
       operation: 'created',
-      workstreamId: 'grandchild-stream',
+      workstreamId: 'nested-substream',
       changedAt: '2026-07-07T10:00:00.000Z',
-      metadata: { ancestorWorkstreamIds: ['stream-1', 'child-stream'] },
+      metadata: { parentStreamNumbers: [1, 2] },
     });
     await screen.findByText('Stream changed. Refresh to see updates.');
 

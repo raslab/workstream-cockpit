@@ -71,6 +71,32 @@ afterAll(async () => {
 });
 
 describe('resource change notifications', () => {
+  it('exposes parent stream references by public number without hierarchy UUIDs', async () => {
+    const parentStream = await createWorkstream({
+      projectId: project.id,
+      name: 'Parent stream',
+    });
+    await createWorkstream({
+      projectId: project.id,
+      name: 'Sub-stream',
+      parentId: parentStream.id,
+    });
+
+    const response = await request(app).get('/?limit=50').expect(200);
+    const substreamCreated = response.body.changes.find(
+      (change: { resourceType: string; resourceLabel: string; operation: string }) =>
+        change.resourceType === 'workstream' &&
+        change.resourceLabel === 'Sub-stream' &&
+        change.operation === 'created',
+    );
+
+    expect(substreamCreated).toBeDefined();
+    expect(substreamCreated.metadata).toEqual({
+      parentStreamNumbers: [parentStream.number],
+    });
+    expect(JSON.stringify(substreamCreated.metadata)).not.toContain(parentStream.id);
+  });
+
   it('records all rendered mutable resource types and exposes recent source-neutral changes', async () => {
     const category = await createCategory({
       projectId: project.id,

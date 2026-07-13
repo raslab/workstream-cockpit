@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 import { logger } from '../utils/logger';
 import {
   getBreadcrumbForWorkstream,
-  getAncestorWorkstreamIds,
+  getParentStreamNumbers,
   getSubstreamWorkstreamIds,
   isPublicNumberReference,
 } from './workstreamService';
@@ -152,7 +152,7 @@ export async function createStatusUpdate(input: CreateStatusUpdateInput): Promis
             operation: 'created',
             workstreamId: statusUpdate.workstreamId,
             metadata: {
-              ancestorWorkstreamIds: await getAncestorWorkstreamIds(
+              parentStreamNumbers: await getParentStreamNumbers(
                 tx,
                 projectId,
                 statusUpdate.workstreamId,
@@ -283,7 +283,7 @@ export async function updateStatusUpdate(
           operation: 'updated',
           workstreamId: updated.workstreamId,
           metadata: {
-            ancestorWorkstreamIds: await getAncestorWorkstreamIds(
+            parentStreamNumbers: await getParentStreamNumbers(
               tx,
               updated.projectId,
               updated.workstreamId,
@@ -334,7 +334,7 @@ export async function deleteStatusUpdate(
           operation: 'deleted',
           workstreamId: existing.workstreamId,
           metadata: {
-            ancestorWorkstreamIds: await getAncestorWorkstreamIds(
+            parentStreamNumbers: await getParentStreamNumbers(
               tx,
               existing.projectId,
               existing.workstreamId,
@@ -371,7 +371,7 @@ export async function deleteStatusUpdateByReference(
           operation: 'deleted',
           workstreamId: existing.workstreamId,
           metadata: {
-            ancestorWorkstreamIds: await getAncestorWorkstreamIds(
+            parentStreamNumbers: await getParentStreamNumbers(
               tx,
               existing.projectId,
               existing.workstreamId,

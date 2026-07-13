@@ -173,32 +173,32 @@ function computeParentStreams(workstream: Workstream, byId: Map<string, Workstre
   return parentStreams;
 }
 
-export async function getAncestorWorkstreamIds(
+export async function getParentStreamNumbers(
   client: PrismaExecutor,
   projectId: string,
   workstreamId: string,
-): Promise<string[]> {
-  const ancestors = await client.$queryRaw<Array<{ id: string; depth: number }>>(Prisma.sql`
-    WITH RECURSIVE ancestors AS (
-      SELECT parent.id, parent.parent_id, 1 AS depth
-      FROM workstreams child
-      JOIN workstreams parent ON parent.id = child.parent_id
-      WHERE child.id = ${workstreamId}
-        AND child.project_id = ${projectId}
+): Promise<number[]> {
+  const parentStreams = await client.$queryRaw<Array<{ number: number; depth: number }>>(Prisma.sql`
+    WITH RECURSIVE parent_streams AS (
+      SELECT parent.id, parent.parent_id, parent.public_number AS number, 1 AS depth
+      FROM workstreams substream
+      JOIN workstreams parent ON parent.id = substream.parent_id
+      WHERE substream.id = ${workstreamId}
+        AND substream.project_id = ${projectId}
         AND parent.project_id = ${projectId}
 
       UNION ALL
 
-      SELECT parent.id, parent.parent_id, ancestors.depth + 1
-      FROM ancestors
-      JOIN workstreams parent ON parent.id = ancestors.parent_id
+      SELECT parent.id, parent.parent_id, parent.public_number AS number, parent_streams.depth + 1
+      FROM parent_streams
+      JOIN workstreams parent ON parent.id = parent_streams.parent_id
       WHERE parent.project_id = ${projectId}
     )
-    SELECT id, depth
-    FROM ancestors
+    SELECT number, depth
+    FROM parent_streams
     ORDER BY depth DESC
   `);
-  return ancestors.map((ancestor) => ancestor.id);
+  return parentStreams.map((parentStream) => parentStream.number);
 }
 
 function substreamIds(
@@ -849,11 +849,7 @@ export async function createWorkstream(
           },
         });
       }
-      const ancestorWorkstreamIds = await getAncestorWorkstreamIds(
-        tx,
-        input.projectId,
-        workstream.id,
-      );
+      const parentStreamNumbers = await getParentStreamNumbers(tx, input.projectId, workstream.id);
       const correlationId = initialStatusUpdate ? randomUUID() : undefined;
       await logResourceChange(
         {
@@ -864,7 +860,7 @@ export async function createWorkstream(
           operation: 'created',
           workstreamId: workstream.id,
           metadata: {
-            ancestorWorkstreamIds,
+            parentStreamNumbers,
             ...(correlationId ? { correlationId } : {}),
           },
         },
@@ -880,7 +876,7 @@ export async function createWorkstream(
             operation: 'created',
             workstreamId: workstream.id,
             metadata: {
-              ancestorWorkstreamIds,
+              parentStreamNumbers,
               correlationId,
             },
           },
@@ -1033,7 +1029,7 @@ export async function closeWorkstream(
           operation: 'closed',
           workstreamId: updated.id,
           metadata: {
-            ancestorWorkstreamIds: await getAncestorWorkstreamIds(tx, projectId, updated.id),
+            parentStreamNumbers: await getParentStreamNumbers(tx, projectId, updated.id),
           },
         },
         tx,
@@ -1075,7 +1071,7 @@ export async function reopenWorkstream(
           operation: 'reopened',
           workstreamId: updated.id,
           metadata: {
-            ancestorWorkstreamIds: await getAncestorWorkstreamIds(tx, projectId, updated.id),
+            parentStreamNumbers: await getParentStreamNumbers(tx, projectId, updated.id),
           },
         },
         tx,

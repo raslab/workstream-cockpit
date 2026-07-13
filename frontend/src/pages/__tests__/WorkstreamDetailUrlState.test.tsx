@@ -181,6 +181,7 @@ describe('WorkstreamDetail URL state', () => {
     apiGetMock.mockResolvedValue({
       data: {
         id: 'stream-1',
+        number: 1,
         name: 'Launch plan',
         status: 'active',
         createdAt: '2026-06-01T00:00:00Z',
@@ -203,6 +204,7 @@ describe('WorkstreamDetail URL state', () => {
     expect(useResourceChangeScreenMock).toHaveBeenLastCalledWith({
       screen: 'stream-detail',
       workstreamId: 'stream-1',
+      workstreamNumber: 1,
       includeSubstreamUpdates: true,
     });
 
@@ -216,6 +218,7 @@ describe('WorkstreamDetail URL state', () => {
     expect(useResourceChangeScreenMock).toHaveBeenLastCalledWith({
       screen: 'stream-detail',
       workstreamId: 'stream-1',
+      workstreamNumber: 1,
       includeSubstreamUpdates: false,
     });
   });
