@@ -7,6 +7,7 @@ import type { Workstream } from '../../types/workstream';
 
 const useStatusHistoryMock = vi.hoisted(() => vi.fn());
 const apiGetMock = vi.hoisted(() => vi.fn());
+const useResourceChangeScreenMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../hooks/useStatusHistory', () => ({
   useStatusHistory: useStatusHistoryMock,
@@ -18,6 +19,11 @@ vi.mock('../../api/client', () => ({
     put: vi.fn(),
     delete: vi.fn(),
   },
+}));
+
+vi.mock('../../components/Notifications/ResourceChangeNotificationProvider', () => ({
+  useDirtyResourceEditor: vi.fn(),
+  useResourceChangeScreen: useResourceChangeScreenMock,
 }));
 
 vi.mock('../../components/Markdown/MarkdownRenderer', () => ({
@@ -170,6 +176,7 @@ describe('WorkstreamDetail URL state', () => {
   beforeEach(() => {
     useStatusHistoryMock.mockReset();
     useStatusHistoryMock.mockReturnValue({ data: [], isLoading: false });
+    useResourceChangeScreenMock.mockReset();
     apiGetMock.mockReset();
     apiGetMock.mockResolvedValue({
       data: {
@@ -193,6 +200,11 @@ describe('WorkstreamDetail URL state', () => {
       includeSubstreams: true,
       pageSize: 10,
     });
+    expect(useResourceChangeScreenMock).toHaveBeenLastCalledWith({
+      screen: 'stream-detail',
+      workstreamId: 'stream-1',
+      includeSubstreamUpdates: true,
+    });
 
     fireEvent.click(checkbox);
 
@@ -200,6 +212,11 @@ describe('WorkstreamDetail URL state', () => {
     expect(useStatusHistoryMock).toHaveBeenLastCalledWith('stream-1', {
       includeSubstreams: false,
       pageSize: 10,
+    });
+    expect(useResourceChangeScreenMock).toHaveBeenLastCalledWith({
+      screen: 'stream-detail',
+      workstreamId: 'stream-1',
+      includeSubstreamUpdates: false,
     });
   });
 

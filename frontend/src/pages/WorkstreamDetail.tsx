@@ -630,7 +630,11 @@ export default function WorkstreamDetail() {
       ? `#${workstream.number} ${shortenDocumentTitleText(workstream.name)}`
       : 'Workstream',
   );
-  useResourceChangeScreen({ screen: 'stream-detail', workstreamId: workstream?.id ?? null });
+  useResourceChangeScreen({
+    screen: 'stream-detail',
+    workstreamId: workstream?.id ?? null,
+    includeSubstreamUpdates: includeSubstreams,
+  });
 
   const {
     data: statusUpdates,

@@ -16,14 +16,7 @@ import { getResourceChangeClientId } from '../../utils/resourceChangeClient';
 
 type ResourceType = 'workstream' | 'status_update' | 'next_step' | 'view' | 'category' | 'tag';
 type ResourceOperation =
-  | 'created'
-  | 'updated'
-  | 'deleted'
-  | 'closed'
-  | 'reopened'
-  | 'solved'
-  | 'abandoned'
-  | 'reordered';
+  'created' | 'updated' | 'deleted' | 'closed' | 'reopened' | 'solved' | 'abandoned' | 'reordered';
 
 export interface ResourceChangeNotification {
   id: string;
@@ -36,6 +29,7 @@ export interface ResourceChangeNotification {
   metadata?: {
     correlationId?: string;
     originClientId?: string;
+    ancestorWorkstreamIds?: string[];
   } | null;
 }
 
@@ -48,7 +42,11 @@ type ScreenRegistration =
   | { screen: 'cockpit'; workstreamIds?: string[] }
   | { screen: 'timeline' | 'archive' }
   | { screen: 'settings'; section?: 'views' | 'categories' | 'tags' | 'general' }
-  | { screen: 'stream-detail'; workstreamId?: string | null };
+  | {
+      screen: 'stream-detail';
+      workstreamId?: string | null;
+      includeSubstreamUpdates?: boolean;
+    };
 
 interface ResourceChangeNotificationContextValue {
   notifications: ResourceChangeNotification[];
@@ -67,14 +65,14 @@ const ResourceChangeNotificationContext = createContext<
   ResourceChangeNotificationContextValue | undefined
 >(undefined);
 
-const DEFAULT_POLL_INTERVAL_MS = 15000;
-const MAX_NOTIFICATIONS = 10;
+const DEFAULT_POLL_INTERVAL_MS = 5000;
+const RECENT_CHANGE_LIMIT = 10;
+const PROCESSED_CHANGE_LIMIT = 1000;
 const RECONNECT_DELAY_MS = 2000;
 const isTestEnvironment = import.meta.env.MODE === 'test';
 
 type ResourceChangeSocketMessage =
-  | { type: 'ready' }
-  | { type: 'resource-change'; change: ResourceChangeNotification };
+  { type: 'ready' } | { type: 'resource-change'; change: ResourceChangeNotification };
 
 function resourceLabel(type: ResourceType): string {
   switch (type) {
@@ -145,10 +143,17 @@ function isChangeRelevantToScreen(
     if (screen.section === 'tags') return change.resourceType === 'tag';
   }
   if (screen.screen === 'stream-detail') {
+    const isDescendant = Boolean(
+      screen.workstreamId && change.metadata?.ancestorWorkstreamIds?.includes(screen.workstreamId),
+    );
     return (
       ['category', 'tag'].includes(change.resourceType) ||
       change.workstreamId === screen.workstreamId ||
-      change.resourceId === screen.workstreamId
+      change.resourceId === screen.workstreamId ||
+      (isDescendant &&
+        ((change.resourceType === 'workstream' &&
+          ['created', 'closed', 'reopened'].includes(change.operation)) ||
+          (change.resourceType === 'status_update' && Boolean(screen.includeSubstreamUpdates))))
     );
   }
   return false;
@@ -212,7 +217,26 @@ function mergeRecentChanges(
   [...changes, ...current].forEach((change) => byId.set(change.id, change));
   return Array.from(byId.values())
     .sort((a, b) => Date.parse(b.changedAt) - Date.parse(a.changedAt))
-    .slice(0, MAX_NOTIFICATIONS);
+    .slice(0, RECENT_CHANGE_LIMIT);
+}
+
+function rememberChangeId(ids: Set<string>, id: string) {
+  ids.delete(id);
+  ids.add(id);
+  if (ids.size > PROCESSED_CHANGE_LIMIT) {
+    const oldestId = ids.values().next().value;
+    if (oldestId) ids.delete(oldestId);
+  }
+}
+
+function groupRecentChanges(changes: ResourceChangeNotification[]) {
+  const seenGroups = new Set<string>();
+  return changes.filter((change) => {
+    const groupId = change.metadata?.correlationId ?? change.id;
+    if (seenGroups.has(groupId)) return false;
+    seenGroups.add(groupId);
+    return true;
+  });
 }
 
 export function ResourceChangeNotificationProvider({
@@ -240,6 +264,9 @@ export function ResourceChangeNotificationProvider({
   const [dirtyRefreshBlocked, setDirtyRefreshBlocked] = useState(false);
   const staleEligibleIdsRef = useRef(new Set<string>());
   const refreshedChangeIdsRef = useRef(new Set<string>());
+  const processedChangeIdsRef = useRef(new Set<string>());
+  const groupIdByChangeIdRef = useRef(new Map<string, string>());
+  const staleChangesByIdRef = useRef(new Map<string, ResourceChangeNotification>());
   const dirtySourcesRef = useRef(new Map<string, boolean>());
   const screenRef = useRef<ScreenRegistration | null>(null);
   const fetcher = fetchChanges ?? fetchResourceChanges;
@@ -252,16 +279,25 @@ export function ResourceChangeNotificationProvider({
 
   const addChanges = useCallback(
     (changes: ResourceChangeNotification[]) => {
-      if (changes.length === 0) return;
-      setNotifications((current) => mergeRecentChanges(current, changes));
+      const newChanges = changes.filter((change) => {
+        if (processedChangeIdsRef.current.has(change.id)) return false;
+        rememberChangeId(processedChangeIdsRef.current, change.id);
+        return true;
+      });
+      if (newChanges.length === 0) return;
+      setNotifications((current) => mergeRecentChanges(current, newChanges));
       const screen = screenRef.current;
-      const relevantRemoteChanges = changes.filter(
+      const relevantRemoteChanges = newChanges.filter(
         (change) =>
           change.metadata?.originClientId !== currentClientId &&
           !refreshedChangeIdsRef.current.has(change.id) &&
           (!screen || isChangeRelevantToScreen(change, screen)),
       );
-      relevantRemoteChanges.forEach((change) => staleEligibleIdsRef.current.add(change.id));
+      relevantRemoteChanges.forEach((change) => {
+        staleEligibleIdsRef.current.add(change.id);
+        groupIdByChangeIdRef.current.set(change.id, change.metadata?.correlationId ?? change.id);
+        staleChangesByIdRef.current.set(change.id, change);
+      });
       setUnseenGroupIds((groups) => {
         const next = new Set(groups);
         relevantRemoteChanges.forEach((change) =>
@@ -295,6 +331,7 @@ export function ResourceChangeNotificationProvider({
     if (!hasBaseline) {
       cursorRef.current = data.cursor;
       setCursor(data.cursor);
+      data.changes.forEach((change) => rememberChangeId(processedChangeIdsRef.current, change.id));
       setNotifications((current) => mergeRecentChanges(current, data.changes));
       setHasBaseline(true);
       return;
@@ -336,6 +373,9 @@ export function ResourceChangeNotificationProvider({
         if (closed) return;
         cursorRef.current = data.cursor;
         setCursor(data.cursor);
+        data.changes.forEach((change) =>
+          rememberChangeId(processedChangeIdsRef.current, change.id),
+        );
         setNotifications((current) => mergeRecentChanges(current, data.changes));
         setHasBaseline(true);
         connect();
@@ -352,8 +392,9 @@ export function ResourceChangeNotificationProvider({
   }, [addChanges, fetcher, socketFactory, useRealtime]);
 
   useEffect(() => {
-    screenRef.current = null;
     staleEligibleIdsRef.current.clear();
+    staleChangesByIdRef.current.clear();
+    groupIdByChangeIdRef.current.clear();
     setUnseenGroupIds(new Set());
     setStaleChangeIds(new Set());
     setDirtyRefreshBlocked(false);
@@ -376,37 +417,46 @@ export function ResourceChangeNotificationProvider({
       return;
     }
     setDirtyRefreshBlocked(false);
+    const refreshingIds = new Set(staleEligibleIdsRef.current);
     try {
-      await queryClient.invalidateQueries();
-      await queryClient.refetchQueries({ type: 'active' });
-      staleEligibleIdsRef.current.forEach((id) => refreshedChangeIdsRef.current.add(id));
-      staleEligibleIdsRef.current.clear();
-      setUnseenGroupIds(new Set());
-      setStaleChangeIds(new Set());
+      await queryClient.invalidateQueries({ refetchType: 'none' });
+      await queryClient.refetchQueries({ type: 'active' }, { throwOnError: true });
+      refreshingIds.forEach((id) => {
+        rememberChangeId(refreshedChangeIdsRef.current, id);
+        staleEligibleIdsRef.current.delete(id);
+        staleChangesByIdRef.current.delete(id);
+        groupIdByChangeIdRef.current.delete(id);
+      });
+      const remainingGroups = new Set(
+        Array.from(staleEligibleIdsRef.current, (id) => groupIdByChangeIdRef.current.get(id) ?? id),
+      );
+      setUnseenGroupIds(
+        (groups) => new Set(Array.from(groups).filter((group) => remainingGroups.has(group))),
+      );
+      setStaleChangeIds((ids) => new Set(Array.from(ids).filter((id) => !refreshingIds.has(id))));
     } catch {
       setRefreshError('Could not refresh. Try again.');
     }
   }, [hasDirtySource, queryClient]);
 
-  const registerScreen = useCallback(
-    (screen: ScreenRegistration) => {
-      screenRef.current = screen;
-      setStaleChangeIds((ids) => {
-        const relevantIds = notifications
-          .filter(
-            (change) =>
-              staleEligibleIdsRef.current.has(change.id) &&
-              isChangeRelevantToScreen(change, screen),
-          )
-          .map((change) => change.id);
-        return new Set([...ids, ...relevantIds]);
-      });
-      return () => {
-        if (screenRef.current === screen) screenRef.current = null;
-      };
-    },
-    [notifications],
-  );
+  const registerScreen = useCallback((screen: ScreenRegistration) => {
+    screenRef.current = screen;
+    const relevantIds = new Set<string>();
+    staleEligibleIdsRef.current.forEach((id) => {
+      const change = staleChangesByIdRef.current.get(id);
+      if (change && isChangeRelevantToScreen(change, screen)) {
+        relevantIds.add(id);
+        return;
+      }
+      staleEligibleIdsRef.current.delete(id);
+      staleChangesByIdRef.current.delete(id);
+      groupIdByChangeIdRef.current.delete(id);
+    });
+    setStaleChangeIds(relevantIds);
+    return () => {
+      if (screenRef.current === screen) screenRef.current = null;
+    };
+  }, []);
 
   const setDirtySource = useCallback((id: string, dirty: boolean) => {
     dirtySourcesRef.current.set(id, dirty);
@@ -496,6 +546,7 @@ export function NotificationCenter() {
     refreshCurrentView,
   } = useResourceChangeNotifications();
   const [isOpen, setIsOpen] = useState(false);
+  const displayedNotifications = useMemo(() => groupRecentChanges(notifications), [notifications]);
 
   const handleToggle = () => {
     setIsOpen((value) => !value);
@@ -540,11 +591,11 @@ export function NotificationCenter() {
               </button>
             )}
           </div>
-          {notifications.length === 0 ? (
+          {displayedNotifications.length === 0 ? (
             <p className="px-2 py-4 text-sm text-gray-500 dark:text-gray-400">No recent changes</p>
           ) : (
             <ul className="max-h-96 space-y-1 overflow-auto">
-              {notifications.map((change) => (
+              {displayedNotifications.map((change) => (
                 <li
                   key={change.id}
                   className="rounded-md px-2 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700"

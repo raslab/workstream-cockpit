@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import { logger } from '../utils/logger';
 import {
   getBreadcrumbForWorkstream,
+  getAncestorWorkstreamIds,
   getSubstreamWorkstreamIds,
   isPublicNumberReference,
 } from './workstreamService';
@@ -148,6 +149,13 @@ export async function createStatusUpdate(input: CreateStatusUpdateInput): Promis
             resourceLabel: statusUpdate.status,
             operation: 'created',
             workstreamId: statusUpdate.workstreamId,
+            metadata: {
+              ancestorWorkstreamIds: await getAncestorWorkstreamIds(
+                tx,
+                projectId,
+                statusUpdate.workstreamId,
+              ),
+            },
           },
           tx,
         );
@@ -257,6 +265,13 @@ export async function updateStatusUpdate(
           resourceLabel: updated.status,
           operation: 'updated',
           workstreamId: updated.workstreamId,
+          metadata: {
+            ancestorWorkstreamIds: await getAncestorWorkstreamIds(
+              tx,
+              updated.projectId,
+              updated.workstreamId,
+            ),
+          },
         },
         tx,
       );
@@ -289,6 +304,13 @@ export async function deleteStatusUpdate(
           resourceLabel: existing.status,
           operation: 'deleted',
           workstreamId: existing.workstreamId,
+          metadata: {
+            ancestorWorkstreamIds: await getAncestorWorkstreamIds(
+              tx,
+              existing.projectId,
+              existing.workstreamId,
+            ),
+          },
         },
         tx,
       );
@@ -319,6 +341,13 @@ export async function deleteStatusUpdateByReference(
           resourceLabel: existing.status,
           operation: 'deleted',
           workstreamId: existing.workstreamId,
+          metadata: {
+            ancestorWorkstreamIds: await getAncestorWorkstreamIds(
+              tx,
+              existing.projectId,
+              existing.workstreamId,
+            ),
+          },
         },
         tx,
       );

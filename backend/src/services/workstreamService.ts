@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient, Workstream, StatusUpdate } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { logger } from '../utils/logger';
 import { extractTagsFromFields } from '../utils/tagExtractor';
 import { logResourceChange } from './resourceChangeService';
@@ -100,12 +101,7 @@ export interface WorkstreamWithLatestStatus extends Workstream {
 }
 
 export type WorkstreamHierarchyFilter =
-  | 'all'
-  | 'top-level'
-  | 'sub-streams'
-  | 'no-parent'
-  | 'has-substreams'
-  | 'under-parent';
+  'all' | 'top-level' | 'sub-streams' | 'no-parent' | 'has-substreams' | 'under-parent';
 
 export interface WorkstreamHierarchyOptions {
   mode?: WorkstreamHierarchyFilter;
@@ -173,6 +169,34 @@ function computeParentStreams(workstream: Workstream, byId: Map<string, Workstre
     parentId = parent.parentId;
   }
   return parentStreams;
+}
+
+export async function getAncestorWorkstreamIds(
+  client: PrismaExecutor,
+  projectId: string,
+  workstreamId: string,
+): Promise<string[]> {
+  const ancestors = await client.$queryRaw<Array<{ id: string; depth: number }>>(Prisma.sql`
+    WITH RECURSIVE ancestors AS (
+      SELECT parent.id, parent.parent_id, 1 AS depth
+      FROM workstreams child
+      JOIN workstreams parent ON parent.id = child.parent_id
+      WHERE child.id = ${workstreamId}
+        AND child.project_id = ${projectId}
+        AND parent.project_id = ${projectId}
+
+      UNION ALL
+
+      SELECT parent.id, parent.parent_id, ancestors.depth + 1
+      FROM ancestors
+      JOIN workstreams parent ON parent.id = ancestors.parent_id
+      WHERE parent.project_id = ${projectId}
+    )
+    SELECT id, depth
+    FROM ancestors
+    ORDER BY depth DESC
+  `);
+  return ancestors.map((ancestor) => ancestor.id);
 }
 
 function substreamIds(
@@ -388,8 +412,8 @@ async function enrichWorkstreams<
     const activity = computeActivityMetadata(row.id, activeLatest);
     const directSubstreams = substreamsByParent.get(row.id) ?? [];
     const depth = computeDepth(row, byId);
-    const parentStreams = computeParentStreams(row, byId).map(
-      (parentStream) => publicParent(parentStream, computeDepth(parentStream, byId))!,
+    const parentStreams = computeParentStreams(row, byId).map((parentStream) =>
+      publicParent(parentStream, computeDepth(parentStream, byId))!,
     );
     const parent = publicParent(
       row.parentId ? byId.get(row.parentId) : null,
@@ -560,8 +584,8 @@ async function enrichWorkstreamDetail<
   const activity = computeActivityMetadata(row.id, activeLatest);
   const directSubstreams = substreamsByParent.get(row.id) ?? [];
   const depth = computeDepth(row, byId);
-  const parentStreams = computeParentStreams(row, byId).map(
-    (parentStream) => publicParent(parentStream, computeDepth(parentStream, byId))!,
+  const parentStreams = computeParentStreams(row, byId).map((parentStream) =>
+    publicParent(parentStream, computeDepth(parentStream, byId))!,
   );
   const parent = publicParent(
     row.parentId ? byId.get(row.parentId) : null,
@@ -577,8 +601,8 @@ async function enrichWorkstreamDetail<
     allTags: extractWorkstreamTags(row, latestStatus),
     parent,
     parentStreams,
-    substreams: directSubstreams.map(
-      (substream) => publicParent(substream, depth + 1, computeActivityMetadata(substream.id))!,
+    substreams: directSubstreams.map((substream) =>
+      publicParent(substream, depth + 1, computeActivityMetadata(substream.id))!,
     ),
     substreamCount: directSubstreams.length,
     directSubstreamCount: directSubstreams.length,
@@ -823,6 +847,12 @@ export async function createWorkstream(
           },
         });
       }
+      const ancestorWorkstreamIds = await getAncestorWorkstreamIds(
+        tx,
+        input.projectId,
+        workstream.id,
+      );
+      const correlationId = initialStatusUpdate ? randomUUID() : undefined;
       await logResourceChange(
         {
           projectId: input.projectId,
@@ -831,6 +861,10 @@ export async function createWorkstream(
           resourceLabel: workstream.name,
           operation: 'created',
           workstreamId: workstream.id,
+          metadata: {
+            ancestorWorkstreamIds,
+            ...(correlationId ? { correlationId } : {}),
+          },
         },
         tx,
       );
@@ -843,6 +877,10 @@ export async function createWorkstream(
             resourceLabel: input.initialStatus,
             operation: 'created',
             workstreamId: workstream.id,
+            metadata: {
+              ancestorWorkstreamIds,
+              correlationId,
+            },
           },
           tx,
         );
@@ -977,6 +1015,9 @@ export async function closeWorkstream(
           resourceLabel: updated.name,
           operation: 'closed',
           workstreamId: updated.id,
+          metadata: {
+            ancestorWorkstreamIds: await getAncestorWorkstreamIds(tx, projectId, updated.id),
+          },
         },
         tx,
       );
@@ -1016,6 +1057,9 @@ export async function reopenWorkstream(
           resourceLabel: updated.name,
           operation: 'reopened',
           workstreamId: updated.id,
+          metadata: {
+            ancestorWorkstreamIds: await getAncestorWorkstreamIds(tx, projectId, updated.id),
+          },
         },
         tx,
       );
@@ -1072,7 +1116,7 @@ export async function getBreadcrumbForWorkstream(
   const byId = new Map(workstreams.map((ws) => [ws.id, ws]));
   const ws = byId.get(workstreamId);
   if (!ws) return [];
-  return [...computeParentStreams(ws, byId), ws].map(
-    (item) => publicParent(item, computeDepth(item, byId))!,
+  return [...computeParentStreams(ws, byId), ws].map((item) =>
+    publicParent(item, computeDepth(item, byId))!,
   );
 }
