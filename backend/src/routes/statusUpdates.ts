@@ -9,6 +9,7 @@ import {
   deleteStatusUpdateByReference,
 } from '../services/statusUpdateService';
 import { logger } from '../utils/logger';
+import { VersionConflictError } from '../services/versionConflictError';
 
 const router = Router();
 
@@ -168,7 +169,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
     const statusUpdateId = req.params.id;
-    const { workstreamId, status, note } = req.body;
+    const { workstreamId, status, note, expectedVersion } = req.body;
 
     // Validation
     if (!workstreamId || (typeof workstreamId !== 'string' && typeof workstreamId !== 'number')) {
@@ -193,6 +194,11 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      res.status(400).json({ error: 'expectedVersion must be a positive integer' });
+      return;
+    }
+
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
 
@@ -210,7 +216,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const updates: any = {};
+    const updates: any = { expectedVersion };
     if (status !== undefined) updates.status = status.trim();
     if (note !== undefined) updates.note = note;
 
@@ -222,6 +228,14 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
     );
     res.json(statusUpdate);
   } catch (error: any) {
+    if (error instanceof VersionConflictError) {
+      res.status(409).json({
+        error: 'This status update changed elsewhere. Reload the current version before saving.',
+        code: error.code,
+        current: error.current,
+      });
+      return;
+    }
     if (error.message === 'Status update not found or access denied') {
       res.status(404).json({ error: 'Status update not found' });
       return;

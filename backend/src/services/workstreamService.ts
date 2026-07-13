@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { logger } from '../utils/logger';
 import { extractTagsFromFields } from '../utils/tagExtractor';
 import { logResourceChange } from './resourceChangeService';
+import { VersionConflictError } from './versionConflictError';
 
 const prisma = new PrismaClient();
 const MAX_HIERARCHY_DEPTH = 5;
@@ -71,6 +72,7 @@ export interface CreateWorkstreamInput {
 }
 
 export interface UpdateWorkstreamInput {
+  expectedVersion: number;
   name?: string;
   categoryId?: string | null;
   parentId?: string | null;
@@ -930,7 +932,7 @@ export async function updateWorkstream(
       await assertCategoryBelongsToProject(tx, updates.categoryId, projectId);
       if (Object.prototype.hasOwnProperty.call(updates, 'parentId'))
         await assertValidParent(tx, projectId, workstreamId, updates.parentId);
-      const data: any = { ...updates };
+      const { expectedVersion, ...data } = updates;
       const parentChanged =
         Object.prototype.hasOwnProperty.call(updates, 'parentId') &&
         existing.parentId !== (updates.parentId ?? null);
@@ -950,7 +952,16 @@ export async function updateWorkstream(
       const newParentBreadcrumb = newParent
         ? [...computeParentStreams(newParent, byId), newParent].map((ws) => ws.name).join(' > ')
         : null;
-      const updated = await tx.workstream.update({ where: { id: workstreamId }, data });
+      const mutation = await tx.workstream.updateMany({
+        where: { id: workstreamId, projectId, version: expectedVersion },
+        data: { ...data, version: { increment: 1 } },
+      });
+      if (mutation.count === 0) {
+        const current = await tx.workstream.findFirst({ where: { id: workstreamId, projectId } });
+        if (!current) throw new Error('Workstream not found or access denied');
+        throw new VersionConflictError(current);
+      }
+      const updated = await tx.workstream.findUniqueOrThrow({ where: { id: workstreamId } });
       await logResourceChange(
         {
           projectId,
@@ -982,6 +993,12 @@ export async function updateWorkstream(
     });
     return (await getWorkstreamById(result.id, projectId))!;
   } catch (error) {
+    if ((error as { code?: string })?.code === 'P2034') {
+      const current = await prisma.workstream.findFirst({ where: { id: workstreamId, projectId } });
+      if (current && current.version !== updates.expectedVersion) {
+        throw new VersionConflictError(current);
+      }
+    }
     logger.error('Error updating workstream:', error);
     throw error;
   }
@@ -1005,7 +1022,7 @@ export async function closeWorkstream(
         throw new Error('Cannot close a workstream with active sub-streams');
       const updated = await tx.workstream.update({
         where: { id: workstreamId },
-        data: { state: 'closed', closedAt: new Date() },
+        data: { state: 'closed', closedAt: new Date(), version: { increment: 1 } },
       });
       await logResourceChange(
         {
@@ -1047,7 +1064,7 @@ export async function reopenWorkstream(
       }
       const updated = await tx.workstream.update({
         where: { id: workstreamId },
-        data: { state: 'active', closedAt: null },
+        data: { state: 'active', closedAt: null, version: { increment: 1 } },
       });
       await logResourceChange(
         {

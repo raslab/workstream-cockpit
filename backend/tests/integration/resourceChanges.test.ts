@@ -101,12 +101,15 @@ describe('resource change notifications', () => {
       context: 'Practice speaking',
       initialStatus: 'Started practice',
     });
-    await updateWorkstream(stream.id, project.id, { context: 'Practice speaking daily' });
+    await updateWorkstream(stream.id, project.id, {
+      expectedVersion: 1,
+      context: 'Practice speaking daily',
+    });
     await closeWorkstream(stream.id, project.id);
     await reopenWorkstream(stream.id, project.id);
 
     const status = await createStatusUpdate({ workstreamId: stream.id, status: 'Practiced today' });
-    await updateStatusUpdate(status.id, stream.id, { note: 'Added detail' });
+    await updateStatusUpdate(status.id, stream.id, { expectedVersion: 1, note: 'Added detail' });
 
     const firstStep = await createNextStep({
       projectId: project.id,

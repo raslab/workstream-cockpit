@@ -100,8 +100,17 @@ Use existing categories when possible. Do not create new categories/tags unless 
 
 1. Call `workstreams_get`.
 2. Decide whether the change belongs in metadata/context or in history.
-3. Use `workstreams_update` for durable metadata/context corrections.
+3. Use `workstreams_update` for durable metadata/context corrections, passing the returned
+   `version` as `expectedVersion`.
 4. Use `updates_create` for progress/history.
+
+When editing an existing narrative update, read it first with `updates_get` and pass its returned
+`version` as `expectedVersion` to `updates_update`.
+
+If an edit reports a version conflict, do not retry with the stale token. Keep the intended text,
+read the latest resource, show or explain the intervening change to the user, and only retry with
+the new version after the user confirms the edit still applies. Never merge or overwrite
+automatically.
 
 ### Close or reopen a workstream
 
@@ -167,6 +176,7 @@ Before any write tool call, verify:
 - **Write denied:** PAT lacks `mcp:write`.
 - **Not found:** ID is wrong or outside the issuing user's project boundary.
 - **Validation error:** check required fields, UUIDs, date format, color format, limits, and `confirm: true` for destructive tools.
+- **Version conflict:** another client changed the stream or update after it was read. Preserve the intended edit, read the current resource, and ask before retrying it with the new version.
 
 ## Related documentation
 

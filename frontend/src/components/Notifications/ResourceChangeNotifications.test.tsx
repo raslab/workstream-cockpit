@@ -597,8 +597,8 @@ describe('resource change notifications', () => {
     expect(screen.getByRole('button', { name: /notifications/i })).toHaveTextContent('1');
   });
 
-  it('keeps refresh blocked until every dirty editor is cleared', async () => {
-    const rendered = renderMultiDirtyNotifications(true, true);
+  it('refreshes from the stale popup while editors are dirty without showing blocker copy', async () => {
+    renderMultiDirtyNotifications(true, true);
     await waitFor(() => expect(fetchChangesMock).toHaveBeenCalledWith(null));
 
     const change: ResourceChangeNotification = {
@@ -615,27 +615,16 @@ describe('resource change notifications', () => {
       expect(screen.getByText('Stream changed. Refresh to see updates.')).toBeInTheDocument(),
     );
     await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
-    expect(
-      screen.getByText('Changes are available. Save or discard your draft before refreshing.'),
-    ).toBeInTheDocument();
-
-    rendered.rerender(
-      <QueryClientProvider client={createQueryClient()}>
-        <MemoryRouter initialEntries={['/workstreams/1']}>
-          <ResourceChangeNotificationProvider pollIntervalMs={25} fetchChanges={fetchChangesMock}>
-            <NotificationCenter />
-            <MultiDirtyRegistration firstDirty={false} secondDirty />
-          </ResourceChangeNotificationProvider>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    await waitFor(() =>
+      expect(refetchQueriesMock).toHaveBeenCalledWith({ type: 'active' }, { throwOnError: true }),
     );
-
+    expect(invalidateQueriesMock).toHaveBeenCalled();
     expect(
-      screen.getByText('Changes are available. Save or discard your draft before refreshing.'),
-    ).toBeInTheDocument();
+      screen.queryByText('Changes are available. Save or discard your draft before refreshing.'),
+    ).not.toBeInTheDocument();
   });
 
-  it('blocks refresh while dirty editor state is registered', async () => {
+  it('refreshes the current view from the notification center while an editor is dirty', async () => {
     renderNotifications({ dirty: true });
     await waitFor(() => expect(fetchChangesMock).toHaveBeenCalledWith(null));
 
@@ -653,12 +642,13 @@ describe('resource change notifications', () => {
       expect(screen.getByText('Stream changed. Refresh to see updates.')).toBeInTheDocument(),
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await userEvent.click(screen.getByRole('button', { name: /notifications/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh current view' }));
 
-    expect(
-      screen.getByText('Changes are available. Save or discard your draft before refreshing.'),
-    ).toBeInTheDocument();
-    expect(invalidateQueriesMock).not.toHaveBeenCalled();
-    expect(refetchQueriesMock).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(refetchQueriesMock).toHaveBeenCalledWith({ type: 'active' }, { throwOnError: true }),
+    );
+    expect(invalidateQueriesMock).toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Refresh current view' })).not.toBeInTheDocument();
   });
 });

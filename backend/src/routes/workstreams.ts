@@ -24,6 +24,7 @@ import {
   updateNextStep,
 } from '../services/nextStepService';
 import { logger } from '../utils/logger';
+import { VersionConflictError } from '../services/versionConflictError';
 
 const router = Router();
 const UUID_RE =
@@ -403,7 +404,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const personId = req.userContext!.personId;
     const workstreamId = req.params.id;
-    const { name, categoryId, parentId, context } = req.body;
+    const { name, categoryId, parentId, context, expectedVersion } = req.body;
 
     // Validation
     if (name !== undefined) {
@@ -429,6 +430,11 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
     )
       return;
 
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      res.status(400).json({ error: 'expectedVersion must be a positive integer' });
+      return;
+    }
+
     // Get user's projects
     const projects = await getProjectsByPersonId(personId);
 
@@ -448,7 +454,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ error: 'Parent workstream not found' });
       return;
     }
-    const updates: any = {};
+    const updates: any = { expectedVersion };
 
     if (name !== undefined) updates.name = name.trim();
     if (categoryId !== undefined) updates.categoryId = categoryId;
@@ -459,6 +465,14 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
 
     res.json(workstream);
   } catch (error: any) {
+    if (error instanceof VersionConflictError) {
+      res.status(409).json({
+        error: 'This workstream changed elsewhere. Reload the current version before saving.',
+        code: error.code,
+        current: error.current,
+      });
+      return;
+    }
     if (error.message === 'Workstream not found or access denied') {
       res.status(404).json({ error: 'Workstream not found' });
       return;

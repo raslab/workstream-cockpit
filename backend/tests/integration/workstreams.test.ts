@@ -295,6 +295,7 @@ describe('Workstreams API Integration Tests', () => {
       const editResponse = await request(createTestApp(statusUpdatesRoutes, person))
         .put(`/${editedOldUpdate.id}`)
         .send({
+          expectedVersion: 1,
           workstreamId: editedOldStream.id,
           status: 'Corrected old history',
         });
@@ -603,10 +604,78 @@ describe('Workstreams API Integration Tests', () => {
   });
 
   describe('PUT /workstreams/:id', () => {
+    it('rejects stale and repeated edits without overwriting or auditing them', async () => {
+      const workstream = await createTestWorkstream(project.id, { name: 'Original' });
+      const auditBefore = await prisma.resourceChange.count({
+        where: { resourceId: workstream.id },
+      });
+      const accepted = await request(app)
+        .put(`/${workstream.id}`)
+        .send({ expectedVersion: 1, name: 'Writer A' });
+      expect(accepted.status).toBe(200);
+      expect(accepted.body).toMatchObject({ name: 'Writer A', version: 2 });
+
+      for (const name of ['Writer B', 'Writer A repeated']) {
+        const stale = await request(app)
+          .put(`/${workstream.id}`)
+          .send({ expectedVersion: 1, name });
+        expect(stale.status).toBe(409);
+        expect(stale.body).toMatchObject({
+          code: 'VERSION_CONFLICT',
+          current: { id: workstream.id, name: 'Writer A', version: 2 },
+        });
+      }
+      expect(
+        await prisma.workstream.findUniqueOrThrow({ where: { id: workstream.id } }),
+      ).toMatchObject({ name: 'Writer A', version: 2 });
+      expect(await prisma.resourceChange.count({ where: { resourceId: workstream.id } })).toBe(
+        auditBefore + 1,
+      );
+    });
+
+    it('accepts exactly one of two concurrent writers using the same version', async () => {
+      const workstream = await createTestWorkstream(project.id, { name: 'Concurrent original' });
+
+      const responses = await Promise.all([
+        request(app).put(`/${workstream.id}`).send({ expectedVersion: 1, name: 'Concurrent A' }),
+        request(app).put(`/${workstream.id}`).send({ expectedVersion: 1, name: 'Concurrent B' }),
+      ]);
+
+      expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+      const accepted = responses.find((response) => response.status === 200)!;
+      const rejected = responses.find((response) => response.status === 409)!;
+      expect(rejected.body).toMatchObject({
+        code: 'VERSION_CONFLICT',
+        current: { id: workstream.id, name: accepted.body.name, version: 2 },
+      });
+      expect(
+        await prisma.workstream.findUniqueOrThrow({ where: { id: workstream.id } }),
+      ).toMatchObject({
+        name: accepted.body.name,
+        version: 2,
+      });
+    });
+
+    it.each([undefined, 0, -1, 1.5, '1'])(
+      'requires a positive integer expectedVersion (%p)',
+      async (expectedVersion) => {
+        const workstream = await createTestWorkstream(project.id);
+        const response = await request(app)
+          .put(`/${workstream.id}`)
+          .send({
+            ...(expectedVersion === undefined ? {} : { expectedVersion }),
+            name: 'Nope',
+          });
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/expectedVersion/);
+      },
+    );
+
     it('should update workstream name', async () => {
       const workstream = await createTestWorkstream(project.id, { name: 'Old Name' });
 
       const response = await request(app).put(`/${workstream.id}`).send({
+        expectedVersion: 1,
         name: 'New Name',
       });
 
@@ -619,6 +688,7 @@ describe('Workstreams API Integration Tests', () => {
       const workstream = await createTestWorkstream(project.id);
 
       const response = await request(app).put(`/${workstream.id}`).send({
+        expectedVersion: 1,
         categoryId: category.id,
       });
 
@@ -630,6 +700,7 @@ describe('Workstreams API Integration Tests', () => {
       const workstream = await createTestWorkstream(project.id);
 
       const response = await request(app).put(`/${workstream.id}`).send({
+        expectedVersion: 1,
         context: 'Updated context',
       });
 
@@ -642,6 +713,7 @@ describe('Workstreams API Integration Tests', () => {
       const workstream = await createTestWorkstream(project.id, { categoryId: category.id });
 
       const response = await request(app).put(`/${workstream.id}`).send({
+        expectedVersion: 1,
         categoryId: null,
       });
 
@@ -660,6 +732,7 @@ describe('Workstreams API Integration Tests', () => {
       const otherCategory = await createTestCategory(otherProject.id, { name: 'other-category' });
 
       const response = await request(app).put(`/${workstream.id}`).send({
+        expectedVersion: 1,
         categoryId: otherCategory.id,
       });
 
@@ -675,7 +748,7 @@ describe('Workstreams API Integration Tests', () => {
     it('should return 404 when workstream does not exist', async () => {
       const response = await request(app)
         .put('/00000000-0000-0000-0000-000000000000')
-        .send({ name: 'Updated' });
+        .send({ expectedVersion: 1, name: 'Updated' });
 
       expect(response.status).toBe(404);
       expect(response.body.error).toBe('Workstream not found');
@@ -685,6 +758,7 @@ describe('Workstreams API Integration Tests', () => {
       const workstream = await createTestWorkstream(project.id);
 
       const response = await request(app).put(`/${workstream.id}`).send({
+        expectedVersion: 1,
         name: '  ',
       });
 
@@ -698,6 +772,7 @@ describe('Workstreams API Integration Tests', () => {
       const response = await request(app)
         .put(`/${workstream.id}`)
         .send({
+          expectedVersion: 1,
           name: 'a'.repeat(201),
         });
 
@@ -709,6 +784,7 @@ describe('Workstreams API Integration Tests', () => {
       const workstream = await createTestWorkstream(project.id);
 
       const response = await request(app).put(`/${workstream.id}`).send({
+        expectedVersion: 1,
         name: '  Trimmed Update  ',
       });
 
@@ -726,6 +802,19 @@ describe('Workstreams API Integration Tests', () => {
       expect(response.status).toBe(200);
       expect(response.body.state).toBe('closed');
       expect(response.body.closedAt).toBeDefined();
+      expect(response.body.version).toBe(workstream.version + 1);
+
+      const auditAfterClose = await prisma.resourceChange.count({
+        where: { resourceId: workstream.id },
+      });
+      const staleEdit = await request(app).put(`/${workstream.id}`).send({
+        expectedVersion: workstream.version,
+        name: 'Stale after close',
+      });
+      expect(staleEdit.status).toBe(409);
+      expect(await prisma.resourceChange.count({ where: { resourceId: workstream.id } })).toBe(
+        auditAfterClose,
+      );
     });
 
     it('should return 404 when workstream does not exist', async () => {
@@ -752,6 +841,19 @@ describe('Workstreams API Integration Tests', () => {
       expect(response.status).toBe(200);
       expect(response.body.state).toBe('active');
       expect(response.body.closedAt).toBeNull();
+      expect(response.body.version).toBe(workstream.version + 1);
+
+      const auditAfterReopen = await prisma.resourceChange.count({
+        where: { resourceId: workstream.id },
+      });
+      const staleEdit = await request(app).put(`/${workstream.id}`).send({
+        expectedVersion: workstream.version,
+        name: 'Stale after reopen',
+      });
+      expect(staleEdit.status).toBe(409);
+      expect(await prisma.resourceChange.count({ where: { resourceId: workstream.id } })).toBe(
+        auditAfterReopen,
+      );
     });
 
     it('should return 404 when workstream does not exist', async () => {
@@ -816,7 +918,9 @@ describe('Workstreams API Integration Tests', () => {
       const project2 = await createTestProject(person2.id);
       const workstream2 = await createTestWorkstream(project2.id);
 
-      const response = await request(app).put(`/${workstream2.id}`).send({ name: 'Hacked!' });
+      const response = await request(app)
+        .put(`/${workstream2.id}`)
+        .send({ expectedVersion: 1, name: 'Hacked!' });
 
       expect(response.status).toBe(404);
     });

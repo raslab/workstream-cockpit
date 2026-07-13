@@ -155,6 +155,11 @@ All tools return a structured object with:
 - The requested or changed entity/entities.
 - Optional `summary` for concise human display.
 
+Workstreams and status updates include an integer `version`. Existing-resource edit tools require
+the version returned by the read that the caller based its edit on. A successful edit increments
+the version. If another client changed the resource first, the stale edit fails with a conflict and
+does not overwrite the newer data; callers must read the resource again before retrying.
+
 Errors should be MCP tool errors with safe messages. Do not include PATs, stack traces, SQL details, or internal project IDs unless the ID is already part of the normal response model.
 
 ## Tool inventory
@@ -340,8 +345,10 @@ Input:
 ```json
 {
   "id": "workstream UUID",
+  "expectedVersion": "required positive integer from workstreams_get/list",
   "name": "optional 1-200 chars",
   "categoryId": "optional category UUID or null",
+  "parentId": "optional parent workstream UUID or null",
   "context": "optional 0-2000 chars or null"
 }
 ```
@@ -401,6 +408,7 @@ Input:
 {
   "id": "status update UUID",
   "workstreamId": "owning workstream UUID",
+  "expectedVersion": "required positive integer from updates_get/list",
   "status": "optional 1-500 chars",
   "note": "optional 0-2000 chars or null"
 }

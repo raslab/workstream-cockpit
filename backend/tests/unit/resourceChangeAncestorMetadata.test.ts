@@ -47,7 +47,7 @@ describe('resource change ancestor metadata', () => {
     await updateStatusUpdate(
       update.id,
       grandchild.id,
-      { status: 'Corrected movement' },
+      { status: 'Corrected movement', expectedVersion: update.version },
       project.id,
     );
     await deleteStatusUpdate(update.id, grandchild.id);
