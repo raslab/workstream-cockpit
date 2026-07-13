@@ -400,6 +400,13 @@ function NextStepsSection({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [actionConfirm, setActionConfirm] = useState<{
+    nextStepId: string;
+    action: 'solve' | 'abandon';
+  } | null>(null);
+  const actionSubmissionRef = useRef<string | null>(null);
+  const actionTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const restoreActionFocusRef = useRef<string | null>(null);
   const nextStepDraftControls = useDialogDraft({
     storageKey: `cockpit:draft:next-step-create:${workstreamId}`,
     isOpen: !isClosed,
@@ -420,9 +427,35 @@ function NextStepsSection({
     reorderNextSteps.isPending ||
     solveNextStep.isPending ||
     abandonNextStep.isPending;
+  const confirmedActionPending =
+    actionConfirm?.action === 'solve'
+      ? solveNextStep.isPending
+      : actionConfirm?.action === 'abandon'
+        ? abandonNextStep.isPending
+        : false;
+
+  useEffect(() => {
+    if (actionConfirm || !restoreActionFocusRef.current) return;
+    actionTriggerRefs.current[restoreActionFocusRef.current]?.focus();
+    restoreActionFocusRef.current = null;
+  }, [actionConfirm]);
+
+  useEffect(() => {
+    setActionConfirm(null);
+    actionSubmissionRef.current = null;
+    restoreActionFocusRef.current = null;
+  }, [workstreamId]);
+
+  useEffect(() => {
+    if (!actionConfirm || nextSteps.some((step) => step.id === actionConfirm.nextStepId)) return;
+    setActionConfirm(null);
+    actionSubmissionRef.current = null;
+    restoreActionFocusRef.current = null;
+  }, [actionConfirm, nextSteps]);
 
   const handleAdd = (event: React.FormEvent) => {
     event.preventDefault();
+    if (actionConfirm) return;
     const text = newText.trim();
     if (!text) return;
     nextStepDraftControls.clearDraft();
@@ -453,10 +486,42 @@ function NextStepsSection({
   };
 
   const dropStep = (targetId: string) => {
-    if (!draggedId || isMutating || isClosed) return;
+    if (!draggedId || isMutating || actionConfirm || isClosed) return;
     const ids = reorderStepIds(nextSteps, draggedId, targetId);
     if (ids) reorderNextSteps.mutate(ids);
     setDraggedId(null);
+  };
+
+  const beginActionConfirm = (nextStepId: string, action: 'solve' | 'abandon') => {
+    if (isMutating || isClosed) return;
+    solveNextStep.reset();
+    abandonNextStep.reset();
+    restoreActionFocusRef.current = `${action}:${nextStepId}`;
+    setActionConfirm({ nextStepId, action });
+  };
+
+  const cancelActionConfirm = () => {
+    if (actionSubmissionRef.current) return;
+    solveNextStep.reset();
+    abandonNextStep.reset();
+    setActionConfirm(null);
+  };
+
+  const confirmAction = (step: NextStep, action: 'solve' | 'abandon') => {
+    const submissionKey = `${action}:${step.id}`;
+    const actionPending = action === 'solve' ? solveNextStep.isPending : abandonNextStep.isPending;
+    if (actionSubmissionRef.current || actionPending) return;
+    actionSubmissionRef.current = submissionKey;
+    const mutation = action === 'solve' ? solveNextStep : abandonNextStep;
+    mutation.mutate(step.id, {
+      onSuccess: () => {
+        restoreActionFocusRef.current = null;
+        setActionConfirm(null);
+      },
+      onSettled: () => {
+        if (actionSubmissionRef.current === submissionKey) actionSubmissionRef.current = null;
+      },
+    });
   };
 
   return (
@@ -497,14 +562,14 @@ function NextStepsSection({
             >
               <button
                 type="button"
-                draggable={!isClosed && !isMutating}
+                draggable={!isClosed && !isMutating && !actionConfirm}
                 onDragStart={(event) => {
                   setDraggedId(step.id);
                   event.dataTransfer?.setData('text/plain', step.id);
                   if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
                 }}
                 onDragEnd={() => setDraggedId(null)}
-                disabled={isClosed || isMutating || nextSteps.length < 2}
+                disabled={isClosed || isMutating || Boolean(actionConfirm) || nextSteps.length < 2}
                 aria-label={`Drag to reorder ${step.text}`}
                 className="rounded px-1.5 py-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
               >
@@ -540,31 +605,92 @@ function NextStepsSection({
                   <button
                     type="button"
                     onClick={() => beginEdit(step)}
-                    disabled={isMutating || isClosed}
+                    disabled={isMutating || Boolean(actionConfirm) || isClosed}
                     aria-label={`Edit next step ${step.text}`}
                     className="min-w-0 flex-1 whitespace-pre-wrap break-words rounded px-1 py-1 text-left text-gray-700 hover:bg-gray-50 disabled:cursor-default disabled:hover:bg-transparent dark:text-gray-200 dark:hover:bg-gray-700"
                   >
                     {step.text}
                   </button>
-                  <div className="flex flex-wrap gap-1">
-                    <button
-                      type="button"
-                      onClick={() => solveNextStep.mutate(step.id)}
-                      disabled={isMutating || isClosed}
-                      aria-label={`Solve ${step.text}`}
-                      className="rounded-md border border-green-300 px-2 py-1 text-xs font-semibold text-green-700 hover:bg-green-50 disabled:opacity-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/40"
-                    >
-                      Solve
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => abandonNextStep.mutate(step.id)}
-                      disabled={isMutating || isClosed}
-                      aria-label={`Abandon ${step.text}`}
-                      className="rounded-md border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/40"
-                    >
-                      Abandon
-                    </button>
+                  <div className="flex flex-col items-end gap-1">
+                    {actionConfirm?.nextStepId === step.id ? (
+                      <div
+                        key={`confirm-${actionConfirm.action}`}
+                        className="flex flex-col items-end gap-1"
+                      >
+                        <div className="flex flex-wrap gap-1">
+                          <span className="rounded-md px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                            {actionConfirm.action === 'solve' ? 'Solve?' : 'Abandon?'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={cancelActionConfirm}
+                            disabled={confirmedActionPending}
+                            aria-label={`Cancel ${actionConfirm.action} ${step.text}`}
+                            className="rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => confirmAction(step, actionConfirm.action)}
+                            disabled={confirmedActionPending}
+                            autoFocus
+                            aria-label={
+                              confirmedActionPending
+                                ? `${actionConfirm.action === 'solve' ? 'Solving' : 'Abandoning'} ${step.text}`
+                                : `Confirm ${actionConfirm.action} ${step.text}`
+                            }
+                            className={`rounded-md px-2 py-1 text-xs font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-50 ${
+                              actionConfirm.action === 'solve'
+                                ? 'bg-green-600 hover:bg-green-700'
+                                : 'bg-red-600 hover:bg-red-700'
+                            }`}
+                          >
+                            {confirmedActionPending
+                              ? actionConfirm.action === 'solve'
+                                ? 'Solving...'
+                                : 'Abandoning...'
+                              : `Confirm ${actionConfirm.action}`}
+                          </button>
+                        </div>
+                        {((actionConfirm.action === 'solve' && solveNextStep.isError) ||
+                          (actionConfirm.action === 'abandon' && abandonNextStep.isError)) && (
+                          <div
+                            role="alert"
+                            className="max-w-xs rounded-md bg-red-50 px-2 py-1 text-xs text-red-800 dark:bg-red-950 dark:text-red-200"
+                          >
+                            Failed to {actionConfirm.action} “{step.text}”. Please try again.
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div key="actions" className="flex flex-wrap gap-1">
+                        <button
+                          type="button"
+                          onClick={() => beginActionConfirm(step.id, 'solve')}
+                          disabled={isMutating || isClosed}
+                          ref={(element) => {
+                            actionTriggerRefs.current[`solve:${step.id}`] = element;
+                          }}
+                          aria-label={`Solve ${step.text}`}
+                          className="rounded-md border border-green-300 px-2 py-1 text-xs font-semibold text-green-700 hover:bg-green-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/40"
+                        >
+                          Solve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => beginActionConfirm(step.id, 'abandon')}
+                          disabled={isMutating || isClosed}
+                          ref={(element) => {
+                            actionTriggerRefs.current[`abandon:${step.id}`] = element;
+                          }}
+                          aria-label={`Abandon ${step.text}`}
+                          className="rounded-md border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/40"
+                        >
+                          Abandon
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -588,7 +714,7 @@ function NextStepsSection({
           />
           <button
             type="submit"
-            disabled={!newText.trim() || createNextStep.isPending}
+            disabled={!newText.trim() || createNextStep.isPending || Boolean(actionConfirm)}
             className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
           >
             Add next step

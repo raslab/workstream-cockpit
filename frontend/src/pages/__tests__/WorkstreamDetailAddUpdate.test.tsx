@@ -263,6 +263,11 @@ describe('WorkstreamDetail add update flow', () => {
     fireEvent.click(
       within(nextStepsSection).getByRole('button', { name: 'Solve Confirm rollout owner' }),
     );
+    fireEvent.click(
+      within(nextStepsSection).getByRole('button', {
+        name: 'Confirm solve Confirm rollout owner',
+      }),
+    );
 
     expect(await screen.findByTestId('status-update-update-solved')).toBeInTheDocument();
     expect(screen.getByText('Solved next step: Confirm rollout owner')).toBeInTheDocument();
@@ -271,6 +276,11 @@ describe('WorkstreamDetail add update flow', () => {
 
     fireEvent.click(
       within(nextStepsSection).getByRole('button', { name: 'Abandon Retire stale checklist' }),
+    );
+    fireEvent.click(
+      within(nextStepsSection).getByRole('button', {
+        name: 'Confirm abandon Retire stale checklist',
+      }),
     );
 
     expect(await screen.findByTestId('status-update-update-abandoned')).toBeInTheDocument();

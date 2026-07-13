@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -53,7 +54,7 @@ function renderDetail() {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
 
-  return render(
+  const view = render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[`/workstreams/${workstream.id}`]}>
         <Routes>
@@ -62,6 +63,7 @@ function renderDetail() {
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return { ...view, queryClient };
 }
 
 function mockGet(url: string) {
@@ -205,12 +207,26 @@ describe('WorkstreamDetail next steps', () => {
     fireEvent.click(
       within(section).getByRole('button', { name: 'Solve Draft final launch checklist' }),
     );
+    expect(apiPutMock).not.toHaveBeenCalledWith(
+      '/api/workstreams/stream-1/next-steps/step-1/solve',
+    );
+    fireEvent.click(
+      within(section).getByRole('button', {
+        name: 'Confirm solve Draft final launch checklist',
+      }),
+    );
     await waitFor(() =>
       expect(apiPutMock).toHaveBeenCalledWith('/api/workstreams/stream-1/next-steps/step-1/solve'),
     );
     expect(within(section).queryByText('Draft final launch checklist')).not.toBeInTheDocument();
 
     fireEvent.click(within(section).getByRole('button', { name: 'Abandon Confirm support owner' }));
+    expect(apiPutMock).not.toHaveBeenCalledWith(
+      '/api/workstreams/stream-1/next-steps/step-2/abandon',
+    );
+    fireEvent.click(
+      within(section).getByRole('button', { name: 'Confirm abandon Confirm support owner' }),
+    );
     await waitFor(() =>
       expect(apiPutMock).toHaveBeenCalledWith(
         '/api/workstreams/stream-1/next-steps/step-2/abandon',
@@ -219,6 +235,176 @@ describe('WorkstreamDetail next steps', () => {
     expect(within(section).queryByText('Confirm support owner')).not.toBeInTheDocument();
     expect(within(section).getByText('1 open next step')).toBeInTheDocument();
   }, 30000);
+
+  it('cancels an action-specific inline confirmation without mutating and restores row controls', async () => {
+    renderDetail();
+    const section = await screen.findByRole('region', { name: 'Next steps' });
+
+    fireEvent.click(
+      await within(section).findByRole('button', { name: 'Abandon Draft launch checklist' }),
+    );
+
+    expect(
+      within(section).getByRole('button', { name: 'Confirm abandon Draft launch checklist' }),
+    ).toBeInTheDocument();
+    expect(
+      within(section).queryByRole('button', { name: 'Confirm solve Draft launch checklist' }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      within(section).getByRole('button', { name: 'Cancel abandon Draft launch checklist' }),
+    );
+
+    expect(apiPutMock).not.toHaveBeenCalledWith(
+      '/api/workstreams/stream-1/next-steps/step-1/abandon',
+    );
+    expect(
+      within(section).getByRole('button', { name: 'Solve Draft launch checklist' }),
+    ).toBeInTheDocument();
+    expect(
+      await within(section).findByRole('button', { name: 'Abandon Draft launch checklist' }),
+    ).toBeInTheDocument();
+  });
+
+  it('clears confirmation if a refetch removes the selected next step', async () => {
+    const { queryClient } = renderDetail();
+    const section = await screen.findByRole('region', { name: 'Next steps' });
+
+    fireEvent.click(
+      await within(section).findByRole('button', { name: 'Solve Draft launch checklist' }),
+    );
+    expect(
+      within(section).getByRole('button', { name: 'Confirm solve Draft launch checklist' }),
+    ).toBeInTheDocument();
+
+    nextSteps = nextSteps.filter((step) => step.id !== 'step-1');
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ['next-steps', 'stream-1'] });
+    });
+
+    await waitFor(() => expect(section).not.toHaveTextContent('Draft launch checklist'));
+    expect(
+      within(section).getByRole('button', { name: 'Edit next step Confirm support owner' }),
+    ).toBeEnabled();
+    fireEvent.change(within(section).getByLabelText('New next step'), {
+      target: { value: 'Follow up after external change' },
+    });
+    expect(within(section).getByRole('button', { name: 'Add next step' })).toBeEnabled();
+  });
+
+  it('submits a confirmed solve exactly once during rapid clicks and disables confirmation in flight', async () => {
+    let resolveSolve!: (value: { data: { id: string; state: string } }) => void;
+    const solveRequest = new Promise<{ data: { id: string; state: string } }>((resolve) => {
+      resolveSolve = resolve;
+    });
+    apiPutMock.mockImplementation((url: string) => {
+      if (url === '/api/workstreams/stream-1/next-steps/step-1/solve') return solveRequest;
+      return Promise.reject(new Error(`unexpected PUT ${url}`));
+    });
+    renderDetail();
+    const section = await screen.findByRole('region', { name: 'Next steps' });
+
+    fireEvent.click(
+      await within(section).findByRole('button', { name: 'Solve Draft launch checklist' }),
+    );
+    const confirm = within(section).getByRole('button', {
+      name: 'Confirm solve Draft launch checklist',
+    });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(apiPutMock).toHaveBeenCalledTimes(1));
+    expect(confirm).toBeDisabled();
+    expect(confirm).toHaveAccessibleName('Solving Draft launch checklist');
+
+    nextSteps = nextSteps.filter((step) => step.id !== 'step-1');
+    resolveSolve({ data: { id: 'step-1', state: 'solved' } });
+    await waitFor(() =>
+      expect(within(section).queryByText('Draft launch checklist')).not.toBeInTheDocument(),
+    );
+  });
+
+  it('does not treat a rapid double-click on the initial action as confirmation', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+    const section = await screen.findByRole('region', { name: 'Next steps' });
+    const solve = await within(section).findByRole('button', {
+      name: 'Solve Draft launch checklist',
+    });
+
+    await act(async () => user.dblClick(solve));
+
+    expect(apiPutMock).not.toHaveBeenCalledWith(
+      '/api/workstreams/stream-1/next-steps/step-1/solve',
+    );
+    expect(
+      within(section).getByRole('button', { name: 'Confirm solve Draft launch checklist' }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps a failed abandon confirmation usable and shows an action-specific inline error', async () => {
+    let abandonAttempts = 0;
+    apiPutMock.mockImplementation((url: string) => {
+      if (url === '/api/workstreams/stream-1/next-steps/step-1/abandon') {
+        abandonAttempts += 1;
+        if (abandonAttempts === 1) return Promise.reject(new Error('network unavailable'));
+        nextSteps = nextSteps.filter((step) => step.id !== 'step-1');
+        return Promise.resolve({ data: { id: 'step-1', state: 'abandoned' } });
+      }
+      return Promise.reject(new Error(`unexpected PUT ${url}`));
+    });
+    renderDetail();
+    const section = await screen.findByRole('region', { name: 'Next steps' });
+
+    fireEvent.click(
+      await within(section).findByRole('button', { name: 'Abandon Draft launch checklist' }),
+    );
+    fireEvent.click(
+      within(section).getByRole('button', { name: 'Confirm abandon Draft launch checklist' }),
+    );
+
+    expect(await within(section).findByRole('alert')).toHaveTextContent(
+      'Failed to abandon “Draft launch checklist”. Please try again.',
+    );
+    expect(
+      within(section).getByRole('button', { name: 'Confirm abandon Draft launch checklist' }),
+    ).toBeEnabled();
+    fireEvent.click(
+      within(section).getByRole('button', { name: 'Confirm abandon Draft launch checklist' }),
+    );
+    await waitFor(() => expect(abandonAttempts).toBe(2));
+    await waitFor(() => expect(section).not.toHaveTextContent('Draft launch checklist'));
+  });
+
+  it('exposes distinct keyboard-operable confirmation and cancellation labels', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+    const section = await screen.findByRole('region', { name: 'Next steps' });
+
+    const solve = await within(section).findByRole('button', {
+      name: 'Solve Draft launch checklist',
+    });
+    solve.focus();
+    await act(async () => user.keyboard('{Enter}'));
+    const confirm = within(section).getByRole('button', {
+      name: 'Confirm solve Draft launch checklist',
+    });
+    const cancel = within(section).getByRole('button', {
+      name: 'Cancel solve Draft launch checklist',
+    });
+    expect(confirm).toHaveTextContent('Confirm solve');
+    expect(confirm).toHaveFocus();
+    expect(cancel).toHaveTextContent('Cancel');
+
+    cancel.focus();
+    await act(async () => user.keyboard(' '));
+    expect(apiPutMock).not.toHaveBeenCalledWith(
+      '/api/workstreams/stream-1/next-steps/step-1/solve',
+    );
+    const restoredSolve = within(section).getByRole('button', {
+      name: 'Solve Draft launch checklist',
+    });
+    expect(restoredSolve).toHaveFocus();
+  });
 
   it('preserves the Add a next step draft across remounts and clears it on submit', async () => {
     const { unmount } = renderDetail();
