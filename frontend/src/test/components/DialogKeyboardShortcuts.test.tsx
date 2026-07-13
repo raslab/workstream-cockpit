@@ -53,6 +53,7 @@ const baseStatusUpdate: StatusUpdate = {
 
 describe('dialog keyboard submission hints', () => {
   beforeEach(() => {
+    localStorage.clear();
     apiPostMock.mockReset();
     apiPutMock.mockReset();
     apiPostMock.mockImplementation(() => new Promise(() => undefined));
@@ -66,16 +67,21 @@ describe('dialog keyboard submission hints', () => {
     expect(screen.getByText(/Ctrl\/Cmd \| Enter submits/i)).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/Name/i), { target: { value: 'New stream' } });
-    fireEvent.change(screen.getByLabelText(/Initial Status/i), { target: { value: 'Status line' } });
+    fireEvent.change(screen.getByLabelText(/Initial Status/i), {
+      target: { value: 'Status line' },
+    });
     await act(async () => {
       fireEvent.keyDown(screen.getByLabelText(/Initial Status/i), { key: 'Enter', ctrlKey: true });
     });
 
     await waitFor(() => {
-      expect(apiPostMock).toHaveBeenCalledWith('/api/workstreams', expect.objectContaining({
-        name: 'New stream',
-        initialStatus: 'Status line',
-      }));
+      expect(apiPostMock).toHaveBeenCalledWith(
+        '/api/workstreams',
+        expect.objectContaining({
+          name: 'New stream',
+          initialStatus: 'Status line',
+        }),
+      );
     });
   });
 
@@ -94,16 +100,24 @@ describe('dialog keyboard submission hints', () => {
     });
 
     await waitFor(() => {
-      expect(apiPutMock).toHaveBeenCalledWith('/api/workstreams/stream-1', expect.objectContaining({
-        name: 'Existing stream',
-        context: 'First line\nsecond line',
-      }));
+      expect(apiPutMock).toHaveBeenCalledWith(
+        '/api/workstreams/stream-1',
+        expect.objectContaining({
+          name: 'Existing stream',
+          context: 'First line\nsecond line',
+        }),
+      );
     });
   });
 
   it('keeps regular Enter as a newline in status updates and submits with Ctrl+Enter', async () => {
     renderWithClient(
-      <StatusUpdateDialog isOpen onClose={vi.fn()} workstreamId="stream-1" workstreamName="Existing stream" />,
+      <StatusUpdateDialog
+        isOpen
+        onClose={vi.fn()}
+        workstreamId="stream-1"
+        workstreamName="Existing stream"
+      />,
     );
 
     expect(screen.getByText(/Enter adds a new line/i)).toBeInTheDocument();
@@ -118,10 +132,13 @@ describe('dialog keyboard submission hints', () => {
     });
 
     await waitFor(() => {
-      expect(apiPostMock).toHaveBeenCalledWith('/api/status-updates', expect.objectContaining({
-        workstreamId: 'stream-1',
-        status: 'First line\nsecond line',
-      }));
+      expect(apiPostMock).toHaveBeenCalledWith(
+        '/api/status-updates',
+        expect.objectContaining({
+          workstreamId: 'stream-1',
+          status: 'First line\nsecond line',
+        }),
+      );
     });
   });
 
@@ -212,7 +229,12 @@ describe('dialog keyboard submission hints', () => {
   it('uses the same Escape discard confirmation for creating status updates', () => {
     const onClose = vi.fn();
     renderWithClient(
-      <StatusUpdateDialog isOpen onClose={onClose} workstreamId="stream-1" workstreamName="Existing stream" />,
+      <StatusUpdateDialog
+        isOpen
+        onClose={onClose}
+        workstreamId="stream-1"
+        workstreamName="Existing stream"
+      />,
     );
 
     const status = screen.getByLabelText(/Status/i);
@@ -252,7 +274,6 @@ describe('dialog keyboard submission hints', () => {
     expect(screen.getByLabelText(/Name/i)).toHaveValue('Draft stream');
     expect(onClose).not.toHaveBeenCalled();
   });
-
 
   it('uses the same Escape discard confirmation for creating sub-streams', () => {
     const onClose = vi.fn();

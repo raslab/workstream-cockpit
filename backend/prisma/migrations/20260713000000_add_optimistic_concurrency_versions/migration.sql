@@ -1,0 +1,5 @@
+ALTER TABLE "workstreams"
+ADD COLUMN "version" INTEGER NOT NULL DEFAULT 1;
+
+ALTER TABLE "status_updates"
+ADD COLUMN "version" INTEGER NOT NULL DEFAULT 1;

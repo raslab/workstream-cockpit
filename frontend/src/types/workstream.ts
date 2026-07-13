@@ -32,6 +32,7 @@ export interface StatusUpdate {
   impact?: 'active' | 'info' | 'initial';
   createdAt: string;
   updatedAt: string;
+  version: number;
   workstream?: WorkstreamSummary;
   sourceWorkstream?: WorkstreamSummary;
   source?: WorkstreamSummary;
@@ -70,6 +71,7 @@ export interface Workstream {
   state: 'active' | 'closed';
   createdAt: string;
   closedAt: string | null;
+  version: number;
   category?: Category | null;
   latestStatus?: StatusUpdate;
   allTags?: string[]; // All tags extracted from context and all status updates

@@ -127,12 +127,29 @@ export function StatusEditDialog({
 }: StatusEditDialogProps) {
   const [status, setStatus] = useState(statusUpdate.status);
   const [note, setNote] = useState(statusUpdate.note || '');
+  const [baseline, setBaseline] = useState(statusUpdate);
+  const [conflictCurrent, setConflictCurrent] = useState<StatusUpdate | null>(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const wasOpenRef = useRef(false);
   const queryClient = useQueryClient();
   const statusRef = useRef<HTMLTextAreaElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const currentDraft = { status, note };
-  const isDraftDirty = status !== statusUpdate.status || note !== (statusUpdate.note || '');
+  const isDraftDirty = status !== baseline.status || note !== (baseline.note || '');
+  useEffect(() => {
+    const dirty = status !== baseline.status || note !== (baseline.note || '');
+    const opening = isOpen && !wasOpenRef.current;
+    const changingResource = baseline.id !== statusUpdate.id;
+    if (isOpen && (opening || changingResource || !dirty)) {
+      setBaseline(statusUpdate);
+      setStatus(statusUpdate.status);
+      setNote(statusUpdate.note || '');
+      if (opening || changingResource) {
+        setConflictCurrent(null);
+      }
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen, statusUpdate]);
   const draftControls = useDialogDraft({
     storageKey: `cockpit:draft:status-edit:${statusUpdate.id}`,
     isOpen,
@@ -151,6 +168,7 @@ export function StatusEditDialog({
         workstreamId,
         status: data.status,
         note: data.note || null,
+        expectedVersion: baseline.version,
       });
       return response.data;
     },
@@ -172,15 +190,28 @@ export function StatusEditDialog({
       draftControls.clearDraft();
       onClose();
     },
+    onError: (error: any) => {
+      if (error?.response?.status === 409 && error?.response?.data?.code === 'VERSION_CONFLICT') {
+        setConflictCurrent(error.response.data.current || null);
+      }
+    },
+    retry: false,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (updateMutation.isPending) return;
     if (status.trim()) {
-      draftControls.clearDraft();
       updateMutation.mutate({ status: status.trim(), note: note.trim() });
     }
+  };
+
+  const reloadCurrentVersion = () => {
+    if (!conflictCurrent) return;
+    const latest = conflictCurrent;
+    setBaseline(latest);
+    setConflictCurrent(null);
+    updateMutation.reset();
   };
 
   const closeWithoutSaving = () => {
@@ -277,10 +308,20 @@ export function StatusEditDialog({
             </div>
           </div>
 
-          {updateMutation.isError && (
-            <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
-              Failed to update status. Please try again.
+          {conflictCurrent ? (
+            <div className="mb-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+              This status update changed elsewhere. Reload the current version to continue; your
+              cached draft will be restored automatically.
+              <button type="button" className="ml-2 underline" onClick={reloadCurrentVersion}>
+                Reload current version
+              </button>
             </div>
+          ) : (
+            updateMutation.isError && (
+              <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+                Failed to update status. Please try again.
+              </div>
+            )
           )}
 
           {showDiscardConfirm && (

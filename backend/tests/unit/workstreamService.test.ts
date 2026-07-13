@@ -388,7 +388,10 @@ describe('WorkstreamService', () => {
       const project = await createTestProject(person.id);
       const workstream = await createTestWorkstream(project.id, { name: 'Old Name' });
 
-      const updated = await updateWorkstream(workstream.id, project.id, { name: 'New Name' });
+      const updated = await updateWorkstream(workstream.id, project.id, {
+        expectedVersion: 1,
+        name: 'New Name',
+      });
 
       expect(updated.name).toBe('New Name');
     });
@@ -400,6 +403,7 @@ describe('WorkstreamService', () => {
       const workstream = await createTestWorkstream(project.id);
 
       const updated = await updateWorkstream(workstream.id, project.id, {
+        expectedVersion: 1,
         categoryId: category.id,
       });
 
@@ -412,6 +416,7 @@ describe('WorkstreamService', () => {
       const workstream = await createTestWorkstream(project.id);
 
       const updated = await updateWorkstream(workstream.id, project.id, {
+        expectedVersion: 1,
         context: 'New context',
       });
 
@@ -424,7 +429,10 @@ describe('WorkstreamService', () => {
       const category = await createTestCategory(project.id);
       const workstream = await createTestWorkstream(project.id, { categoryId: category.id });
 
-      const updated = await updateWorkstream(workstream.id, project.id, { categoryId: null });
+      const updated = await updateWorkstream(workstream.id, project.id, {
+        expectedVersion: 1,
+        categoryId: null,
+      });
 
       expect(updated.categoryId).toBeNull();
     });
@@ -436,7 +444,7 @@ describe('WorkstreamService', () => {
       const workstream = await createTestWorkstream(project1.id);
 
       await expect(
-        updateWorkstream(workstream.id, project2.id, { name: 'Hacked' }),
+        updateWorkstream(workstream.id, project2.id, { expectedVersion: 1, name: 'Hacked' }),
       ).rejects.toThrow('Workstream not found or access denied');
     });
   });

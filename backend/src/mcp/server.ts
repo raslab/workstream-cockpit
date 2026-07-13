@@ -43,6 +43,7 @@ import { viewService } from '../services/viewService';
 import { getTimeline } from '../services/timelineService';
 import { logger } from '../utils/logger';
 import { encodeOpaqueCursor } from '../utils/opaqueCursor';
+import { VersionConflictError } from '../services/versionConflictError';
 
 interface McpContext extends VerifiedPersonalAccessToken {
   projectId: string;
@@ -112,6 +113,7 @@ const limitProp = (defaultLimit = 100, maximum = 200, minimum = 1) => ({
   maximum,
   default: defaultLimit,
 });
+const versionProp = () => ({ type: 'integer', minimum: 1 });
 const colorProp = () => ({ type: 'string', pattern: '^#[0-9A-Fa-f]{6}$' });
 const rateLimitBuckets = new Map<string, RateLimitBucket>();
 const authFailureBuckets = new Map<string, RateLimitBucket>();
@@ -669,16 +671,17 @@ const tools: ToolDef[] = [
     inputSchema: schema(
       {
         id: uuidProp(),
+        expectedVersion: versionProp(),
         name: stringProp(1, 200),
         categoryId: { anyOf: [uuidProp(), { type: 'null' }] },
         parentId: { anyOf: [uuidProp(), { type: 'null' }] },
         context: { anyOf: [stringProp(0, 2000), { type: 'null' }] },
       },
-      ['id'],
+      ['id', 'expectedVersion'],
     ),
     handler: async (args, ctx) => {
       await assertWorkstream(ctx.projectId, requireString(args, 'id'));
-      const data: any = {};
+      const data: any = { expectedVersion: integerArg(args, 'expectedVersion', 1) };
       if (args.name !== undefined) data.name = requireString(args, 'name', 200);
       if (args.categoryId !== undefined)
         data.categoryId = optionalString(args, 'categoryId', 100, true);
@@ -955,15 +958,17 @@ const tools: ToolDef[] = [
       {
         id: uuidProp(),
         workstreamId: uuidProp(),
+        expectedVersion: versionProp(),
         status: stringProp(1, 500),
         note: { anyOf: [stringProp(0, 2000), { type: 'null' }] },
       },
-      ['id', 'workstreamId'],
+      ['id', 'workstreamId', 'expectedVersion'],
     ),
     handler: async (args, ctx) => {
       await assertWorkstream(ctx.projectId, requireString(args, 'workstreamId'));
       return ok({
         update: await updateStatusUpdate(requireString(args, 'id'), args.workstreamId, {
+          expectedVersion: integerArg(args, 'expectedVersion', 1),
           status: optionalString(args, 'status', 500) as any,
           note: optionalString(args, 'note', 2000, true) as any,
         }),
@@ -1261,8 +1266,8 @@ const byName = new Map(tools.map((t) => [t.name, t]));
 function result(id: any, value: any) {
   return { jsonrpc: '2.0', id, result: value };
 }
-function error(id: any, code: number, message: string) {
-  return { jsonrpc: '2.0', id, error: { code, message } };
+function error(id: any, code: number, message: string, data?: unknown) {
+  return { jsonrpc: '2.0', id, error: { code, message, ...(data === undefined ? {} : { data }) } };
 }
 function hasJsonRpcId(body: any): boolean {
   return Object.prototype.hasOwnProperty.call(body ?? {}, 'id');
@@ -1322,6 +1327,11 @@ async function handleRpc(body: any, ctx: McpContext) {
           });
     } catch (err: any) {
       auditTool(ctx, tool, args, false);
+      if (err instanceof VersionConflictError) {
+        return isNotification
+          ? undefined
+          : error(id, -32009, err.message, { code: err.code, current: clean(err.current) });
+      }
       return isNotification ? undefined : error(id, -32000, sanitizeToolError(err));
     }
   }

@@ -105,6 +105,7 @@ model Workstream {
   name       String
   context    String?   @db.Text
   state      String    @default("active")
+  version    Int       @default(1)
   createdAt  DateTime  @default(now()) @map("created_at")
   closedAt   DateTime? @map("closed_at")
 
@@ -147,6 +148,7 @@ model StatusUpdate {
   status       String
   note         String?  @db.Text
   impact       String   @default("active")
+  version      Int      @default(1)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

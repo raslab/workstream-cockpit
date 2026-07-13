@@ -325,6 +325,7 @@ describe('MCP endpoint', () => {
     expect(expectToolFailure(crossGet)).toMatch(/not found/i);
 
     const crossUpdate = await callTool(app, readWrite, 'workstreams_update', {
+      expectedVersion: 1,
       id: otherWorkstream.id,
       name: 'Hack',
     }).expect(200);
@@ -543,6 +544,7 @@ describe('MCP endpoint', () => {
     ]);
 
     const updatedWorkstream = await callTool(app, token, 'workstreams_update', {
+      expectedVersion: 1,
       id: workstream.id,
       name: 'Renamed',
       context: null,
@@ -568,6 +570,7 @@ describe('MCP endpoint', () => {
     );
 
     const foreignCategoryUpdate = await callTool(app, token, 'workstreams_update', {
+      expectedVersion: 2,
       id: workstream.id,
       name: 'Should Not Rename',
       categoryId: foreignCategory.id,
@@ -589,6 +592,7 @@ describe('MCP endpoint', () => {
     });
 
     const updatedUpdate = await callTool(app, token, 'updates_update', {
+      expectedVersion: 1,
       workstreamId: workstream.id,
       id: secondUpdate.id,
       status: 'Updated status',
@@ -608,6 +612,7 @@ describe('MCP endpoint', () => {
     expect(wrongWorkstreamGet.body.error.message).toMatch(/update not found/i);
 
     const wrongWorkstreamUpdate = await callTool(app, token, 'updates_update', {
+      expectedVersion: 1,
       workstreamId: workstream.id,
       id: otherOwnerUpdate.id,
       status: 'Should not apply',
@@ -628,6 +633,7 @@ describe('MCP endpoint', () => {
     ).not.toBeNull();
 
     const foreignUpdateAttempt = await callTool(app, token, 'updates_update', {
+      expectedVersion: 1,
       workstreamId: foreignWorkstream.id,
       id: foreignUpdate.id,
       status: 'Stolen',
@@ -652,6 +658,56 @@ describe('MCP endpoint', () => {
     expect(
       await prisma.statusUpdate.findUnique({ where: { id: foreignUpdate.id } }),
     ).not.toBeNull();
+  });
+
+  it('returns a dedicated MCP version conflict with the current resource', async () => {
+    const person = await createTestPerson({ email: 'mcp-concurrency@example.com' });
+    const project = await createTestProject(person.id);
+    const workstream = await createTestWorkstream(project.id, { name: 'Original' });
+    const update = await createTestStatusUpdate(workstream.id, { status: 'Original status' });
+    const token = await pat(person.id, ['mcp:read', 'mcp:write']);
+
+    const accepted = await callTool(app, token, 'workstreams_update', {
+      id: workstream.id,
+      expectedVersion: 1,
+      name: 'Writer A',
+    }).expect(200);
+    expect(accepted.body.result.structuredContent.workstream.version).toBe(2);
+    const stale = await callTool(app, token, 'workstreams_update', {
+      id: workstream.id,
+      expectedVersion: 1,
+      name: 'Writer B',
+    }).expect(200);
+    expect(stale.body.error).toMatchObject({
+      code: -32009,
+      message: 'Version conflict',
+      data: {
+        code: 'VERSION_CONFLICT',
+        current: { id: workstream.id, name: 'Writer A', version: 2 },
+      },
+    });
+
+    const updateAccepted = await callTool(app, token, 'updates_update', {
+      id: update.id,
+      workstreamId: workstream.id,
+      expectedVersion: 1,
+      status: 'Update writer A',
+    }).expect(200);
+    expect(updateAccepted.body.result.structuredContent.update.version).toBe(2);
+    const updateStale = await callTool(app, token, 'updates_update', {
+      id: update.id,
+      workstreamId: workstream.id,
+      expectedVersion: 1,
+      status: 'Update writer B',
+    }).expect(200);
+    expect(updateStale.body.error).toMatchObject({
+      code: -32009,
+      message: 'Version conflict',
+      data: {
+        code: 'VERSION_CONFLICT',
+        current: { id: update.id, status: 'Update writer A', version: 2 },
+      },
+    });
   });
 
   it('covers MCP parent stream create/update/list/timeline parity', async () => {
@@ -686,11 +742,13 @@ describe('MCP endpoint', () => {
     );
 
     const detached = await callTool(app, token, 'workstreams_update', {
+      expectedVersion: 1,
       id: substream.id,
       parentId: null,
     }).expect(200);
     expect(detached.body.result.structuredContent.workstream.parentId).toBeNull();
     const reattached = await callTool(app, token, 'workstreams_update', {
+      expectedVersion: 2,
       id: substream.id,
       parentId: parent.id,
     }).expect(200);
@@ -769,6 +827,7 @@ describe('MCP endpoint', () => {
     });
 
     const cycle = await callTool(app, token, 'workstreams_update', {
+      expectedVersion: 1,
       id: root.id,
       parentId: substream.id,
     }).expect(200);
@@ -778,6 +837,7 @@ describe('MCP endpoint', () => {
     ).toBeNull();
 
     const closed = await callTool(app, token, 'workstreams_update', {
+      expectedVersion: 1,
       id: substream.id,
       parentId: closedParent.id,
     }).expect(200);
