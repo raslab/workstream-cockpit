@@ -76,11 +76,11 @@ describe('Parent streams and sub-streams backend contract', () => {
     expect(tooDeep.status).toBe(400);
     expect(tooDeep.body.error).toMatch(/depth/i);
 
-    const self = await request(workstreamsApp).put(`/${root.id}`).send({ parentId: root.id });
+    const self = await request(workstreamsApp).put(`/${root.id}`).send({ expectedVersion: root.version, parentId: root.id });
     expect(self.status).toBe(400);
     expect(self.body.error).toMatch(/own parent/i);
 
-    const cycle = await request(workstreamsApp).put(`/${root.id}`).send({ parentId: current.id });
+    const cycle = await request(workstreamsApp).put(`/${root.id}`).send({ expectedVersion: root.version, parentId: current.id });
     expect(cycle.status).toBe(400);
     expect(cycle.body.error).toMatch(/sub-stream|cycle/i);
 
@@ -92,7 +92,7 @@ describe('Parent streams and sub-streams backend contract', () => {
     const otherPerson = await createTestPerson({ email: 'hierarchy-other@example.com' });
     const otherProject = await createTestProject(otherPerson.id);
     const foreignParent = await createTestWorkstream(otherProject.id, { name: 'Foreign' });
-    const crossProject = await request(workstreamsApp).put(`/${root.id}`).send({ parentId: foreignParent.id });
+    const crossProject = await request(workstreamsApp).put(`/${root.id}`).send({ expectedVersion: root.version, parentId: foreignParent.id });
     expect(crossProject.status).toBe(404);
     expect(crossProject.body.error).toBe('Parent workstream not found');
   });
@@ -112,11 +112,11 @@ describe('Parent streams and sub-streams backend contract', () => {
     expect(reopenSubstream.body.error).toMatch(/parent.*closed/i);
 
     const activeParent = await createTestWorkstream(project.id, { name: 'Active parent' });
-    const moved = await request(workstreamsApp).put(`/${substream.id}`).send({ parentId: activeParent.id });
+    const moved = await request(workstreamsApp).put(`/${substream.id}`).send({ expectedVersion: substream.version, parentId: activeParent.id });
     expect(moved.status).toBe(200);
     expect(moved.body.parentId).toBe(activeParent.id);
 
-    const detached = await request(workstreamsApp).put(`/${substream.id}`).send({ parentId: null });
+    const detached = await request(workstreamsApp).put(`/${substream.id}`).send({ expectedVersion: moved.body.version, parentId: null });
     expect(detached.status).toBe(200);
     expect(detached.body.parentId).toBeNull();
   });
@@ -141,7 +141,7 @@ describe('Parent streams and sub-streams backend contract', () => {
   it('includes parent stream fields and structural events in timeline with event type filtering', async () => {
     const parent = await createTestWorkstream(project.id, { name: 'Parent' });
     const substream = await request(workstreamsApp).post('/').send({ name: 'Sub-stream', parentId: parent.id }).then(r => r.body);
-    const top = await request(workstreamsApp).put(`/${substream.id}`).send({ parentId: null }).then(r => r.body);
+    const top = await request(workstreamsApp).put(`/${substream.id}`).send({ expectedVersion: substream.version, parentId: null }).then(r => r.body);
     expect(top.parentId).toBeNull();
 
     const response = await request(timelineApp).get('/').query({ eventTypes: 'parent_changed,sub_stream_created' }).expect(200);
@@ -270,7 +270,7 @@ describe('Parent streams and sub-streams backend contract', () => {
     const parent = await createTestWorkstream(project.id, { name: 'Validation Parent' });
     await request(workstreamsApp).post('/').send({ name: 'Bad Parent', parentId: false }).expect(400);
     await request(workstreamsApp).post('/').send({ name: 'Bad Category', categoryId: 'not-a-uuid' }).expect(400);
-    await request(workstreamsApp).put(`/${parent.id}`).send({ parentId: false }).expect(400);
-    await request(workstreamsApp).put(`/${parent.id}`).send({ categoryId: 'not-a-uuid' }).expect(400);
+    await request(workstreamsApp).put(`/${parent.id}`).send({ expectedVersion: parent.version, parentId: false }).expect(400);
+    await request(workstreamsApp).put(`/${parent.id}`).send({ expectedVersion: parent.version, categoryId: 'not-a-uuid' }).expect(400);
   });
 });

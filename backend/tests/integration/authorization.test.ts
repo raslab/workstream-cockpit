@@ -91,7 +91,7 @@ describe('Authorization & Project Isolation Tests', () => {
     it('should prevent Bob from updating Alice\'s workstream', async () => {
       const response = await request(bobApp)
         .put(`/${aliceWorkstream.id}`)
-        .send({ name: 'Hacked Workstream' });
+        .send({ expectedVersion: aliceWorkstream.version, name: 'Hacked Workstream' });
 
       expect(response.status).toBe(404);
       expect(response.body.error).toContain('not found');
@@ -304,7 +304,11 @@ describe('Authorization & Project Isolation Tests', () => {
     it('should prevent Bob from updating Alice\'s status update', async () => {
       const response = await request(bobApp)
         .put(`/${aliceStatusUpdate.id}`)
-        .send({ note: 'Hacked note' });
+        .send({
+          workstreamId: aliceWorkstream.id,
+          expectedVersion: aliceStatusUpdate.version,
+          note: 'Hacked note',
+        });
 
       expect([400, 404]).toContain(response.status);
 

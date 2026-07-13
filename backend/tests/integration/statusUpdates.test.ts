@@ -359,10 +359,99 @@ describe('Status Updates API Integration Tests', () => {
   });
 
   describe('PUT /status-updates/:id', () => {
+    it('rejects stale and repeated edits without overwriting or auditing them', async () => {
+      const statusUpdate = await createTestStatusUpdate(workstream.id, { status: 'Original' });
+      const auditBefore = await prisma.resourceChange.count({
+        where: { resourceId: statusUpdate.id },
+      });
+      const accepted = await request(app).put(`/${statusUpdate.id}`).send({
+        workstreamId: workstream.id,
+        expectedVersion: 1,
+        status: 'Writer A',
+      });
+      expect(accepted.status).toBe(200);
+      expect(accepted.body).toMatchObject({ status: 'Writer A', version: 2 });
+
+      for (const status of ['Writer B', 'Writer A repeated']) {
+        const stale = await request(app).put(`/${statusUpdate.id}`).send({
+          workstreamId: workstream.id,
+          expectedVersion: 1,
+          status,
+        });
+        expect(stale.status).toBe(409);
+        expect(stale.body).toMatchObject({
+          code: 'VERSION_CONFLICT',
+          current: { id: statusUpdate.id, status: 'Writer A', version: 2 },
+        });
+      }
+      expect(
+        await prisma.statusUpdate.findUniqueOrThrow({ where: { id: statusUpdate.id } }),
+      ).toMatchObject({ status: 'Writer A', version: 2 });
+      expect(await prisma.resourceChange.count({ where: { resourceId: statusUpdate.id } })).toBe(
+        auditBefore + 1,
+      );
+    });
+
+    it('accepts exactly one of two concurrent writers using the same version', async () => {
+      const statusUpdate = await createTestStatusUpdate(workstream.id, {
+        status: 'Concurrent original',
+      });
+      const auditBefore = await prisma.resourceChange.count({
+        where: { resourceId: statusUpdate.id },
+      });
+
+      const responses = await Promise.all([
+        request(app).put(`/${statusUpdate.id}`).send({
+          workstreamId: workstream.id,
+          expectedVersion: 1,
+          status: 'Concurrent A',
+        }),
+        request(app).put(`/${statusUpdate.id}`).send({
+          workstreamId: workstream.id,
+          expectedVersion: 1,
+          status: 'Concurrent B',
+        }),
+      ]);
+
+      expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+      const accepted = responses.find((response) => response.status === 200)!;
+      const rejected = responses.find((response) => response.status === 409)!;
+      expect(rejected.body).toMatchObject({
+        code: 'VERSION_CONFLICT',
+        current: { id: statusUpdate.id, status: accepted.body.status, version: 2 },
+      });
+      expect(
+        await prisma.statusUpdate.findUniqueOrThrow({ where: { id: statusUpdate.id } }),
+      ).toMatchObject({
+        status: accepted.body.status,
+        version: 2,
+      });
+      expect(await prisma.resourceChange.count({ where: { resourceId: statusUpdate.id } })).toBe(
+        auditBefore + 1,
+      );
+    });
+
+    it.each([undefined, 0, -1, 1.5, '1'])(
+      'requires a positive integer expectedVersion (%p)',
+      async (expectedVersion) => {
+        const statusUpdate = await createTestStatusUpdate(workstream.id);
+        const response = await request(app)
+          .put(`/${statusUpdate.id}`)
+          .send({
+            workstreamId: workstream.id,
+            ...(expectedVersion === undefined ? {} : { expectedVersion }),
+            status: 'Nope',
+          });
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/expectedVersion/);
+      },
+    );
+
     it('should update status text', async () => {
       const statusUpdate = await createTestStatusUpdate(workstream.id, { status: 'Old status' });
 
       const response = await request(app).put(`/${statusUpdate.id}`).send({
+        expectedVersion: 1,
         workstreamId: workstream.id,
         status: 'New status',
       });
@@ -378,6 +467,7 @@ describe('Status Updates API Integration Tests', () => {
       });
 
       const response = await request(app).put(`/${statusUpdate.id}`).send({
+        expectedVersion: 1,
         workstreamId: workstream.id,
         note: 'New note',
       });
@@ -393,6 +483,7 @@ describe('Status Updates API Integration Tests', () => {
       });
 
       const response = await request(app).put(`/${statusUpdate.id}`).send({
+        expectedVersion: 1,
         workstreamId: workstream.id,
         status: 'New status',
         note: 'New note',
@@ -410,6 +501,7 @@ describe('Status Updates API Integration Tests', () => {
       });
 
       const response = await request(app).put(`/${statusUpdate.id}`).send({
+        expectedVersion: 1,
         workstreamId: workstream.id,
         note: null,
       });
@@ -420,6 +512,7 @@ describe('Status Updates API Integration Tests', () => {
 
     it('should return 404 when status update does not exist', async () => {
       const response = await request(app).put('/00000000-0000-0000-0000-000000000000').send({
+        expectedVersion: 1,
         workstreamId: workstream.id,
         status: 'Updated',
       });
@@ -432,6 +525,7 @@ describe('Status Updates API Integration Tests', () => {
       const statusUpdate = await createTestStatusUpdate(workstream.id);
 
       const response = await request(app).put(`/${statusUpdate.id}`).send({
+        expectedVersion: 1,
         status: 'New status',
       });
 
@@ -443,6 +537,7 @@ describe('Status Updates API Integration Tests', () => {
       const statusUpdate = await createTestStatusUpdate(workstream.id);
 
       const response = await request(app).put(`/${statusUpdate.id}`).send({
+        expectedVersion: 1,
         workstreamId: workstream.id,
         status: '  ',
       });
@@ -457,6 +552,7 @@ describe('Status Updates API Integration Tests', () => {
       const response = await request(app)
         .put(`/${statusUpdate.id}`)
         .send({
+          expectedVersion: 1,
           workstreamId: workstream.id,
           status: 'a'.repeat(501),
         });
@@ -471,6 +567,7 @@ describe('Status Updates API Integration Tests', () => {
       const response = await request(app)
         .put(`/${statusUpdate.id}`)
         .send({
+          expectedVersion: 1,
           workstreamId: workstream.id,
           note: 'a'.repeat(2001),
         });
@@ -488,6 +585,7 @@ describe('Status Updates API Integration Tests', () => {
       });
 
       const response = await request(app).put(`/${statusUpdate2.id}`).send({
+        expectedVersion: 1,
         workstreamId: workstream2.id,
         status: 'Hacked!',
       });
@@ -500,6 +598,7 @@ describe('Status Updates API Integration Tests', () => {
       const statusUpdate = await createTestStatusUpdate(workstream.id);
 
       const response = await request(app).put(`/${statusUpdate.id}`).send({
+        expectedVersion: 1,
         workstreamId: workstream.id,
         status: '  Trimmed Update  ',
       });

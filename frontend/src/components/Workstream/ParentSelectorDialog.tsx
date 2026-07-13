@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useWorkstreamReferences } from '../../hooks/useWorkstreamReferences';
@@ -40,16 +40,29 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
   const [parentId, setParentId] = useState<string>('');
   const [parentSearch, setParentSearch] = useState('');
   const [isConfirming, setIsConfirming] = useState(false);
+  const [baseline, setBaseline] = useState(workstream);
+  const [conflictCurrent, setConflictCurrent] = useState<Workstream | null>(null);
+  const [recoverableParentId, setRecoverableParentId] = useState<string | null>(null);
+  const wasOpenRef = useRef(false);
   const queryClient = useQueryClient();
   const { data: workstreams = [] } = useWorkstreamReferences({ state: 'active', enabled: isOpen });
 
   useEffect(() => {
-    if (isOpen) {
+    const dirty = parentId !== (baseline.parentId || '');
+    const opening = isOpen && !wasOpenRef.current;
+    const changingResource = baseline.id !== workstream.id;
+    if (isOpen && (opening || changingResource || (!dirty && recoverableParentId === null))) {
       setParentId(workstream.parentId || '');
       setParentSearch('');
       setIsConfirming(false);
+      setBaseline(workstream);
+      if (opening || changingResource) {
+        setConflictCurrent(null);
+        setRecoverableParentId(null);
+      }
     }
-  }, [isOpen, workstream.parentId]);
+    wasOpenRef.current = isOpen;
+  }, [isOpen, workstream]);
 
   const candidates = workstreams.filter((candidate) => {
     if (isObviousSubstream(candidate, workstream)) return false;
@@ -64,6 +77,7 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
     mutationFn: async () => {
       const response = await apiClient.put(`/api/workstreams/${workstream.id}`, {
         parentId: parentId || null,
+        expectedVersion: baseline.version,
       });
       return response.data;
     },
@@ -73,6 +87,12 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
       queryClient.invalidateQueries({ queryKey: ['timeline'] });
       onClose();
     },
+    onError: (error: any) => {
+      if (error?.response?.status === 409 && error?.response?.data?.code === 'VERSION_CONFLICT') {
+        setConflictCurrent(error.response.data.current || null);
+      }
+    },
+    retry: false,
   });
 
   const selectedParent = candidates.find((candidate) => candidate.id === parentId) || null;
@@ -82,7 +102,18 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
 
     return candidates.filter((candidate) => fuzzyMatch(getBreadcrumbLabel(candidate), query));
   }, [candidates, parentSearch]);
-  const hasChange = parentId !== (workstream.parentId || '');
+  const hasChange = parentId !== (baseline.parentId || '');
+
+  const reloadCurrentVersion = () => {
+    if (!conflictCurrent) return;
+    setRecoverableParentId(parentId);
+    const latest = conflictCurrent;
+    setBaseline(latest);
+    setParentId(latest.parentId || '');
+    setConflictCurrent(null);
+    setIsConfirming(false);
+    mutation.reset();
+  };
 
   if (!isOpen) return null;
 
@@ -177,9 +208,33 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
           </div>
         )}
 
-        {mutation.isError && (
-          <div className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
-            {hierarchyErrorMessage(mutation.error)}
+        {conflictCurrent ? (
+          <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+            This workstream changed elsewhere. Your selected parent has been preserved.
+            <button type="button" className="ml-2 underline" onClick={reloadCurrentVersion}>
+              Reload current version
+            </button>
+          </div>
+        ) : (
+          mutation.isError && (
+            <div className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+              {hierarchyErrorMessage(mutation.error)}
+            </div>
+          )
+        )}
+        {recoverableParentId !== null && !conflictCurrent && (
+          <div className="mt-4 rounded-md bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100">
+            Latest parent loaded.
+            <button
+              type="button"
+              className="ml-2 underline"
+              onClick={() => {
+                setParentId(recoverableParentId);
+                setRecoverableParentId(null);
+              }}
+            >
+              Restore draft
+            </button>
           </div>
         )}
 

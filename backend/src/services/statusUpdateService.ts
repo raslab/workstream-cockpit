@@ -7,6 +7,7 @@ import {
   isPublicNumberReference,
 } from './workstreamService';
 import { logResourceChange } from './resourceChangeService';
+import { VersionConflictError } from './versionConflictError';
 
 const prisma = new PrismaClient();
 type PrismaTx = Prisma.TransactionClient;
@@ -21,6 +22,7 @@ export interface CreateStatusUpdateInput {
 }
 
 export interface UpdateStatusUpdateInput {
+  expectedVersion: number;
   status?: string;
   note?: string | null;
 }
@@ -245,10 +247,23 @@ export async function updateStatusUpdate(
     if (input.status !== undefined) updates.status = input.status;
     if (input.note !== undefined) updates.note = input.note;
     const statusUpdate = await prisma.$transaction(async (tx) => {
-      const updated = await tx.statusUpdate.update({
-        where: { id: existing.id },
-        data: updates,
+      const mutation = await tx.statusUpdate.updateMany({
+        where: {
+          id: existing.id,
+          workstreamId,
+          ...(projectId ? { projectId } : {}),
+          version: input.expectedVersion,
+        },
+        data: { ...updates, version: { increment: 1 } },
       });
+      if (mutation.count === 0) {
+        const current = await tx.statusUpdate.findFirst({
+          where: { id: existing.id, workstreamId, ...(projectId ? { projectId } : {}) },
+        });
+        if (!current) throw new Error('Status update not found or access denied');
+        throw new VersionConflictError(current);
+      }
+      const updated = await tx.statusUpdate.findUniqueOrThrow({ where: { id: existing.id } });
       await logResourceChange(
         {
           projectId: updated.projectId,
@@ -265,6 +280,18 @@ export async function updateStatusUpdate(
     logger.info(`Status update updated: ${statusUpdate.id}`);
     return statusUpdate;
   } catch (error) {
+    if ((error as { code?: string })?.code === 'P2034') {
+      const current = await prisma.statusUpdate.findFirst({
+        where: {
+          id: String(statusUpdateReference),
+          workstreamId,
+          ...(projectId ? { projectId } : {}),
+        },
+      });
+      if (current && current.version !== input.expectedVersion) {
+        throw new VersionConflictError(current);
+      }
+    }
     logger.error('Error updating status update:', error);
     throw error;
   }

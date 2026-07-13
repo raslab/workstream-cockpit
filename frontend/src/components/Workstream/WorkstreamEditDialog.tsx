@@ -26,24 +26,47 @@ export function WorkstreamEditDialog({
   const [name, setName] = useState(workstream.name);
   const [categoryId, setCategoryId] = useState<string>(workstream.categoryId || '');
   const [context, setContext] = useState(workstream.context || '');
+  const [baseline, setBaseline] = useState(workstream);
+  const [conflictCurrent, setConflictCurrent] = useState<Workstream | null>(null);
+  const [recoverableDraft, setRecoverableDraft] = useState<{
+    name: string;
+    categoryId: string;
+    context: string;
+  } | null>(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const wasOpenRef = useRef(false);
   const queryClient = useQueryClient();
   const { data: categories = [] } = useCategories();
 
   useEffect(() => {
-    if (isOpen) {
+    const dirty =
+      name !== baseline.name ||
+      categoryId !== (baseline.categoryId || '') ||
+      context !== (baseline.context || '');
+    const opening = isOpen && !wasOpenRef.current;
+    const changingResource = baseline.id !== workstream.id;
+    if (isOpen && (opening || changingResource || (!dirty && !recoverableDraft))) {
+      setBaseline(workstream);
       setName(workstream.name);
       setCategoryId(workstream.categoryId || '');
       setContext(workstream.context || '');
       setShowDiscardConfirm(false);
+      if (opening || changingResource) {
+        setConflictCurrent(null);
+        setRecoverableDraft(null);
+      }
     }
+    wasOpenRef.current = isOpen;
+    // Form values intentionally participate in the guard, not the trigger: a cache/prop
+    // refresh may update a pristine editor but must never overwrite a dirty open editor or
+    // discard a pre-conflict draft that remains available for recovery.
   }, [isOpen, workstream]);
 
   const currentDraft = { name, categoryId, context };
   const isDraftDirty =
-    name !== workstream.name ||
-    categoryId !== (workstream.categoryId || '') ||
-    context !== (workstream.context || '');
+    name !== baseline.name ||
+    categoryId !== (baseline.categoryId || '') ||
+    context !== (baseline.context || '');
   const draftControls = useDialogDraft({
     storageKey: `cockpit:draft:workstream-edit:${workstream.id}`,
     isOpen,
@@ -65,6 +88,7 @@ export function WorkstreamEditDialog({
       name: string;
       categoryId: string | null;
       context: string | null;
+      expectedVersion: number;
     }) => {
       const response = await apiClient.put(`/api/workstreams/${workstream.id}`, data);
       return response.data;
@@ -83,19 +107,37 @@ export function WorkstreamEditDialog({
       draftControls.clearDraft();
       onClose();
     },
+    onError: (error: any) => {
+      if (error?.response?.status === 409 && error?.response?.data?.code === 'VERSION_CONFLICT') {
+        setConflictCurrent(error.response.data.current || null);
+      }
+    },
+    retry: false,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (updateMutation.isPending) return;
     if (name.trim()) {
-      draftControls.clearDraft();
       updateMutation.mutate({
         name: name.trim(),
         categoryId: categoryId || null,
         context: context.trim() || null,
+        expectedVersion: baseline.version,
       });
     }
+  };
+
+  const reloadCurrentVersion = () => {
+    if (!conflictCurrent) return;
+    setRecoverableDraft({ name, categoryId, context });
+    const latest = conflictCurrent;
+    setBaseline(latest);
+    setName(latest.name);
+    setCategoryId(latest.categoryId || '');
+    setContext(latest.context || '');
+    setConflictCurrent(null);
+    updateMutation.reset();
   };
 
   const closeWithoutSaving = () => {
@@ -203,9 +245,37 @@ export function WorkstreamEditDialog({
             </div>
           </div>
 
-          {updateMutation.isError && (
-            <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
-              Failed to update workstream. Please try again.
+          {conflictCurrent ? (
+            <div className="mb-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+              This workstream changed elsewhere. Reload the current version before saving; your
+              draft will be kept.
+              <button type="button" onClick={reloadCurrentVersion} className="ml-2 underline">
+                Reload current version
+              </button>
+            </div>
+          ) : (
+            updateMutation.isError && (
+              <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+                Failed to update workstream. Please try again.
+              </div>
+            )
+          )}
+
+          {recoverableDraft && !conflictCurrent && (
+            <div className="mb-4 rounded-md bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100">
+              The latest version is loaded. Your pre-reload draft is recoverable.
+              <button
+                type="button"
+                className="ml-2 underline"
+                onClick={() => {
+                  setName(recoverableDraft.name);
+                  setCategoryId(recoverableDraft.categoryId);
+                  setContext(recoverableDraft.context);
+                  setRecoverableDraft(null);
+                }}
+              >
+                Restore draft
+              </button>
             </div>
           )}
 
