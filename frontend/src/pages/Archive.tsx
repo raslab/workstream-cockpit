@@ -1,12 +1,17 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 import { useWorkstreams } from '../hooks/useWorkstreams';
 import { WorkstreamSkeleton } from '../components/Workstream/WorkstreamSkeleton';
 import { apiClient } from '../api/client';
 import { format, parseISO } from 'date-fns';
-import { WorkstreamLink } from '../components/Workstream/WorkstreamReference';
+import {
+  WorkstreamLink,
+  workstreamReferenceText,
+} from '../components/Workstream/WorkstreamReference';
 import { useResourceChangeScreen } from '../components/Notifications/ResourceChangeNotificationProvider';
 import { MarkdownRenderer } from '../components/Markdown/MarkdownRenderer';
 import { LocalizedTimestamp } from '../components/UI/LocalizedTimestamp';
+import type { Workstream } from '../types/workstream';
 
 function ClosureTimestamp({ closedAt }: { closedAt: string | null | undefined }) {
   if (!closedAt) return null;
@@ -30,21 +35,97 @@ export default function Archive() {
   useResourceChangeScreen({ screen: 'archive' });
   const { data: workstreams, isLoading, error } = useWorkstreams({ state: 'closed' });
   const queryClient = useQueryClient();
+  const [workstreamToReopen, setWorkstreamToReopen] = useState<Workstream | null>(null);
+  const archiveHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const reopenTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
+  const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
+  const isSubmittingRef = useRef(false);
 
   const reopenMutation = useMutation({
+    retry: false,
     mutationFn: async (workstreamId: string) => {
       const response = await apiClient.put(`/api/workstreams/${workstreamId}/reopen`);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (_reopenedWorkstream, workstreamId) => {
+      archiveHeadingRef.current?.focus();
+      queryClient.setQueryData<Workstream[]>(
+        ['workstreams', { state: 'closed' }],
+        (closedWorkstreams) =>
+          closedWorkstreams?.filter((workstream) => workstream.id !== workstreamId),
+      );
       queryClient.invalidateQueries({ queryKey: ['workstreams'] });
+      setWorkstreamToReopen(null);
+    },
+    onSettled: () => {
+      isSubmittingRef.current = false;
     },
   });
+
+  useEffect(() => {
+    if (!workstreamToReopen) return;
+
+    if (reopenMutation.isPending) {
+      dialogRef.current?.focus();
+    } else if (reopenMutation.isError) {
+      confirmButtonRef.current?.focus();
+    }
+  }, [reopenMutation.isError, reopenMutation.isPending, workstreamToReopen]);
+
+  const openReopenConfirmation = (workstream: Workstream, trigger: HTMLButtonElement) => {
+    reopenMutation.reset();
+    isSubmittingRef.current = false;
+    reopenTriggerRef.current = trigger;
+    setWorkstreamToReopen(workstream);
+  };
+
+  const closeReopenConfirmation = () => {
+    if (reopenMutation.isPending) return;
+    reopenTriggerRef.current?.focus();
+    setWorkstreamToReopen(null);
+  };
+
+  const confirmReopen = () => {
+    if (!workstreamToReopen || reopenMutation.isPending || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    reopenMutation.mutate(workstreamToReopen.id);
+  };
+
+  const handleConfirmationKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape' && !reopenMutation.isPending) {
+      event.preventDefault();
+      closeReopenConfirmation();
+      return;
+    }
+
+    if (event.key !== 'Tab') return;
+    if (reopenMutation.isPending) {
+      event.preventDefault();
+      dialogRef.current?.focus();
+      return;
+    }
+
+    if (event.shiftKey && document.activeElement === cancelButtonRef.current) {
+      event.preventDefault();
+      confirmButtonRef.current?.focus();
+    } else if (!event.shiftKey && document.activeElement === confirmButtonRef.current) {
+      event.preventDefault();
+      cancelButtonRef.current?.focus();
+    }
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Closed Workstreams</h2>
+        <h2
+          ref={archiveHeadingRef}
+          tabIndex={-1}
+          className="text-2xl font-bold text-gray-900 dark:text-gray-100"
+        >
+          Closed Workstreams
+        </h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           View and manage your archived workstreams
         </p>
@@ -111,17 +192,76 @@ export default function Archive() {
 
                 <div className="ml-4">
                   <button
-                    onClick={() => reopenMutation.mutate(workstream.id)}
+                    onClick={(event) => openReopenConfirmation(workstream, event.currentTarget)}
                     disabled={reopenMutation.isPending}
                     className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
-                    {reopenMutation.isPending ? 'Reopening...' : 'Reopen'}
+                    Reopen
                   </button>
                 </div>
               </div>
             </div>
           ))}
       </div>
+
+      {workstreamToReopen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4 dark:bg-opacity-70">
+          <div
+            ref={dialogRef}
+            tabIndex={-1}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="reopen-dialog-title"
+            aria-describedby="reopen-dialog-description"
+            onKeyDown={handleConfirmationKeyDown}
+            className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800"
+          >
+            <h2
+              id="reopen-dialog-title"
+              className="text-xl font-semibold text-gray-900 dark:text-gray-100"
+            >
+              {`Reopen ${workstreamReferenceText(workstreamToReopen)}?`}
+            </h2>
+            <p
+              id="reopen-dialog-description"
+              className="mt-2 text-sm text-gray-600 dark:text-gray-300"
+            >
+              {`This will return ${workstreamReferenceText(workstreamToReopen)} to your active workstreams and remove it from the Archive view.`}
+            </p>
+
+            {reopenMutation.isError && (
+              <div
+                role="alert"
+                className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200"
+              >
+                Failed to reopen {workstreamReferenceText(workstreamToReopen)}. Please try again.
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                ref={cancelButtonRef}
+                type="button"
+                onClick={closeReopenConfirmation}
+                disabled={reopenMutation.isPending}
+                autoFocus
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                ref={confirmButtonRef}
+                type="button"
+                onClick={confirmReopen}
+                disabled={reopenMutation.isPending}
+                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                {reopenMutation.isPending ? 'Reopening...' : 'Confirm reopen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
