@@ -42,7 +42,6 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
   const [isConfirming, setIsConfirming] = useState(false);
   const [baseline, setBaseline] = useState(workstream);
   const [conflictCurrent, setConflictCurrent] = useState<Workstream | null>(null);
-  const [recoverableParentId, setRecoverableParentId] = useState<string | null>(null);
   const wasOpenRef = useRef(false);
   const queryClient = useQueryClient();
   const { data: workstreams = [] } = useWorkstreamReferences({ state: 'active', enabled: isOpen });
@@ -51,14 +50,13 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
     const dirty = parentId !== (baseline.parentId || '');
     const opening = isOpen && !wasOpenRef.current;
     const changingResource = baseline.id !== workstream.id;
-    if (isOpen && (opening || changingResource || (!dirty && recoverableParentId === null))) {
+    if (isOpen && (opening || changingResource || !dirty)) {
       setParentId(workstream.parentId || '');
       setParentSearch('');
       setIsConfirming(false);
       setBaseline(workstream);
       if (opening || changingResource) {
         setConflictCurrent(null);
-        setRecoverableParentId(null);
       }
     }
     wasOpenRef.current = isOpen;
@@ -111,10 +109,8 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
 
   const reloadCurrentVersion = () => {
     if (!conflictCurrent) return;
-    setRecoverableParentId(parentId);
     const latest = conflictCurrent;
     setBaseline(latest);
-    setParentId(latest.parentId || '');
     setConflictCurrent(null);
     setIsConfirming(false);
     mutation.reset();
@@ -217,7 +213,8 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
 
         {conflictCurrent ? (
           <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
-            This workstream changed elsewhere. Your selected parent has been preserved.
+            This workstream changed elsewhere. Reload the current version to continue; your selected
+            parent will be restored automatically.
             <button type="button" className="ml-2 underline" onClick={reloadCurrentVersion}>
               Reload current version
             </button>
@@ -228,21 +225,6 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
               {hierarchyErrorMessage(mutation.error)}
             </div>
           )
-        )}
-        {recoverableParentId !== null && !conflictCurrent && (
-          <div className="mt-4 rounded-md bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100">
-            Latest parent loaded.
-            <button
-              type="button"
-              className="ml-2 underline"
-              onClick={() => {
-                setParentId(recoverableParentId);
-                setRecoverableParentId(null);
-              }}
-            >
-              Restore draft
-            </button>
-          </div>
         )}
 
         <div className="mt-5 flex justify-end gap-2">

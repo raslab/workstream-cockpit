@@ -56,7 +56,6 @@ interface ResourceChangeNotificationContextValue {
   isCurrentScreenStale: boolean;
   staleMessage: string;
   refreshError: string | null;
-  dirtyRefreshBlocked: boolean;
   markSeen: () => void;
   refreshCurrentView: () => Promise<void>;
   registerScreen: (screen: ScreenRegistration) => () => void;
@@ -237,7 +236,6 @@ export function ResourceChangeNotificationProvider({
   const [unseenGroupIds, setUnseenGroupIds] = useState<Set<string>>(new Set());
   const [staleChangeIds, setStaleChangeIds] = useState<Set<string>>(new Set());
   const [refreshError, setRefreshError] = useState<string | null>(null);
-  const [dirtyRefreshBlocked, setDirtyRefreshBlocked] = useState(false);
   const staleEligibleIdsRef = useRef(new Set<string>());
   const refreshedChangeIdsRef = useRef(new Set<string>());
   const dirtySourcesRef = useRef(new Map<string, boolean>());
@@ -356,7 +354,6 @@ export function ResourceChangeNotificationProvider({
     staleEligibleIdsRef.current.clear();
     setUnseenGroupIds(new Set());
     setStaleChangeIds(new Set());
-    setDirtyRefreshBlocked(false);
     setRefreshError(null);
   }, [location.pathname, location.search]);
 
@@ -364,18 +361,8 @@ export function ResourceChangeNotificationProvider({
     setUnseenGroupIds(new Set());
   }, []);
 
-  const hasDirtySource = useCallback(
-    () => Array.from(dirtySourcesRef.current.values()).some(Boolean),
-    [],
-  );
-
   const refreshCurrentView = useCallback(async () => {
     setRefreshError(null);
-    if (hasDirtySource()) {
-      setDirtyRefreshBlocked(true);
-      return;
-    }
-    setDirtyRefreshBlocked(false);
     try {
       await queryClient.invalidateQueries();
       await queryClient.refetchQueries({ type: 'active' });
@@ -386,7 +373,7 @@ export function ResourceChangeNotificationProvider({
     } catch {
       setRefreshError('Could not refresh. Try again.');
     }
-  }, [hasDirtySource, queryClient]);
+  }, [queryClient]);
 
   const registerScreen = useCallback(
     (screen: ScreenRegistration) => {
@@ -412,7 +399,6 @@ export function ResourceChangeNotificationProvider({
     dirtySourcesRef.current.set(id, dirty);
     if (!dirty) {
       dirtySourcesRef.current.delete(id);
-      setDirtyRefreshBlocked(Array.from(dirtySourcesRef.current.values()).some(Boolean));
     }
   }, []);
 
@@ -428,14 +414,12 @@ export function ResourceChangeNotificationProvider({
       isCurrentScreenStale: staleChangeIds.size > 0,
       staleMessage: staleMessageFor(staleChange),
       refreshError,
-      dirtyRefreshBlocked,
       markSeen,
       refreshCurrentView,
       registerScreen,
       setDirtySource,
     }),
     [
-      dirtyRefreshBlocked,
       markSeen,
       notifications,
       refreshCurrentView,
@@ -491,7 +475,6 @@ export function NotificationCenter() {
     isCurrentScreenStale,
     staleMessage,
     refreshError,
-    dirtyRefreshBlocked,
     markSeen,
     refreshCurrentView,
   } = useResourceChangeNotifications();
@@ -559,11 +542,7 @@ export function NotificationCenter() {
               ))}
             </ul>
           )}
-          {dirtyRefreshBlocked && (
-            <p className="mt-2 rounded-md bg-amber-50 px-2 py-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-              Changes are available. Save or discard your draft before refreshing.
-            </p>
-          )}
+
           {refreshError && (
             <p className="mt-2 rounded-md bg-red-50 px-2 py-2 text-xs text-red-800 dark:bg-red-950 dark:text-red-200">
               {refreshError}
@@ -584,11 +563,7 @@ export function NotificationCenter() {
               Refresh
             </button>
           </div>
-          {dirtyRefreshBlocked && (
-            <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-              Changes are available. Save or discard your draft before refreshing.
-            </p>
-          )}
+
           {refreshError && (
             <p className="mt-2 text-xs text-red-700 dark:text-red-300">{refreshError}</p>
           )}

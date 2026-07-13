@@ -59,7 +59,7 @@ describe('optimistic concurrency edit dialogs', () => {
     putMock.mockReset();
   });
 
-  it('preserves and recovers a workstream draft after a conflict, then saves against latest version', async () => {
+  it('reloads the latest workstream version and automatically keeps the cached draft', async () => {
     const latest = {
       ...workstream,
       name: 'Changed elsewhere',
@@ -80,19 +80,18 @@ describe('optimistic concurrency edit dialogs', () => {
     expect(putMock.mock.calls[0][1]).toMatchObject({ expectedVersion: 3, name: 'My edit' });
     expect(screen.getByLabelText(/Name/i)).toHaveValue('My edit');
     expect(localStorage.getItem('cockpit:draft:workstream-edit:stream-1')).toContain('My edit');
+    expect(screen.getByText(/cached draft.*restored automatically/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Reload current version' }));
-    expect(screen.getByLabelText(/Name/i)).toHaveValue('Changed elsewhere');
-    expect(screen.getByRole('button', { name: 'Restore draft' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Restore draft' }));
     expect(screen.getByLabelText(/Name/i)).toHaveValue('My edit');
     expect(screen.getByLabelText(/Context/i)).toHaveValue('My context');
+    expect(screen.queryByRole('button', { name: 'Restore draft' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     await waitFor(() => expect(putMock).toHaveBeenCalledTimes(2));
     expect(putMock.mock.calls[1][1]).toMatchObject({ expectedVersion: 4, name: 'My edit' });
   });
 
-  it('preserves and restores status and note while advancing the conflict baseline', async () => {
+  it('reloads the latest status version and automatically keeps the cached draft', async () => {
     const latest = { ...update, status: 'Latest status', note: 'Latest note', version: 6 };
     putMock
       .mockRejectedValueOnce(conflict(latest))
@@ -113,12 +112,12 @@ describe('optimistic concurrency edit dialogs', () => {
     });
     expect(screen.getByLabelText('Status *')).toHaveValue('Mine');
     expect(localStorage.getItem('cockpit:draft:status-edit:update-1')).toContain('Mine');
+    expect(screen.getByText(/cached draft.*restored automatically/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Reload current version' }));
-    expect(screen.getByLabelText('Status *')).toHaveValue('Latest status');
-    fireEvent.click(screen.getByRole('button', { name: 'Restore draft' }));
     expect(screen.getByLabelText('Status *')).toHaveValue('Mine');
     expect(screen.getByLabelText('Note (optional)')).toHaveValue('My note');
+    expect(screen.queryByRole('button', { name: 'Restore draft' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(putMock).toHaveBeenCalledTimes(2));
     expect(putMock.mock.calls[1][1]).toMatchObject({ expectedVersion: 6, status: 'Mine' });
@@ -173,7 +172,7 @@ describe('optimistic concurrency edit dialogs', () => {
     expect(screen.getByRole('button', { name: /Parent Two/ })).toHaveTextContent('✓');
   });
 
-  it('shows the latest server parent after reloading and restoring a conflicted draft', async () => {
+  it('shows the latest server parent after reloading and automatically keeping the selection', async () => {
     const initial = {
       ...workstream,
       parentId: 'parent-a',
@@ -193,15 +192,16 @@ describe('optimistic concurrency edit dialogs', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Parent C/ }));
     fireEvent.click(screen.getByRole('button', { name: /Review parent change/ }));
     fireEvent.click(screen.getByRole('button', { name: /Confirm parent change/ }));
+    expect(await screen.findByText(/selected parent.*restored automatically/i)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: 'Reload current version' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Restore draft' }));
 
     const preview = screen.getByText('Preview parent stream change').parentElement;
     expect(preview).toHaveTextContent('Current parent: Parent B');
     expect(preview).toHaveTextContent('New parent: Parent C');
+    expect(screen.queryByRole('button', { name: 'Restore draft' })).not.toBeInTheDocument();
   });
 
-  it('retains a recoverable workstream draft when refreshed props arrive after reload', async () => {
+  it('retains an automatically restored workstream draft when refreshed props arrive', async () => {
     const latest = { ...workstream, name: 'Changed elsewhere', version: 4 };
     putMock.mockRejectedValueOnce(conflict(latest));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -219,10 +219,11 @@ describe('optimistic concurrency edit dialogs', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Reload current version' }));
     rerender(wrapper(latest));
 
-    expect(screen.getByRole('button', { name: 'Restore draft' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Name/i)).toHaveValue('Recover me');
+    expect(screen.queryByRole('button', { name: 'Restore draft' })).not.toBeInTheDocument();
   });
 
-  it('retains a recoverable status draft when refreshed props arrive after reload', async () => {
+  it('retains an automatically restored status draft when refreshed props arrive', async () => {
     const latest = { ...update, status: 'Changed elsewhere', version: 6 };
     putMock.mockRejectedValueOnce(conflict(latest));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -240,6 +241,7 @@ describe('optimistic concurrency edit dialogs', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Reload current version' }));
     rerender(wrapper(latest));
 
-    expect(screen.getByRole('button', { name: 'Restore draft' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Status *')).toHaveValue('Recover me');
+    expect(screen.queryByRole('button', { name: 'Restore draft' })).not.toBeInTheDocument();
   });
 });

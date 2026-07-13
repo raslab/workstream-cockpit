@@ -129,9 +129,6 @@ export function StatusEditDialog({
   const [note, setNote] = useState(statusUpdate.note || '');
   const [baseline, setBaseline] = useState(statusUpdate);
   const [conflictCurrent, setConflictCurrent] = useState<StatusUpdate | null>(null);
-  const [recoverableDraft, setRecoverableDraft] = useState<{ status: string; note: string } | null>(
-    null,
-  );
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const wasOpenRef = useRef(false);
   const queryClient = useQueryClient();
@@ -143,13 +140,12 @@ export function StatusEditDialog({
     const dirty = status !== baseline.status || note !== (baseline.note || '');
     const opening = isOpen && !wasOpenRef.current;
     const changingResource = baseline.id !== statusUpdate.id;
-    if (isOpen && (opening || changingResource || (!dirty && !recoverableDraft))) {
+    if (isOpen && (opening || changingResource || !dirty)) {
       setBaseline(statusUpdate);
       setStatus(statusUpdate.status);
       setNote(statusUpdate.note || '');
       if (opening || changingResource) {
         setConflictCurrent(null);
-        setRecoverableDraft(null);
       }
     }
     wasOpenRef.current = isOpen;
@@ -212,11 +208,8 @@ export function StatusEditDialog({
 
   const reloadCurrentVersion = () => {
     if (!conflictCurrent) return;
-    setRecoverableDraft({ status, note });
     const latest = conflictCurrent;
     setBaseline(latest);
-    setStatus(latest.status);
-    setNote(latest.note || '');
     setConflictCurrent(null);
     updateMutation.reset();
   };
@@ -317,8 +310,8 @@ export function StatusEditDialog({
 
           {conflictCurrent ? (
             <div className="mb-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
-              This status update changed elsewhere. Reload the current version before saving; your
-              draft will be kept.
+              This status update changed elsewhere. Reload the current version to continue; your
+              cached draft will be restored automatically.
               <button type="button" className="ml-2 underline" onClick={reloadCurrentVersion}>
                 Reload current version
               </button>
@@ -329,23 +322,6 @@ export function StatusEditDialog({
                 Failed to update status. Please try again.
               </div>
             )
-          )}
-
-          {recoverableDraft && !conflictCurrent && (
-            <div className="mb-4 rounded-md bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100">
-              The latest version is loaded. Your pre-reload draft is recoverable.
-              <button
-                type="button"
-                className="ml-2 underline"
-                onClick={() => {
-                  setStatus(recoverableDraft.status);
-                  setNote(recoverableDraft.note);
-                  setRecoverableDraft(null);
-                }}
-              >
-                Restore draft
-              </button>
-            </div>
           )}
 
           {showDiscardConfirm && (
