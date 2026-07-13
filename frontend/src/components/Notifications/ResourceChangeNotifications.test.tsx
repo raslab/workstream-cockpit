@@ -51,7 +51,6 @@ function ScreenRegistration({
 }) {
   useResourceChangeScreen({
     screen: 'stream-detail',
-    workstreamId: 'stream-1',
     workstreamNumber: 1,
     includeSubstreamUpdates,
   });
@@ -72,7 +71,7 @@ function ToggleableScreenRegistration() {
 }
 
 function CockpitRegistration() {
-  useResourceChangeScreen({ screen: 'cockpit', workstreamIds: ['stream-1'] });
+  useResourceChangeScreen({ screen: 'cockpit', workstreamNumbers: [1] });
   return <div>Cockpit content</div>;
 }
 
@@ -83,7 +82,7 @@ function MultiDirtyRegistration({
   firstDirty: boolean;
   secondDirty: boolean;
 }) {
-  useResourceChangeScreen({ screen: 'stream-detail', workstreamId: 'stream-1' });
+  useResourceChangeScreen({ screen: 'stream-detail', workstreamNumber: 1 });
   useDirtyResourceEditor('first-editor', firstDirty);
   useDirtyResourceEditor('second-editor', secondDirty);
   return <div>Screen content</div>;
@@ -216,10 +215,10 @@ describe('resource change notifications', () => {
     const change: ResourceChangeNotification = {
       id: 'change-1',
       resourceType: 'status_update',
-      resourceId: 'update-1',
+      resourceId: null,
       resourceLabel: null,
       operation: 'created',
-      workstreamId: 'stream-1',
+      workstreamNumber: 1,
       changedAt: '2026-07-07T10:00:00.000Z',
     };
     FakeResourceChangeSocket.instances[0].emitChange(change);
@@ -230,6 +229,25 @@ describe('resource change notifications', () => {
     expect(fetchChangesMock).toHaveBeenCalledTimes(1);
   });
 
+  it('matches stream detail changes using the public stream number without UUID fields', async () => {
+    renderRealtimeNotifications();
+    await waitFor(() => expect(FakeResourceChangeSocket.instances).toHaveLength(1));
+
+    FakeResourceChangeSocket.instances[0].emitChange({
+      id: 'public-number-change',
+      resourceType: 'status_update',
+      resourceId: 'update-public-number-change',
+      resourceLabel: 'Public contract update',
+      operation: 'created',
+      workstreamNumber: 1,
+      changedAt: '2026-07-07T10:00:00.000Z',
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText('Stream changed. Refresh to see updates.')).toBeInTheDocument(),
+    );
+  });
+
   it('counts correlated complex operations once on the badge', async () => {
     renderRealtimeNotifications();
     await waitFor(() => expect(FakeResourceChangeSocket.instances).toHaveLength(1));
@@ -237,20 +255,20 @@ describe('resource change notifications', () => {
     FakeResourceChangeSocket.instances[0].emitChange({
       id: 'change-1',
       resourceType: 'next_step',
-      resourceId: 'step-1',
+      resourceId: null,
       resourceLabel: 'Ship realtime',
       operation: 'solved',
-      workstreamId: 'stream-1',
+      workstreamNumber: 1,
       changedAt: '2026-07-07T10:00:00.000Z',
       metadata: { correlationId: 'tx-1' },
     });
     FakeResourceChangeSocket.instances[0].emitChange({
       id: 'change-2',
       resourceType: 'status_update',
-      resourceId: 'update-1',
+      resourceId: null,
       resourceLabel: 'Solved next step: Ship realtime',
       operation: 'created',
-      workstreamId: 'stream-1',
+      workstreamNumber: 1,
       changedAt: '2026-07-07T10:00:01.000Z',
       metadata: { correlationId: 'tx-1' },
     });
@@ -262,7 +280,7 @@ describe('resource change notifications', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(1);
   });
 
-  it.each(['created', 'closed', 'reopened'] as const)(
+  it.each(['created', 'closed', 'reopened', 'deleted'] as const)(
     'marks detail stale for an external sub-stream workstream %s event',
     async (operation) => {
       renderRealtimeNotifications();
@@ -270,10 +288,10 @@ describe('resource change notifications', () => {
       FakeResourceChangeSocket.instances[0].emitChange({
         id: `change-${operation}`,
         resourceType: 'workstream',
-        resourceId: 'nested-substream',
+        resourceId: null,
         resourceLabel: 'Nested stream',
         operation,
-        workstreamId: 'nested-substream',
+        workstreamNumber: 3,
         changedAt: '2026-07-07T10:00:00.000Z',
         metadata: { parentStreamNumbers: [1, 2] },
       });
@@ -291,10 +309,10 @@ describe('resource change notifications', () => {
     const substreamChange: ResourceChangeNotification = {
       id: 'substream-update',
       resourceType: 'status_update',
-      resourceId: 'update-1',
+      resourceId: null,
       resourceLabel: 'Nested sub-stream update',
       operation: 'created',
-      workstreamId: 'nested-substream',
+      workstreamNumber: 3,
       changedAt: '2026-07-07T10:00:00.000Z',
       metadata: { parentStreamNumbers: [1, 2] },
     };
@@ -321,10 +339,10 @@ describe('resource change notifications', () => {
     FakeResourceChangeSocket.instances[0].emitChange({
       id: 'toggle-substream-update',
       resourceType: 'status_update',
-      resourceId: 'update-1',
+      resourceId: null,
       resourceLabel: 'Nested sub-stream update',
       operation: 'created',
-      workstreamId: 'nested-substream',
+      workstreamNumber: 3,
       changedAt: '2026-07-07T10:00:00.000Z',
       metadata: { parentStreamNumbers: [1, 2] },
     });
@@ -341,10 +359,10 @@ describe('resource change notifications', () => {
     const change: ResourceChangeNotification = {
       id: 'baseline-overlap',
       resourceType: 'status_update',
-      resourceId: 'update-1',
+      resourceId: null,
       resourceLabel: 'Baseline update',
       operation: 'created',
-      workstreamId: 'stream-1',
+      workstreamNumber: 1,
       changedAt: '2026-07-07T10:00:00.000Z',
     };
     fetchChangesMock.mockResolvedValueOnce({ changes: [change], cursor: change.id });
@@ -365,10 +383,10 @@ describe('resource change notifications', () => {
     const change: ResourceChangeNotification = {
       id: 'duplicate-change',
       resourceType: 'status_update',
-      resourceId: 'update-1',
+      resourceId: null,
       resourceLabel: 'Delivered twice',
       operation: 'created',
-      workstreamId: 'stream-1',
+      workstreamNumber: 1,
       changedAt: '2026-07-07T10:00:00.000Z',
     };
     FakeResourceChangeSocket.instances[0].emitChange(change);
@@ -391,10 +409,10 @@ describe('resource change notifications', () => {
     FakeResourceChangeSocket.instances[0].emitChange({
       id: 'change-1',
       resourceType: 'status_update',
-      resourceId: 'update-1',
+      resourceId: null,
       resourceLabel: 'Local update',
       operation: 'created',
-      workstreamId: 'stream-1',
+      workstreamNumber: 1,
       changedAt: '2026-07-07T10:00:00.000Z',
       metadata: { originClientId: 'client-1' },
     });
@@ -412,19 +430,19 @@ describe('resource change notifications', () => {
     FakeResourceChangeSocket.instances[0].emitChange({
       id: 'change-1',
       resourceType: 'workstream',
-      resourceId: 'stream-2',
+      resourceId: null,
       resourceLabel: 'Hidden stream',
       operation: 'updated',
-      workstreamId: 'stream-2',
+      workstreamNumber: 2,
       changedAt: '2026-07-07T10:00:00.000Z',
     });
     FakeResourceChangeSocket.instances[0].emitChange({
       id: 'change-2',
       resourceType: 'status_update',
-      resourceId: 'update-1',
+      resourceId: null,
       resourceLabel: 'Visible update',
       operation: 'created',
-      workstreamId: 'stream-1',
+      workstreamNumber: 1,
       changedAt: '2026-07-07T10:00:01.000Z',
     });
 
@@ -440,10 +458,10 @@ describe('resource change notifications', () => {
     const historicalChange: ResourceChangeNotification = {
       id: 'historical-change-1',
       resourceType: 'category',
-      resourceId: 'category-1',
+      resourceId: null,
       resourceLabel: 'Projects',
       operation: 'updated',
-      workstreamId: null,
+      workstreamNumber: null,
       changedAt: '2026-07-07T09:00:00.000Z',
     };
     fetchChangesMock.mockResolvedValue({
@@ -468,10 +486,10 @@ describe('resource change notifications', () => {
     const change: ResourceChangeNotification = {
       id: 'change-1',
       resourceType: 'status_update',
-      resourceId: 'update-1',
+      resourceId: null,
       resourceLabel: null,
       operation: 'created',
-      workstreamId: 'stream-1',
+      workstreamNumber: 1,
       changedAt: '2026-07-07T10:00:00.000Z',
     };
     fetchChangesMock.mockResolvedValue({ cursor: 'change-1', changes: [change] });
@@ -496,10 +514,10 @@ describe('resource change notifications', () => {
     FakeResourceChangeSocket.instances[0].emitChange({
       id: 'change-1',
       resourceType: 'status_update',
-      resourceId: 'update-1',
+      resourceId: null,
       resourceLabel: null,
       operation: 'created',
-      workstreamId: 'stream-1',
+      workstreamNumber: 1,
       changedAt: '2026-07-07T10:00:00.000Z',
     });
 
@@ -520,10 +538,10 @@ describe('resource change notifications', () => {
     FakeResourceChangeSocket.instances[0].emitChange({
       id: 'change-2',
       resourceType: 'status_update',
-      resourceId: 'update-2',
+      resourceId: null,
       resourceLabel: null,
       operation: 'created',
-      workstreamId: 'stream-1',
+      workstreamNumber: 1,
       changedAt: '2026-07-07T10:01:00.000Z',
     });
 
@@ -540,10 +558,10 @@ describe('resource change notifications', () => {
     FakeResourceChangeSocket.instances[0].emitChange({
       id: 'failed-refresh-change',
       resourceType: 'status_update',
-      resourceId: 'update-1',
+      resourceId: null,
       resourceLabel: 'Remote update',
       operation: 'created',
-      workstreamId: 'stream-1',
+      workstreamNumber: 1,
       changedAt: '2026-07-07T10:00:00.000Z',
     });
     await waitFor(() =>
@@ -578,10 +596,10 @@ describe('resource change notifications', () => {
     const event = (id: string): ResourceChangeNotification => ({
       id,
       resourceType: 'status_update',
-      resourceId: `update-${id}`,
+      resourceId: null,
       resourceLabel: id,
       operation: 'created',
-      workstreamId: 'stream-1',
+      workstreamNumber: 1,
       changedAt: '2026-07-07T10:00:00.000Z',
     });
     FakeResourceChangeSocket.instances[0].emitChange(event('before-refresh'));
@@ -605,10 +623,10 @@ describe('resource change notifications', () => {
     const change: ResourceChangeNotification = {
       id: 'change-1',
       resourceType: 'workstream',
-      resourceId: 'stream-1',
+      resourceId: null,
       resourceLabel: 'English fluency practice',
       operation: 'updated',
-      workstreamId: 'stream-1',
+      workstreamNumber: 1,
       changedAt: '2026-07-07T10:00:00.000Z',
     };
     fetchChangesMock.mockResolvedValue({ cursor: 'change-1', changes: [change] });
@@ -632,10 +650,10 @@ describe('resource change notifications', () => {
     const change: ResourceChangeNotification = {
       id: 'change-1',
       resourceType: 'workstream',
-      resourceId: 'stream-1',
+      resourceId: null,
       resourceLabel: 'English fluency practice',
       operation: 'updated',
-      workstreamId: 'stream-1',
+      workstreamNumber: 1,
       changedAt: '2026-07-07T10:00:00.000Z',
     };
     fetchChangesMock.mockResolvedValue({ cursor: 'change-1', changes: [change] });

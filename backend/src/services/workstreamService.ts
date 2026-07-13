@@ -1092,19 +1092,20 @@ export async function deleteWorkstream(workstreamId: string, projectId: string):
     const allWorkstreams = await prisma.workstream.findMany({ where: { projectId } });
     const relatedSubstreamIds = substreamIds(workstreamId, buildSubstreamsByParent(allWorkstreams));
     if (relatedSubstreamIds.length) throw new Error('Cannot delete a workstream with sub-streams');
-    await prisma.$transaction(async (tx) => {
+    const parentStreamNumbers = await prisma.$transaction(async (tx) => {
+      const parentStreamNumbers = await getParentStreamNumbers(tx, projectId, workstreamId);
       await tx.workstream.delete({ where: { id: workstreamId } });
-      await logResourceChange(
-        {
-          projectId,
-          resourceType: 'workstream',
-          resourceId: workstreamId,
-          resourceLabel: workstream.name,
-          operation: 'deleted',
-          workstreamId,
-        },
-        tx,
-      );
+      return parentStreamNumbers;
+    });
+    await logResourceChange({
+      projectId,
+      resourceType: 'workstream',
+      resourceId: workstreamId,
+      resourceLabel: workstream.name,
+      operation: 'deleted',
+      workstreamId,
+      workstreamNumber: workstream.number,
+      metadata: { parentStreamNumbers },
     });
     logger.info(`Workstream deleted successfully: ${workstreamId}`);
   } catch (error) {

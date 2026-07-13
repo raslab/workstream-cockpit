@@ -14,7 +14,7 @@ export interface CreateProjectInput {
 export async function createProject(input: CreateProjectInput): Promise<Project> {
   try {
     logger.info(`Creating new project for person: ${input.personId}`);
-    
+
     const project = await prisma.project.create({
       data: {
         personId: input.personId,
@@ -37,7 +37,7 @@ export async function getProjectsByPersonId(personId: string): Promise<Project[]
   try {
     return await prisma.project.findMany({
       where: { personId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
   } catch (error) {
     logger.error('Error getting projects:', error);
@@ -68,7 +68,7 @@ export async function getProjectById(projectId: string, personId: string): Promi
 export async function updateProject(
   projectId: string,
   personId: string,
-  name: string
+  name: string,
 ): Promise<Project> {
   try {
     // Verify access first

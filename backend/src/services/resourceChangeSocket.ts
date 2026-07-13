@@ -4,7 +4,7 @@ import passport from '../config/passport';
 import { sessionConfig } from '../middleware/session';
 import { attachUserContext } from '../middleware/userContext';
 import { getProjectsByPersonId } from './projectService';
-import { subscribeToResourceChanges } from './resourceChangeService';
+import { selectResourceChangeProjectId, subscribeToResourceChanges } from './resourceChangeService';
 import { logger } from '../utils/logger';
 import { WebSocket, WebSocketServer } from 'ws';
 
@@ -26,10 +26,10 @@ function rejectUpgrade(socket: NodeJS.WritableStream & { destroy: () => void }, 
   socket.destroy();
 }
 
-async function authenticatedProjectIds(
+async function authenticatedProjectId(
   req: IncomingMessage,
   res: ServerResponse,
-): Promise<string[] | null> {
+): Promise<string | null> {
   await runMiddleware(sessionConfig as any, req, res);
   await runMiddleware(passport.initialize() as any, req, res);
   await runMiddleware(passport.session() as any, req, res);
@@ -41,12 +41,7 @@ async function authenticatedProjectIds(
   const projects = await getProjectsByPersonId(userContext.personId);
   if (projects.length === 0) return null;
 
-  const parsedUrl = new URL(req.url ?? '', 'http://localhost');
-  const requestedProjectId = parsedUrl.searchParams.get('projectId');
-  if (requestedProjectId && projects.some((project) => project.id === requestedProjectId)) {
-    return [requestedProjectId];
-  }
-  return projects.map((project) => project.id);
+  return selectResourceChangeProjectId(projects.map((project) => project.id));
 }
 
 export function setupResourceChangeWebSocket(server: HttpServer) {
@@ -70,8 +65,8 @@ export function setupResourceChangeWebSocket(server: HttpServer) {
 
     const res = new ServerResponse(req);
     try {
-      const projectIds = await authenticatedProjectIds(req, res);
-      if (!projectIds) {
+      const projectId = await authenticatedProjectId(req, res);
+      if (!projectId) {
         rejectUpgrade(socket);
         return;
       }
@@ -82,13 +77,11 @@ export function setupResourceChangeWebSocket(server: HttpServer) {
         trackedSocket.on('pong', () => {
           trackedSocket.isAlive = true;
         });
-        const unsubscribers = projectIds.map((projectId) =>
-          subscribeToResourceChanges(projectId, (change) => {
-            if (ws.readyState !== WebSocket.OPEN) return;
-            ws.send(JSON.stringify({ type: 'resource-change', change }));
-          }),
-        );
-        ws.on('close', () => unsubscribers.forEach((unsubscribe) => unsubscribe()));
+        const unsubscribe = subscribeToResourceChanges(projectId, (change) => {
+          if (ws.readyState !== WebSocket.OPEN) return;
+          ws.send(JSON.stringify({ type: 'resource-change', change }));
+        });
+        ws.on('close', unsubscribe);
         ws.on('error', (error) => logger.warn(`Resource change websocket error: ${error.message}`));
         ws.send(JSON.stringify({ type: 'ready' }));
         wss.emit('connection', ws, req);

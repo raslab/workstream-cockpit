@@ -82,15 +82,20 @@ describe('resource change parent stream metadata', () => {
 
     const apiOutput = await listResourceChanges(project.id, null, 50);
     const apiChanges = apiOutput.changes.filter(
-      (change) => change.resourceId === nestedSubstream.id || change.resourceId === update.id,
+      (change) =>
+        change.workstreamNumber === nestedSubstream.number &&
+        (change.resourceType === 'workstream' || change.resourceId === update.id),
     );
     expect(apiChanges).toHaveLength(6);
     apiChanges.forEach((change) => {
       expect(change.metadata).toEqual({
         parentStreamNumbers: [rootStream.number, substream.number],
       });
-      expect(JSON.stringify(change.metadata)).not.toContain(rootStream.id);
-      expect(JSON.stringify(change.metadata)).not.toContain(substream.id);
+      expect(change).not.toHaveProperty('projectId');
+      expect(change).not.toHaveProperty('workstreamId');
+      expect(JSON.stringify(change)).not.toContain(rootStream.id);
+      expect(JSON.stringify(change)).not.toContain(substream.id);
+      expect(JSON.stringify(change)).not.toContain(nestedSubstream.id);
     });
   });
 

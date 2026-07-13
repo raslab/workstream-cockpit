@@ -11,6 +11,7 @@ import {
   disconnectDatabase,
   createTestPerson,
   createTestProject,
+  prisma,
 } from '../helpers/testDb';
 
 beforeAll(async () => {
@@ -66,16 +67,33 @@ describe('ProjectService', () => {
 
     it('should return projects in ascending order by creation date', async () => {
       const person = await createTestPerson();
-      
+
       // Create projects with small delay to ensure different timestamps
       const project1 = await createTestProject(person.id, { name: 'First Project' });
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       const project2 = await createTestProject(person.id, { name: 'Second Project' });
 
       const projects = await getProjectsByPersonId(person.id);
 
       expect(projects[0].id).toBe(project1.id);
       expect(projects[1].id).toBe(project2.id);
+    });
+
+    it('should use the project ID as a deterministic tie-breaker', async () => {
+      const person = await createTestPerson();
+      const createdAt = new Date('2026-01-01T00:00:00.000Z');
+      const laterId = '00000000-0000-4000-8000-000000000002';
+      const earlierId = '00000000-0000-4000-8000-000000000001';
+      await prisma.project.create({
+        data: { id: laterId, personId: person.id, name: 'Inserted first', createdAt },
+      });
+      await prisma.project.create({
+        data: { id: earlierId, personId: person.id, name: 'Inserted second', createdAt },
+      });
+
+      const projects = await getProjectsByPersonId(person.id);
+
+      expect(projects.map((project) => project.id)).toEqual([earlierId, laterId]);
     });
   });
 
@@ -127,7 +145,7 @@ describe('ProjectService', () => {
       const project = await createTestProject(person1.id);
 
       await expect(updateProject(project.id, person2.id, 'Hacked Name')).rejects.toThrow(
-        'Project not found or access denied'
+        'Project not found or access denied',
       );
     });
   });

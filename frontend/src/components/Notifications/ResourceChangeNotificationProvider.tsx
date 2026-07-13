@@ -24,7 +24,7 @@ export interface ResourceChangeNotification {
   resourceId: string | null;
   resourceLabel: string | null;
   operation: ResourceOperation;
-  workstreamId: string | null;
+  workstreamNumber: number | null;
   changedAt: string;
   metadata?: {
     correlationId?: string;
@@ -39,12 +39,11 @@ interface ResourceChangeResponse {
 }
 
 type ScreenRegistration =
-  | { screen: 'cockpit'; workstreamIds?: string[] }
+  | { screen: 'cockpit'; workstreamNumbers?: number[] }
   | { screen: 'timeline' | 'archive' }
   | { screen: 'settings'; section?: 'views' | 'categories' | 'tags' | 'general' }
   | {
       screen: 'stream-detail';
-      workstreamId?: string | null;
       workstreamNumber?: number | null;
       includeSubstreamUpdates?: boolean;
     };
@@ -116,20 +115,15 @@ function notificationText(change: ResourceChangeNotification): string {
   return change.resourceLabel ? `${base}: ${change.resourceLabel}` : base;
 }
 
-function changedWorkstreamId(change: ResourceChangeNotification): string | null {
-  if (change.workstreamId) return change.workstreamId;
-  if (change.resourceType === 'workstream') return change.resourceId;
-  return null;
-}
-
 function isChangeRelevantToScreen(
   change: ResourceChangeNotification,
   screen: ScreenRegistration,
 ): boolean {
   if (screen.screen === 'cockpit') {
-    if (!screen.workstreamIds) return true;
-    const workstreamId = changedWorkstreamId(change);
-    return Boolean(workstreamId && screen.workstreamIds.includes(workstreamId));
+    if (!screen.workstreamNumbers) return true;
+    return Boolean(
+      change.workstreamNumber && screen.workstreamNumbers.includes(change.workstreamNumber),
+    );
   }
   if (screen.screen === 'timeline' || screen.screen === 'archive') {
     return ['workstream', 'status_update', 'category', 'tag'].includes(change.resourceType);
@@ -144,16 +138,15 @@ function isChangeRelevantToScreen(
   }
   if (screen.screen === 'stream-detail') {
     const isSubstream = Boolean(
-      screen.workstreamNumber &&
+      screen.workstreamNumber != null &&
       change.metadata?.parentStreamNumbers?.includes(screen.workstreamNumber),
     );
     return (
       ['category', 'tag'].includes(change.resourceType) ||
-      change.workstreamId === screen.workstreamId ||
-      change.resourceId === screen.workstreamId ||
+      (screen.workstreamNumber != null && change.workstreamNumber === screen.workstreamNumber) ||
       (isSubstream &&
         ((change.resourceType === 'workstream' &&
-          ['created', 'closed', 'reopened'].includes(change.operation)) ||
+          ['created', 'closed', 'reopened', 'deleted'].includes(change.operation)) ||
           (change.resourceType === 'status_update' && Boolean(screen.includeSubstreamUpdates))))
     );
   }
