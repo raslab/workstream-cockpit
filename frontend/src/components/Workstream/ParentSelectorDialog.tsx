@@ -96,6 +96,11 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
   });
 
   const selectedParent = candidates.find((candidate) => candidate.id === parentId) || null;
+  const currentParent = baseline.parentId
+    ? baseline.parent?.id === baseline.parentId
+      ? baseline.parent
+      : workstreams.find((candidate) => candidate.id === baseline.parentId) || null
+    : null;
   const filteredCandidates = useMemo(() => {
     const query = normalizeSearch(parentSearch);
     if (!query) return candidates;
@@ -121,7 +126,7 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70">
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-          {workstream.parentId ? 'Change parent' : 'Set parent'}
+          {baseline.parentId ? 'Change parent' : 'Set parent'}
         </h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Choose one active parent stream, or detach this stream to top level.
@@ -188,8 +193,10 @@ export function ParentSelectorDialog({ workstream, isOpen, onClose }: ParentSele
             <div className="font-medium">Preview parent stream change</div>
             <div className="mt-1">
               Current parent:{' '}
-              {workstream.parent ? (
-                <WorkstreamLink workstream={workstream.parent} />
+              {currentParent ? (
+                <WorkstreamLink workstream={currentParent} />
+              ) : baseline.parentId ? (
+                'Current parent stream'
               ) : (
                 'Top level / no parent'
               )}

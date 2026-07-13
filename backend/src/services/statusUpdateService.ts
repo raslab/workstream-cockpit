@@ -235,6 +235,7 @@ export async function updateStatusUpdate(
   input: UpdateStatusUpdateInput,
   projectId?: string,
 ): Promise<StatusUpdate> {
+  let resolvedStatusUpdateId: string | undefined;
   try {
     const existing = projectId
       ? await resolveStatusUpdateReference(statusUpdateReference, projectId)
@@ -243,6 +244,7 @@ export async function updateStatusUpdate(
         });
     if (!existing || existing.workstreamId !== workstreamId)
       throw new Error('Status update not found or access denied');
+    resolvedStatusUpdateId = existing.id;
     const updates: any = {};
     if (input.status !== undefined) updates.status = input.status;
     if (input.note !== undefined) updates.note = input.note;
@@ -283,7 +285,7 @@ export async function updateStatusUpdate(
     if ((error as { code?: string })?.code === 'P2034') {
       const current = await prisma.statusUpdate.findFirst({
         where: {
-          id: String(statusUpdateReference),
+          id: resolvedStatusUpdateId ?? String(statusUpdateReference),
           workstreamId,
           ...(projectId ? { projectId } : {}),
         },

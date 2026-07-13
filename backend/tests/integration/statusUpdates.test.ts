@@ -431,6 +431,40 @@ describe('Status Updates API Integration Tests', () => {
       );
     });
 
+    it('maps a P2034 race on a public update number to a version conflict', async () => {
+      const statusUpdate = await createTestStatusUpdate(workstream.id, {
+        status: 'Original',
+      });
+      await prisma.statusUpdate.update({
+        where: { id: statusUpdate.id },
+        data: { status: 'Concurrent winner', version: { increment: 1 } },
+      });
+      const transactionSpy = jest
+        .spyOn(Object.getPrototypeOf(prisma), '$transaction')
+        .mockRejectedValueOnce(Object.assign(new Error('write conflict'), { code: 'P2034' }));
+
+      let response;
+      try {
+        response = await request(app).put(`/${statusUpdate.number}`).send({
+          workstreamId: workstream.id,
+          expectedVersion: 1,
+          status: 'Stale writer',
+        });
+      } finally {
+        transactionSpy.mockRestore();
+      }
+
+      expect(response.status).toBe(409);
+      expect(response.body).toMatchObject({
+        code: 'VERSION_CONFLICT',
+        current: {
+          id: statusUpdate.id,
+          status: 'Concurrent winner',
+          version: 2,
+        },
+      });
+    });
+
     it.each([undefined, 0, -1, 1.5, '1'])(
       'requires a positive integer expectedVersion (%p)',
       async (expectedVersion) => {

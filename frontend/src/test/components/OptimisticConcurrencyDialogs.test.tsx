@@ -173,6 +173,34 @@ describe('optimistic concurrency edit dialogs', () => {
     expect(screen.getByRole('button', { name: /Parent Two/ })).toHaveTextContent('✓');
   });
 
+  it('shows the latest server parent after reloading and restoring a conflicted draft', async () => {
+    const initial = {
+      ...workstream,
+      parentId: 'parent-a',
+      parent: { id: 'parent-a', name: 'Parent A' },
+    };
+    const latest = { ...workstream, parentId: 'parent-b', version: 4 };
+    getMock.mockResolvedValue({
+      data: [
+        { id: 'parent-a', name: 'Parent A', state: 'active' },
+        { id: 'parent-b', name: 'Parent B', state: 'active' },
+        { id: 'parent-c', name: 'Parent C', state: 'active' },
+      ],
+    });
+    putMock.mockRejectedValueOnce(conflict(latest));
+    renderDialog(<ParentSelectorDialog workstream={initial} isOpen onClose={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Parent C/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Review parent change/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Confirm parent change/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Reload current version' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Restore draft' }));
+
+    const preview = screen.getByText('Preview parent stream change').parentElement;
+    expect(preview).toHaveTextContent('Current parent: Parent B');
+    expect(preview).toHaveTextContent('New parent: Parent C');
+  });
+
   it('retains a recoverable workstream draft when refreshed props arrive after reload', async () => {
     const latest = { ...workstream, name: 'Changed elsewhere', version: 4 };
     putMock.mockRejectedValueOnce(conflict(latest));
